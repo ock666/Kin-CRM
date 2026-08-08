@@ -1,0 +1,6 @@
+{% if person %}
+<label class="tag" style="cursor:pointer; background: var(--accent-soft);">
+  <input type="checkbox" name="person_ids" value="{{ person.id }}" style="width:auto;" {{ "checked" if checked else "" }}>
+  {{ person.name }}
+</label>
+{% endif %}

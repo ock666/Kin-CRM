@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}{{ "Edit" if person else "Add" }} person — {{ app_name }}{% endblock %}
+{% block content %}
+<div class="container-narrow">
+  <h1>{{ "Edit " ~ person.name if person else "Add a new person" }}</h1>
+  <form method="post" action="{{ '/people/' ~ person.id ~ '/edit' if person else '/people/new' }}" class="card">
+    <div class="field-row">
+      <div class="field">
+        <label for="name">Name *</label>
+        <input type="text" id="name" name="name" value="{{ person.name if person else '' }}" required autofocus>
+      </div>
+      <div class="field">
+        <label for="nickname">Nickname</label>
+        <input type="text" id="nickname" name="nickname" value="{{ person.nickname if person else '' }}">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="pronouns">Pronouns</label>
+        <input type="text" id="pronouns" name="pronouns" value="{{ person.pronouns if person else '' }}" placeholder="e.g. she/her">
+      </div>
+      <div class="field">
+        <label for="relationship_label">Relationship</label>
+        <input type="text" id="relationship_label" name="relationship_label" value="{{ person.relationship_label if person else '' }}" placeholder="e.g. close friend, sibling, coworker">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Birthday</label>
+      <div class="field-row">
+        <select name="birthday_month">
+          <option value="">Month</option>
+          {% for num, name in months %}
+            <option value="{{ num }}" {{ "selected" if person and person.birthday_month == num else "" }}>{{ name }}</option>
+          {% endfor %}
+        </select>
+        <input type="number" name="birthday_day" min="1" max="31" placeholder="Day" value="{{ person.birthday_day if person and person.birthday_day else '' }}">
+        <input type="number" name="birthday_year" min="1900" max="2100" placeholder="Year (optional)" value="{{ person.birthday_year if person and person.birthday_year else '' }}">
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="how_we_met">How we met</label>
+      <textarea id="how_we_met" name="how_we_met" rows="2">{{ person.how_we_met if person else '' }}</textarea>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="met_date">Date we met</label>
+        <input type="date" id="met_date" name="met_date" value="{{ person.met_date if person and person.met_date else '' }}">
+      </div>
+      <div class="field">
+        <label for="location">Location / where they live</label>
+        <input type="text" id="location" name="location" value="{{ person.location if person else '' }}">
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="phone">Phone</label>
+        <input type="text" id="phone" name="phone" value="{{ person.phone if person else '' }}">
+      </div>
+      <div class="field">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" value="{{ person.email if person else '' }}">
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="notes">Notes</label>
+      <textarea id="notes" name="notes" rows="4">{{ person.notes if person else '' }}</textarea>
+    </div>
+
+    <div class="field">
+      <label for="checkin_cadence_days">Check in every (days)</label>
+      <input type="number" id="checkin_cadence_days" name="checkin_cadence_days" min="1"
+             value="{{ person.checkin_cadence_days if person and person.checkin_cadence_days else (default_cadence if not person else '') }}"
+             placeholder="e.g. 30, 60, 90 — leave blank for no reminder">
+      <p class="help-text">You'll get a gentle nudge on the Today page when it's been this long since you last logged contact.</p>
+    </div>
+
+    {% if person %}
+    <div class="field">
+      <label class="flex-gap"><input type="checkbox" name="instagram_enabled" value="1" style="width:auto;" {{ "checked" if person.instagram_enabled else "" }}> Check Instagram for new posts</label>
+      <input type="text" name="instagram_username" placeholder="Instagram username (without @)" value="{{ person.instagram_username or '' }}">
+      <p class="help-text">Requires Instagram credentials configured in <a href="/settings">Settings</a>. New posts land in your review queue - nothing is automatic.</p>
+    </div>
+    {% endif %}
+
+    <button class="btn btn-primary" type="submit">{{ "Save changes" if person else "Add person" }}</button>
+    <a class="btn" href="{{ '/people/' ~ person.id if person else '/people' }}">Cancel</a>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,18 @@
+{% if error %}
+  <div class="notice notice-warn">{{ error }}</div>
+{% elif not immich_people %}
+  <p class="text-muted text-sm">No faces found in Immich yet.</p>
+{% else %}
+  <form method="post" action="/people/{{ person_id }}/link-immich">
+    <div class="grid grid-cols-3" style="max-height: 340px; overflow-y:auto;">
+      {% for p in immich_people %}
+        <label class="card" style="cursor:pointer; padding:.6rem; display:flex; align-items:center; gap:.5rem;">
+          <input type="radio" name="immich_person_id" value="{{ p.id }}" style="width:auto;" required>
+          <div class="avatar avatar-sm"><img src="/immich/person/{{ p.id }}/thumbnail" alt=""></div>
+          <span class="text-sm">{{ p.name or "(unnamed)" }}</span>
+        </label>
+      {% endfor %}
+    </div>
+    <button class="btn btn-primary btn-sm mt-1" type="submit">Save link</button>
+  </form>
+{% endif %}

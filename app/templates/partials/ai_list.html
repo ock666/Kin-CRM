@@ -1,0 +1,9 @@
+{% if error %}
+  <p class="text-muted text-sm">{{ error }}</p>
+{% elif not items %}
+  <p class="text-muted text-sm">Nothing to suggest yet — log a few journal entries first.</p>
+{% else %}
+  <ul class="text-sm">
+    {% for item in items %}<li>{{ item }}</li>{% endfor %}
+  </ul>
+{% endif %}

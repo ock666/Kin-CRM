@@ -1,0 +1,17 @@
+services:
+  kin:
+    build: .
+    # Or, once published: image: ghcr.io/yourname/kin-crm:latest
+    container_name: kin-crm
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - TZ=America/New_York       # set to your local timezone (affects daily job scheduling)
+      - DISABLE_SCHEDULER=0
+      # - DATABASE_URL=postgresql+psycopg2://user:pass@postgres:5432/kin   # optional: use Postgres instead of SQLite
+    volumes:
+      - kin_data:/data
+
+volumes:
+  kin_data:

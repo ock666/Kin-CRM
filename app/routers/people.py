@@ -1,0 +1,223 @@
+import datetime as dt
+
+from fastapi import APIRouter, Depends, Request, Form, Query
+from fastapi.responses import RedirectResponse
+from sqlalchemy import or_
+from sqlalchemy.orm import Session
+
+from ..database import get_db
+from ..deps import current_user
+from ..models import Person, Tag, NotableDate
+from ..render import render
+from ..settings_store import get_setting
+
+router = APIRouter()
+
+
+def _month_names():
+    return [
+        (1, "January"), (2, "February"), (3, "March"), (4, "April"),
+        (5, "May"), (6, "June"), (7, "July"), (8, "August"),
+        (9, "September"), (10, "October"), (11, "November"), (12, "December"),
+    ]
+
+
+@router.get("/people")
+def people_list(request: Request, db: Session = Depends(get_db), user=Depends(current_user),
+                 q: str = Query(""), tag: str = Query(""), show_archived: bool = Query(False)):
+    if not user:
+        return RedirectResponse("/login")
+    query = db.query(Person).filter(Person.archived.is_(show_archived))
+    if q:
+        like = f"%{q}%"
+        query = query.filter(or_(Person.name.ilike(like), Person.nickname.ilike(like)))
+    people = query.order_by(Person.name).all()
+    if tag:
+        people = [p for p in people if any(t.name == tag for t in p.tags)]
+    all_tags = db.query(Tag).order_by(Tag.name).all()
+    return render(request, "people_list.html", db=db, user=user, active="people",
+                  people=people, all_tags=all_tags, q=q, active_tag=tag, show_archived=show_archived)
+
+
+@router.get("/people/new")
+def people_new(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
+    if not user:
+        return RedirectResponse("/login")
+    default_cadence = get_setting(db, "checkin_default_cadence_days", "60")
+    return render(request, "person_form.html", db=db, user=user, active="people",
+                  person=None, months=_month_names(), default_cadence=default_cadence)
+
+
+@router.post("/people/new")
+def people_create(
+    request: Request, db: Session = Depends(get_db), user=Depends(current_user),
+    name: str = Form(...), nickname: str = Form(""), pronouns: str = Form(""),
+    relationship_label: str = Form(""), birthday_month: str = Form(""), birthday_day: str = Form(""),
+    birthday_year: str = Form(""), how_we_met: str = Form(""), met_date: str = Form(""),
+    location: str = Form(""), phone: str = Form(""), email: str = Form(""), notes: str = Form(""),
+    checkin_cadence_days: str = Form(""),
+):
+    if not user:
+        return RedirectResponse("/login")
+    person = Person(
+        name=name.strip(), nickname=nickname or None, pronouns=pronouns or None,
+        relationship_label=relationship_label or None,
+        birthday_month=int(birthday_month) if birthday_month else None,
+        birthday_day=int(birthday_day) if birthday_day else None,
+        birthday_year=int(birthday_year) if birthday_year else None,
+        how_we_met=how_we_met or None,
+        met_date=dt.date.fromisoformat(met_date) if met_date else None,
+        location=location or None, phone=phone or None, email=email or None, notes=notes or None,
+        checkin_cadence_days=int(checkin_cadence_days) if checkin_cadence_days else None,
+    )
+    db.add(person)
+    db.commit()
+    return RedirectResponse(f"/people/{person.id}", status_code=303)
+
+
+@router.get("/people/{person_id}")
+def person_detail(person_id: int, request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
+    if not user:
+        return RedirectResponse("/login")
+    person = db.get(Person, person_id)
+    if not person:
+        return RedirectResponse("/people")
+    entries = person.journal_entries
+    return render(request, "person_detail.html", db=db, user=user, active="people",
+                  person=person, entries=entries, today=dt.date.today())
+
+
+@router.get("/people/{person_id}/edit")
+def person_edit(person_id: int, request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
+    if not user:
+        return RedirectResponse("/login")
+    person = db.get(Person, person_id)
+    if not person:
+        return RedirectResponse("/people")
+    return render(request, "person_form.html", db=db, user=user, active="people",
+                  person=person, months=_month_names())
+
+
+@router.post("/people/{person_id}/edit")
+def person_update(
+    person_id: int, request: Request, db: Session = Depends(get_db), user=Depends(current_user),
+    name: str = Form(...), nickname: str = Form(""), pronouns: str = Form(""),
+    relationship_label: str = Form(""), birthday_month: str = Form(""), birthday_day: str = Form(""),
+    birthday_year: str = Form(""), how_we_met: str = Form(""), met_date: str = Form(""),
+    location: str = Form(""), phone: str = Form(""), email: str = Form(""), notes: str = Form(""),
+    checkin_cadence_days: str = Form(""), instagram_username: str = Form(""),
+    instagram_enabled: str = Form(""),
+):
+    if not user:
+        return RedirectResponse("/login")
+    person = db.get(Person, person_id)
+    if not person:
+        return RedirectResponse("/people")
+    person.name = name.strip()
+    person.nickname = nickname or None
+    person.pronouns = pronouns or None
+    person.relationship_label = relationship_label or None
+    person.birthday_month = int(birthday_month) if birthday_month else None
+    person.birthday_day = int(birthday_day) if birthday_day else None
+    person.birthday_year = int(birthday_year) if birthday_year else None
+    person.how_we_met = how_we_met or None
+    person.met_date = dt.date.fromisoformat(met_date) if met_date else None
+    person.location = location or None
+    person.phone = phone or None
+    person.email = email or None
+    person.notes = notes or None
+    person.checkin_cadence_days = int(checkin_cadence_days) if checkin_cadence_days else None
+    person.instagram_username = instagram_username.strip().lstrip("@") or None
+    person.instagram_enabled = bool(instagram_enabled)
+    db.commit()
+    return RedirectResponse(f"/people/{person.id}", status_code=303)
+
+
+@router.post("/people/{person_id}/archive")
+def person_archive(person_id: int, db: Session = Depends(get_db), user=Depends(current_user)):
+    person = db.get(Person, person_id)
+    if person:
+        person.archived = not person.archived
+        db.commit()
+    return RedirectResponse(f"/people/{person_id}", status_code=303)
+
+
+@router.post("/people/{person_id}/delete")
+def person_delete(person_id: int, db: Session = Depends(get_db), user=Depends(current_user)):
+    person = db.get(Person, person_id)
+    if person:
+        db.delete(person)
+        db.commit()
+    return RedirectResponse("/people", status_code=303)
+
+
+@router.post("/people/{person_id}/tags")
+def add_tag(person_id: int, db: Session = Depends(get_db), user=Depends(current_user), tag_name: str = Form(...)):
+    person = db.get(Person, person_id)
+    if not person:
+        return RedirectResponse("/people")
+    tag_name = tag_name.strip()
+    if tag_name:
+        tag = db.query(Tag).filter(Tag.name == tag_name).first()
+        if not tag:
+            tag = Tag(name=tag_name)
+            db.add(tag)
+            db.flush()
+        if tag not in person.tags:
+            person.tags.append(tag)
+        db.commit()
+    return RedirectResponse(f"/people/{person_id}", status_code=303)
+
+
+@router.post("/people/{person_id}/tags/{tag_id}/remove")
+def remove_tag(person_id: int, tag_id: int, db: Session = Depends(get_db), user=Depends(current_user)):
+    person = db.get(Person, person_id)
+    tag = db.get(Tag, tag_id)
+    if person and tag and tag in person.tags:
+        person.tags.remove(tag)
+        db.commit()
+    return RedirectResponse(f"/people/{person_id}", status_code=303)
+
+
+@router.post("/people/{person_id}/notable-dates")
+def add_notable_date(
+    person_id: int, db: Session = Depends(get_db), user=Depends(current_user),
+    label: str = Form(...), month: int = Form(...), day: int = Form(...), year: str = Form(""),
+):
+    nd = NotableDate(person_id=person_id, label=label.strip(), month=month, day=day,
+                      year=int(year) if year else None)
+    db.add(nd)
+    db.commit()
+    return RedirectResponse(f"/people/{person_id}", status_code=303)
+
+
+@router.post("/notable-dates/{nd_id}/delete")
+def delete_notable_date(nd_id: int, db: Session = Depends(get_db), user=Depends(current_user)):
+    nd = db.get(NotableDate, nd_id)
+    if nd:
+        person_id = nd.person_id
+        db.delete(nd)
+        db.commit()
+        return RedirectResponse(f"/people/{person_id}", status_code=303)
+    return RedirectResponse("/people", status_code=303)
+
+
+@router.post("/people/{person_id}/link-immich")
+def link_immich(person_id: int, db: Session = Depends(get_db), user=Depends(current_user),
+                 immich_person_id: str = Form(...)):
+    person = db.get(Person, person_id)
+    if person:
+        person.immich_person_id = immich_person_id
+        person.avatar_url = f"/immich/person/{immich_person_id}/thumbnail"
+        db.commit()
+    return RedirectResponse(f"/people/{person_id}", status_code=303)
+
+
+@router.post("/people/{person_id}/unlink-immich")
+def unlink_immich(person_id: int, db: Session = Depends(get_db), user=Depends(current_user)):
+    person = db.get(Person, person_id)
+    if person:
+        person.immich_person_id = None
+        person.avatar_url = None
+        db.commit()
+    return RedirectResponse(f"/people/{person_id}", status_code=303)

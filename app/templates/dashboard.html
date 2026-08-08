@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Today — {{ app_name }}{% endblock %}
+{% block content %}
+<div class="topbar">
+  <h1 class="mb-0">Today</h1>
+  <div class="nav-spacer"></div>
+  <a class="btn btn-primary" href="/journal/new">✏️ New entry</a>
+</div>
+
+{% if upcoming_birthdays %}
+<div class="card">
+  <h2>🎂 Birthdays coming up</h2>
+  {% for person, days in upcoming_birthdays %}
+    <div class="flex-between" style="padding:.5rem 0; border-top: 1px solid var(--border);">
+      <div class="flex-gap">
+        <div class="avatar avatar-sm">{% if person.avatar_url %}<img src="{{ person.avatar_url }}" alt="">{% else %}{{ person.name|initials }}{% endif %}</div>
+        <a href="/people/{{ person.id }}">{{ person.name }}</a>
+      </div>
+      <span class="text-muted text-sm">{{ "Today!" if days == 0 else "in " ~ days ~ " day" ~ ("s" if days != 1 else "") }}</span>
+    </div>
+  {% endfor %}
+  <p class="text-sm text-muted mt-2">Draft birthday messages are generated automatically each morning and wait for your approval in the <a href="/reviews">review queue</a> — nothing is ever sent without you.</p>
+</div>
+{% endif %}
+
+{% if upcoming_notable %}
+<div class="card">
+  <h2>📌 Notable dates coming up</h2>
+  {% for nd, days in upcoming_notable %}
+    <div class="flex-between" style="padding:.4rem 0; border-top: 1px solid var(--border);">
+      <a href="/people/{{ nd.person.id }}">{{ nd.person.name }}</a>
+      <span class="text-muted text-sm">{{ nd.label }} — {{ "today" if days == 0 else "in " ~ days ~ " days" }}</span>
+    </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="card">
+  <h2>💬 Time to reach out</h2>
+  {% if not overdue %}
+    <p class="text-muted">Nothing overdue right now — nice work staying in touch!</p>
+  {% else %}
+    <p class="text-sm text-muted">A gentle nudge, not a scoreboard — snooze anything that's not the right time.</p>
+    {% for person, days_over in overdue %}
+      <div class="flex-between" style="padding:.5rem 0; border-top: 1px solid var(--border);">
+        <div class="flex-gap">
+          <div class="avatar avatar-sm">{% if person.avatar_url %}<img src="{{ person.avatar_url }}" alt="">{% else %}{{ person.name|initials }}{% endif %}</div>
+          <a href="/people/{{ person.id }}">{{ person.name }}</a>
+        </div>
+        <div class="flex-gap">
+          <form method="post" action="/checkin/{{ person.id }}/mark-contacted">
+            <button class="btn btn-sm" type="submit">✓ Caught up</button>
+          </form>
+          <form method="post" action="/checkin/{{ person.id }}/snooze">
+            <input type="hidden" name="days" value="14">
+            <button class="btn btn-sm" type="submit">😴 Snooze 2wk</button>
+          </form>
+        </div>
+      </div>
+    {% endfor %}
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>📸 On this day</h2>
+  {% if memories_error %}
+    <p class="text-muted text-sm">Connect Immich in <a href="/settings">Settings</a> to see photo memories here. ({{ memories_error }})</p>
+  {% elif not memories %}
+    <p class="text-muted">No Immich memories for today.</p>
+  {% else %}
+    {% for memory in memories %}
+      <p class="text-sm text-muted mt-2 mb-1">{{ memory.data.year if memory.data else '' }}</p>
+      <div class="photo-grid">
+        {% for asset in memory.assets[:12] %}
+          <img src="/immich/asset/{{ asset.id }}/thumbnail" loading="lazy" alt="">
+        {% endfor %}
+      </div>
+    {% endfor %}
+  {% endif %}
+</div>
+{% endblock %}

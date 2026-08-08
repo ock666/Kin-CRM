@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}{{ app_name }}{% endblock %}</title>
+<link rel="stylesheet" href="/static/css/style.css">
+<script src="/static/js/htmx.min.js" defer></script>
+<script src="/static/js/alpine.min.js" defer></script>
+</head>
+<body hx-headers='{"X-Requested-With": "XMLHttpRequest"}'>
+{% if user %}
+<div class="layout">
+  <nav class="sidebar">
+    <div class="brand"><span class="dot"></span> Kin</div>
+    <a class="nav-link {{ 'active' if active=='dashboard' else '' }}" href="/">🏠 Today</a>
+    <a class="nav-link {{ 'active' if active=='people' else '' }}" href="/people">👥 People</a>
+    <a class="nav-link {{ 'active' if active=='journal' else '' }}" href="/journal/new">✏️ Quick entry</a>
+    <a class="nav-link {{ 'active' if active=='reviews' else '' }}" href="/reviews">
+      📥 Review queue
+      {% if pending_review_count %}<span class="badge">{{ pending_review_count }}</span>{% endif %}
+    </a>
+    <a class="nav-link {{ 'active' if active=='settings' else '' }}" href="/settings">⚙️ Settings</a>
+    <div class="nav-spacer"></div>
+    <a class="nav-link" href="/export">⬇️ Export data</a>
+    <a class="nav-link" href="/logout">🚪 Log out</a>
+  </nav>
+  <main class="main">
+    {% block content %}{% endblock %}
+  </main>
+</div>
+{% else %}
+  {% block auth_content %}{% endblock %}
+{% endif %}
+</body>
+</html>

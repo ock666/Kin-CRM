@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Export — {{ app_name }}{% endblock %}
+{% block content %}
+<div class="container-narrow">
+  <h1>⬇️ Export your data</h1>
+  <p class="text-muted text-sm mb-2">Your data belongs to you. Export everything at any time — no lock-in.</p>
+  <div class="card">
+    <h3>Full export (JSON)</h3>
+    <p class="text-sm text-muted">Every person, journal entry, tag, and notable date.</p>
+    <a class="btn btn-primary" href="/export/json">Download JSON</a>
+  </div>
+  <div class="card mt-1">
+    <h3>People (CSV)</h3>
+    <p class="text-sm text-muted">A spreadsheet-friendly summary of your contacts.</p>
+    <a class="btn" href="/export/csv">Download CSV</a>
+  </div>
+</div>
+{% endblock %}

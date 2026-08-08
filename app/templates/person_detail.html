@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}{{ person.name }} — {{ app_name }}{% endblock %}
+{% block content %}
+
+<div class="card">
+  <div class="flex-gap" style="align-items:flex-start;">
+    <div class="avatar avatar-lg">
+      {% if person.avatar_url %}<img src="{{ person.avatar_url }}" alt="">{% else %}{{ person.name|initials }}{% endif %}
+    </div>
+    <div style="flex:1;">
+      <h1 class="mb-0">{{ person.name }}{% if person.nickname %} <span class="text-muted">"{{ person.nickname }}"</span>{% endif %}</h1>
+      <p class="text-muted mb-1">
+        {{ person.relationship_label or "" }}{% if person.pronouns %} · {{ person.pronouns }}{% endif %}
+        {% if person.archived %} · <span class="tag" style="background:var(--warn-soft); color:var(--warn);">Archived</span>{% endif %}
+      </p>
+      <div class="pill-row">
+        {% for t in person.tags %}
+          <form method="post" action="/people/{{ person.id }}/tags/{{ t.id }}/remove" style="display:inline;">
+            <button class="tag" type="submit" title="Remove tag" style="border:none; cursor:pointer;">{{ t.name }} ✕</button>
+          </form>
+        {% endfor %}
+      </div>
+      <form method="post" action="/people/{{ person.id }}/tags" class="flex-gap mt-1">
+        <input type="text" name="tag_name" placeholder="Add a tag..." style="max-width:180px;">
+        <button class="btn btn-sm" type="submit">+ Tag</button>
+      </form>
+    </div>
+    <div class="flex-gap">
+      <a class="btn btn-sm" href="/journal/new?person_id={{ person.id }}">✏️ Log entry</a>
+      <a class="btn btn-sm" href="/people/{{ person.id }}/edit">Edit</a>
+      <form method="post" action="/people/{{ person.id }}/archive"><button class="btn btn-sm" type="submit">{{ "Unarchive" if person.archived else "Archive" }}</button></form>
+    </div>
+  </div>
+</div>
+
+<div class="grid grid-cols-2 mt-2">
+  <div class="card">
+    <h3>About</h3>
+    <p class="text-sm mb-1"><strong>Birthday:</strong>
+      {% if person.birthday_month %}{{ person.birthday_month }}/{{ person.birthday_day }}{% if person.birthday_year %}/{{ person.birthday_year }}{% endif %}{% else %}—{% endif %}
+    </p>
+    <p class="text-sm mb-1"><strong>How we met:</strong> {{ person.how_we_met or "—" }}</p>
+    <p class="text-sm mb-1"><strong>Met on:</strong> {{ person.met_date or "—" }}</p>
+    <p class="text-sm mb-1"><strong>Location:</strong> {{ person.location or "—" }}</p>
+    <p class="text-sm mb-1"><strong>Phone:</strong> {{ person.phone or "—" }}</p>
+    <p class="text-sm mb-0"><strong>Email:</strong> {{ person.email or "—" }}</p>
+
+    <h3 class="mt-2">Notable dates</h3>
+    {% for nd in person.notable_dates %}
+      <div class="flex-between text-sm" style="padding:.25rem 0;">
+        <span>{{ nd.label }} — {{ nd.month }}/{{ nd.day }}{% if nd.year %}/{{ nd.year }}{% endif %}</span>
+        <form method="post" action="/notable-dates/{{ nd.id }}/delete"><button class="btn btn-sm" type="submit">✕</button></form>
+      </div>
+    {% else %}
+      <p class="text-muted text-sm">None yet.</p>
+    {% endfor %}
+    <form method="post" action="/people/{{ person.id }}/notable-dates" class="field-row mt-1">
+      <input type="text" name="label" placeholder="Label (e.g. Anniversary)" required>
+      <input type="number" name="month" placeholder="MM" min="1" max="12" required style="max-width:70px;">
+      <input type="number" name="day" placeholder="DD" min="1" max="31" required style="max-width:70px;">
+      <button class="btn btn-sm" type="submit">Add</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h3>💬 Staying in touch</h3>
+    <p class="text-sm">Last logged contact: <strong>{{ person.last_contact_date or "never" }}</strong></p>
+    {% if person.checkin_cadence_days %}
+      <p class="text-sm text-muted">Cadence: every {{ person.checkin_cadence_days }} days
+        {% if person.checkin_snoozed_until and person.checkin_snoozed_until >= today %} · snoozed until {{ person.checkin_snoozed_until }}{% endif %}
+      </p>
+      <div class="flex-gap">
+        <form method="post" action="/checkin/{{ person.id }}/mark-contacted"><button class="btn btn-sm" type="submit">✓ Mark caught up today</button></form>
+        <form method="post" action="/checkin/{{ person.id }}/snooze"><input type="hidden" name="days" value="14"><button class="btn btn-sm" type="submit">😴 Snooze 2wk</button></form>
+      </div>
+    {% else %}
+      <p class="text-muted text-sm">No reminder cadence set. <a href="/people/{{ person.id }}/edit">Add one</a> if you'd like a nudge.</p>
+    {% endif %}
+
+    <h3 class="mt-2">🤖 AI summary</h3>
+    <div id="ai-summary">
+      {% if person.ai_summary %}<p class="text-sm">{{ person.ai_summary }}</p>{% else %}<p class="text-muted text-sm">No summary yet.</p>{% endif %}
+    </div>
+    <button class="btn btn-sm" hx-post="/ai/people/{{ person.id }}/summary" hx-target="#ai-summary" hx-swap="innerHTML">
+      ✨ {{ "Regenerate" if person.ai_summary else "Generate" }} summary
+    </button>
+
+    <h3 class="mt-2">💭 Conversation starters</h3>
+    <div id="ai-starters">
+      <button class="btn btn-sm" hx-get="/ai/people/{{ person.id }}/starters" hx-target="#ai-starters" hx-swap="innerHTML">
+        ✨ Suggest things to talk about
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="card mt-2">
+  <h3>📷 Photos</h3>
+  {% if person.immich_person_id %}
+    <div id="person-photos" class="photo-grid" hx-get="/immich/gallery?person_id={{ person.id }}" hx-trigger="load" hx-swap="innerHTML">
+      <p class="text-muted text-sm">Loading photos from Immich…</p>
+    </div>
+    <form method="post" action="/people/{{ person.id }}/unlink-immich" class="mt-1"><button class="btn btn-sm" type="submit">Unlink Immich face</button></form>
+  {% else %}
+    <p class="text-muted text-sm">Link this person to a recognized face in Immich to pull in their photos automatically.</p>
+    <button class="btn btn-sm" hx-get="/immich/people-picker?person_id={{ person.id }}" hx-target="#immich-picker" hx-swap="innerHTML">🔗 Link Immich face</button>
+    <div id="immich-picker" class="mt-1"></div>
+  {% endif %}
+</div>
+
+{% if person.instagram_enabled %}
+<div class="card mt-2">
+  <h3>📱 Instagram</h3>
+  <p class="text-sm text-muted">
+    Tracking @{{ person.instagram_username }}.
+    {% if person.instagram_last_checked %}Last checked {{ person.instagram_last_checked.strftime('%Y-%m-%d %H:%M') }} UTC.{% endif %}
+    {% if person.instagram_last_error %}<br><span style="color:var(--danger);">{{ person.instagram_last_error }}</span>{% endif %}
+  </p>
+  <a class="btn btn-sm" href="/reviews">Check review queue for new posts</a>
+</div>
+{% endif %}
+
+<div class="card mt-2">
+  <div class="flex-between">
+    <h3 class="mb-0">📓 Timeline</h3>
+    <a class="btn btn-sm btn-primary" href="/journal/new?person_id={{ person.id }}">+ New entry</a>
+  </div>
+  {% if not entries %}
+    <p class="empty-state">No journal entries yet — log a memory, call, or hangout to get started.</p>
+  {% endif %}
+  {% for entry in entries %}
+    <div class="timeline-item mt-2">
+      <div class="timeline-meta">
+        {{ entry.entry_date }} · {{ entry.event_type.value|capitalize }}
+        {% if entry.energy_cost %} · <span class="energy-{{ entry.energy_cost.value }}">{{ entry.energy_cost.value }} energy</span>{% endif %}
+        {% if entry.location %} · {{ entry.location }}{% endif %}
+        {% set others = entry.people|rejectattr('id', 'equalto', person.id)|list %}
+        {% if others %} · with {% for o in others %}<a href="/people/{{ o.id }}">{{ o.name }}</a>{{ ", " if not loop.last else "" }}{% endfor %}{% endif %}
+      </div>
+      {% if entry.title %}<strong>{{ entry.title }}</strong>{% endif %}
+      <div>{{ entry.body|markdown|safe }}</div>
+      {% if entry.images %}
+      <div class="photo-grid mt-1">
+        {% for img in entry.images %}
+          {% if img.immich_asset_id %}<img src="/immich/asset/{{ img.immich_asset_id }}/thumbnail" alt="">
+          {% elif img.upload_path %}<img src="{{ img.upload_path }}" alt="{{ img.caption or '' }}">{% endif %}
+        {% endfor %}
+      </div>
+      {% endif %}
+      <div class="flex-gap mt-1">
+        {% if entry.ai_suggestions_json %}<a class="btn btn-sm" href="/journal/{{ entry.id }}/suggestions">🤖 Review AI suggestions</a>{% endif %}
+        <a class="btn btn-sm" href="/journal/{{ entry.id }}/edit">Edit</a>
+        <form method="post" action="/journal/{{ entry.id }}/delete" onsubmit="return confirm('Delete this entry?');"><button class="btn btn-sm btn-danger" type="submit">Delete</button></form>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}

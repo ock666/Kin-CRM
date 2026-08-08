@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Review AI suggestions — {{ app_name }}{% endblock %}
+{% block content %}
+<div class="container-narrow">
+  <h1>🤖 AI suggestions for this entry</h1>
+  <p class="text-muted text-sm mb-2">
+    Extracted from your journal entry about {{ entry.people|map(attribute='name')|join(', ') }}. Nothing here has been
+    applied yet — pick what's useful and the rest gets dropped.
+  </p>
+  <div class="card mb-2">
+    <p class="text-sm text-muted mb-0">"{{ entry.body }}"</p>
+  </div>
+
+  <form method="post" action="/journal/{{ entry.id }}/suggestions/apply" class="card">
+    {% if suggestions.tags %}
+      <h3>Suggested tags</h3>
+      <div class="pill-row mb-2">
+        {% for t in suggestions.tags %}
+          <label class="tag" style="cursor:pointer;">
+            <input type="checkbox" name="tags" value="{{ t }}" style="width:auto;" checked> {{ t }}
+          </label>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    {% if suggestions.notable_dates %}
+      <h3>Suggested notable dates</h3>
+      <div class="mb-2">
+        {% for nd in suggestions.notable_dates %}
+          <label class="flex-gap" style="margin-bottom:.3rem;">
+            <input type="checkbox" name="notable_dates" value="{{ loop.index0 }}" style="width:auto;" checked>
+            {{ nd.label }} — {{ nd.month }}/{{ nd.day }}{% if nd.year %}/{{ nd.year }}{% endif %}
+          </label>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    {% if suggestions.follow_ups %}
+      <h3>Things to remember / ask about next time</h3>
+      <ul class="text-sm">
+        {% for f in suggestions.follow_ups %}<li>{{ f }}</li>{% endfor %}
+      </ul>
+      <p class="help-text">These aren't saved anywhere automatically — copy anything useful into the person's notes.</p>
+    {% endif %}
+
+    {% if not suggestions.tags and not suggestions.notable_dates and not suggestions.follow_ups %}
+      <p class="text-muted">No suggestions found for this entry.</p>
+    {% else %}
+      <button class="btn btn-primary" type="submit">Apply selected</button>
+    {% endif %}
+  </form>
+  <form method="post" action="/journal/{{ entry.id }}/suggestions/dismiss" class="mt-1">
+    <button class="btn" type="submit">Dismiss all</button>
+  </form>
+</div>
+{% endblock %}

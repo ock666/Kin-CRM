@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Review queue — {{ app_name }}{% endblock %}
+{% block content %}
+<div class="topbar">
+  <h1 class="mb-0">📥 Review queue</h1>
+  <div class="nav-spacer"></div>
+  <form method="post" action="/reviews/run-now"><button class="btn" type="submit">🔄 Check now</button></form>
+</div>
+<p class="text-muted text-sm mb-2">Everything here waits for your OK before it touches a profile or gets sent anywhere — nothing here is automatic.</p>
+
+<div class="card">
+  <h2>🎂 Birthday message drafts</h2>
+  {% if not bday_drafts and not approved_bday %}
+    <p class="text-muted text-sm">Nothing pending. Drafts appear automatically as birthdays get close.</p>
+  {% endif %}
+  {% for d in bday_drafts %}
+    <div class="card mt-1">
+      <div class="flex-between mb-1">
+        <strong>{{ d.person.name }}</strong>
+        <span class="text-muted text-sm">{{ d.year }}</span>
+      </div>
+      <form method="post" action="/reviews/birthday/{{ d.id }}/approve">
+        <textarea name="draft_text" rows="3">{{ d.draft_text }}</textarea>
+        <div class="flex-gap mt-1">
+          <button class="btn btn-sm btn-primary" type="submit">✓ Approve</button>
+          <button class="btn btn-sm" type="submit" formaction="/reviews/birthday/{{ d.id }}/regenerate">✨ Regenerate</button>
+          <button class="btn btn-sm btn-danger" type="submit" formaction="/reviews/birthday/{{ d.id }}/dismiss">Dismiss</button>
+        </div>
+      </form>
+    </div>
+  {% endfor %}
+  {% for d in approved_bday %}
+    <div class="card mt-1" style="border-color: var(--success);">
+      <div class="flex-between mb-1">
+        <strong>{{ d.person.name }}</strong>
+        <span class="tag" style="background: var(--success-soft); color: var(--success);">Approved — ready to send</span>
+      </div>
+      <p class="text-sm">{{ d.draft_text }}</p>
+      <form method="post" action="/reviews/birthday/{{ d.id }}/sent"><button class="btn btn-sm" type="submit">✓ I sent this</button></form>
+    </div>
+  {% endfor %}
+</div>
+
+<div class="card mt-2">
+  <h2>📱 New Instagram posts</h2>
+  {% if not ig_posts %}
+    <p class="text-muted text-sm">No new posts waiting for review.</p>
+  {% endif %}
+  {% for post in ig_posts %}
+    <div class="card mt-1 flex-gap" style="align-items:flex-start;">
+      {% if post.media_url %}<img src="{{ post.media_url }}" style="width:90px;height:90px;object-fit:cover;border-radius:8px;" alt="">{% endif %}
+      <div style="flex:1;">
+        <strong>{{ post.person.name }}</strong> <span class="text-muted text-sm">@{{ post.person.instagram_username }} · {{ post.posted_at }}</span>
+        <p class="text-sm">{{ post.caption or "(no caption)" }}</p>
+        {% if post.permalink %}<a href="{{ post.permalink }}" target="_blank" class="text-sm">View on Instagram</a>{% endif %}
+        <div class="flex-gap mt-1">
+          <form method="post" action="/reviews/instagram/{{ post.id }}/approve"><button class="btn btn-sm btn-primary" type="submit">✓ Add to journal</button></form>
+          <form method="post" action="/reviews/instagram/{{ post.id }}/dismiss"><button class="btn btn-sm" type="submit">Dismiss</button></form>
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}

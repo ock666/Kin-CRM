@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}People — {{ app_name }}{% endblock %}
+{% block content %}
+<div class="topbar">
+  <h1 class="mb-0">People</h1>
+  <div class="nav-spacer"></div>
+  <a class="btn btn-primary" href="/people/new">+ Add person</a>
+</div>
+
+<form method="get" action="/people" class="flex-gap mb-2">
+  <input type="search" name="q" placeholder="Search people..." value="{{ q }}" class="search-box">
+  <select name="tag" onchange="this.form.submit()">
+    <option value="">All tags</option>
+    {% for t in all_tags %}
+      <option value="{{ t.name }}" {{ "selected" if t.name == active_tag else "" }}>{{ t.name }}</option>
+    {% endfor %}
+  </select>
+  <button class="btn" type="submit">Search</button>
+  <a class="btn" href="/people?show_archived={{ 'false' if show_archived else 'true' }}">
+    {{ "Hide archived" if show_archived else "Show archived" }}
+  </a>
+</form>
+
+{% if not people %}
+  <div class="empty-state">
+    <p>No one here yet.</p>
+    <a class="btn btn-primary" href="/people/new">Add your first person</a>
+  </div>
+{% else %}
+<div class="grid grid-people">
+  {% for person in people %}
+    <a class="person-card" href="/people/{{ person.id }}">
+      <div class="avatar avatar-lg">
+        {% if person.avatar_url %}<img src="{{ person.avatar_url }}" alt="">{% else %}{{ person.name|initials }}{% endif %}
+      </div>
+      <div class="name">{{ person.nickname or person.name }}</div>
+      {% if person.relationship_label %}<div class="sub">{{ person.relationship_label }}</div>{% endif %}
+      {% if person.tags %}
+      <div class="pill-row" style="justify-content:center;">
+        {% for t in person.tags[:3] %}<span class="tag">{{ t.name }}</span>{% endfor %}
+      </div>
+      {% endif %}
+    </a>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

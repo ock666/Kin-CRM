@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Settings — {{ app_name }}{% endblock %}
+{% block content %}
+<h1>Settings</h1>
+
+<div class="card">
+  <h2>📷 Immich</h2>
+  <p class="text-sm text-muted">Connect your Immich server to pull in faces, photos, and "on this day" memories.</p>
+  {% if immich_test %}<div class="notice notice-{{ immich_test[0] }}">{{ immich_test[1] }}</div>{% endif %}
+  <form method="post" action="/settings/immich">
+    <div class="field">
+      <label for="immich_url">Immich server URL</label>
+      <input type="text" id="immich_url" name="immich_url" value="{{ cfg.immich_url }}" placeholder="http://immich.local:2283">
+    </div>
+    <div class="field">
+      <label for="immich_api_key">API key</label>
+      <input type="password" id="immich_api_key" name="immich_api_key" value="{{ cfg.immich_api_key }}">
+      <p class="help-text">Create one in Immich under Account Settings → API Keys.</p>
+    </div>
+    <button class="btn btn-primary btn-sm" type="submit">Save</button>
+  </form>
+  <form method="post" action="/settings/immich/test" class="mt-1"><button class="btn btn-sm" type="submit">Test connection</button></form>
+</div>
+
+<div class="card mt-2">
+  <h2>🤖 AI assistant</h2>
+  <p class="text-sm text-muted">Works with OpenAI or any OpenAI-compatible endpoint (e.g. a local Ollama server at <code>http://ollama:11434/v1</code>). Used for profile summaries, birthday drafts, and journal fact extraction — always with your review before anything is saved.</p>
+  {% if ai_test %}<div class="notice notice-{{ ai_test[0] }}">{{ ai_test[1] }}</div>{% endif %}
+  <form method="post" action="/settings/ai">
+    <div class="field">
+      <label for="ai_base_url">API base URL</label>
+      <input type="text" id="ai_base_url" name="ai_base_url" value="{{ cfg.ai_base_url }}" required>
+    </div>
+    <div class="field">
+      <label for="ai_api_key">API key</label>
+      <input type="password" id="ai_api_key" name="ai_api_key" value="{{ cfg.ai_api_key }}">
+    </div>
+    <div class="field">
+      <label for="ai_model">Model</label>
+      <input type="text" id="ai_model" name="ai_model" value="{{ cfg.ai_model }}" required>
+    </div>
+    <button class="btn btn-primary btn-sm" type="submit">Save</button>
+  </form>
+  <form method="post" action="/settings/ai/test" class="mt-1"><button class="btn btn-sm" type="submit">Test connection</button></form>
+</div>
+
+<div class="card mt-2">
+  <h2>📱 Instagram</h2>
+  <p class="text-sm text-muted">
+    ⚠️ This uses an <strong>unofficial</strong> Instagram API. It's against Instagram's Terms of Service and carries
+    a real risk of your account being challenged or restricted — use a secondary/throwaway account you don't mind
+    losing, never your primary one. New posts always land in your <a href="/reviews">review queue</a> for approval;
+    nothing is ever posted or messaged automatically.
+  </p>
+  <form method="post" action="/settings/instagram">
+    <div class="field">
+      <label for="instagram_username">Instagram username (the account used to check)</label>
+      <input type="text" id="instagram_username" name="instagram_username" value="{{ cfg.instagram_username }}">
+    </div>
+    <div class="field">
+      <label for="instagram_password">Password</label>
+      <input type="password" id="instagram_password" name="instagram_password" placeholder="{{ '••••••••' if cfg.instagram_password else '' }}">
+    </div>
+    <button class="btn btn-primary btn-sm" type="submit">Save</button>
+  </form>
+</div>
+
+<div class="card mt-2">
+  <h2>⚙️ General</h2>
+  <form method="post" action="/settings/general">
+    <div class="field">
+      <label for="birthday_lead_days">Draft birthday messages this many days early</label>
+      <input type="number" id="birthday_lead_days" name="birthday_lead_days" value="{{ cfg.birthday_lead_days }}" min="0" max="30">
+    </div>
+    <div class="field">
+      <label for="checkin_default_cadence_days">Default check-in cadence (days) for new people</label>
+      <input type="number" id="checkin_default_cadence_days" name="checkin_default_cadence_days" value="{{ cfg.checkin_default_cadence_days }}" min="1">
+    </div>
+    <div class="field">
+      <label for="daily_job_hour">Hour of day to run background checks (0-23, server time)</label>
+      <input type="number" id="daily_job_hour" name="daily_job_hour" value="{{ cfg.daily_job_hour }}" min="0" max="23">
+    </div>
+    <button class="btn btn-primary btn-sm" type="submit">Save</button>
+  </form>
+</div>
+
+<div class="card mt-2">
+  <h2>👥 People with access</h2>
+  {% for u in users %}
+    <div class="flex-between" style="padding:.4rem 0; border-top:1px solid var(--border);">
+      <span>{{ u.name }} &lt;{{ u.email }}&gt;</span>
+      {% if u.id != user.id %}
+        <form method="post" action="/settings/users/{{ u.id }}/delete"><button class="btn btn-sm btn-danger" type="submit">Remove</button></form>
+      {% else %}
+        <span class="text-muted text-sm">(you)</span>
+      {% endif %}
+    </div>
+  {% endfor %}
+  <form method="post" action="/settings/users/new" class="mt-2">
+    <div class="field-row">
+      <input type="text" name="name" placeholder="Name" required>
+      <input type="email" name="email" placeholder="Email" required>
+      <input type="password" name="password" placeholder="Password" required minlength="8">
+    </div>
+    <button class="btn btn-sm" type="submit">+ Add person</button>
+  </form>
+</div>
+{% endblock %}

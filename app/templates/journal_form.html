@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}{{ "Edit entry" if entry else "New journal entry" }} — {{ app_name }}{% endblock %}
+{% block content %}
+<div class="container-narrow">
+  <h1>{{ "Edit entry" if entry else "✏️ New journal entry" }}</h1>
+  <p class="text-muted text-sm mb-2">Jot down what happened — a hangout, a call, a random thought, a life update. Tag anyone involved and it'll show up on all of their timelines.</p>
+
+  <form method="post" action="{{ '/journal/' ~ entry.id ~ '/edit' if entry else '/journal/new' }}" class="card">
+    <div class="field">
+      <label for="body">What's up? *</label>
+      <textarea id="body" name="body" rows="6" required autofocus placeholder="e.g. Grabbed coffee with Sam, they just got a new job at...">{{ entry.body if entry else '' }}</textarea>
+    </div>
+
+    <div class="field">
+      <label for="title">Title (optional)</label>
+      <input type="text" id="title" name="title" value="{{ entry.title if entry and entry.title else '' }}" placeholder="Leave blank to just use the date">
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="entry_date">Date</label>
+        <input type="date" id="entry_date" name="entry_date" value="{{ entry.entry_date if entry else today }}">
+      </div>
+      <div class="field">
+        <label for="event_type">Type</label>
+        <select id="event_type" name="event_type">
+          {% for et in ["note","hangout","call","message","gift","milestone","conflict","other"] %}
+            <option value="{{ et }}" {{ "selected" if entry and entry.event_type.value == et else "" }}>{{ et|capitalize }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="energy_cost">Energy cost</label>
+        <select id="energy_cost" name="energy_cost">
+          <option value="">—</option>
+          {% for ec in ["low","medium","high"] %}
+            <option value="{{ ec }}" {{ "selected" if entry and entry.energy_cost and entry.energy_cost.value == ec else "" }}>{{ ec|capitalize }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="location">Location (optional)</label>
+      <input type="text" id="location" name="location" value="{{ entry.location if entry and entry.location else '' }}">
+    </div>
+
+    <div class="field">
+      <label>Who was this with? (tag anyone — it'll appear on all of their profiles)</label>
+      <div id="people-checkboxes" class="pill-row" style="margin-bottom:.5rem;">
+        {% for p in people %}
+          <label class="tag" style="cursor:pointer; background: var(--accent-soft);">
+            <input type="checkbox" name="person_ids" value="{{ p.id }}" style="width:auto;"
+              {{ "checked" if (entry and p in entry.people) or (preselect_person_id and p.id == preselect_person_id) else "" }}>
+            {{ p.name }}
+          </label>
+        {% endfor %}
+      </div>
+      <div class="flex-gap">
+        <input type="text" name="quick_name" id="quick_name" placeholder="Quick-add a new person by name...">
+        <button class="btn btn-sm" type="button"
+          hx-post="/people/quick-create" hx-target="#people-checkboxes" hx-swap="beforeend"
+          hx-include="#quick_name">+ Add</button>
+      </div>
+    </div>
+
+    {% if not entry %}
+    <div class="field">
+      <label>Attach photos from Immich (optional)</label>
+      <div class="flex-gap mb-1">
+        <button class="btn btn-sm" type="button"
+          hx-get="/immich/browse" hx-target="#photo-browser" hx-include="#entry_date">📷 Browse photos from this date</button>
+      </div>
+      <div id="photo-browser" class="card" style="padding:.5rem;"></div>
+    </div>
+    {% endif %}
+
+    <button class="btn btn-primary" type="submit">{{ "Save changes" if entry else "Save entry" }}</button>
+    <a class="btn" href="{{ '/people/' ~ entry.people[0].id if entry and entry.people else '/' }}">Cancel</a>
+  </form>
+</div>
+{% endblock %}

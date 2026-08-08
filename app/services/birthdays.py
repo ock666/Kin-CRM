@@ -1,0 +1,87 @@
+import datetime as dt
+import logging
+
+from sqlalchemy.orm import Session
+
+from ..models import Person, BirthdayMessageDraft, ReviewStatus
+from ..settings_store import get_setting
+from .ai_client import get_client_from_settings, AIError
+
+logger = logging.getLogger(__name__)
+
+
+def _next_birthday(person: Person, today: dt.date) -> dt.date | None:
+    if not person.birthday_month or not person.birthday_day:
+        return None
+    year = today.year
+    try:
+        candidate = dt.date(year, person.birthday_month, person.birthday_day)
+    except ValueError:
+        candidate = dt.date(year, 3, 1) if person.birthday_month == 2 else None
+        if candidate is None:
+            return None
+    if candidate < today:
+        try:
+            candidate = dt.date(year + 1, person.birthday_month, person.birthday_day)
+        except ValueError:
+            return None
+    return candidate
+
+
+def people_with_upcoming_birthdays(db: Session, lead_days: int) -> list[tuple[Person, int]]:
+    """Returns (person, days_until) for people whose birthday falls within lead_days."""
+    today = dt.date.today()
+    out = []
+    for p in db.query(Person).filter(Person.archived.is_(False)).all():
+        nb = _next_birthday(p, today)
+        if nb is None:
+            continue
+        delta = (nb - today).days
+        if 0 <= delta <= lead_days:
+            out.append((p, delta))
+    return sorted(out, key=lambda t: t[1])
+
+
+def generate_birthday_drafts(db: Session) -> int:
+    """Create pending BirthdayMessageDraft rows for people whose birthday is coming up
+    soon, if one doesn't already exist for this year. Always human-in-the-loop -
+    nothing is sent automatically. Returns number of drafts created."""
+    lead_days = int(get_setting(db, "birthday_lead_days", "3") or 3)
+    today = dt.date.today()
+    created = 0
+
+    ai = None
+    try:
+        ai = get_client_from_settings(db)
+    except AIError:
+        ai = None
+
+    for person, days_until in people_with_upcoming_birthdays(db, lead_days):
+        target_year = (today + dt.timedelta(days=days_until)).year
+        existing = db.query(BirthdayMessageDraft).filter_by(person_id=person.id, year=target_year).first()
+        if existing:
+            continue
+
+        text = None
+        if ai:
+            try:
+                text = ai.draft_birthday_message(
+                    person.name, person.relationship_label or "", person.notes or person.ai_summary or ""
+                )
+            except AIError as e:
+                logger.info("AI birthday draft failed for %s: %s", person.name, e)
+
+        if not text:
+            text = (
+                f"Happy birthday, {person.nickname or person.name}! 🎉 Hope you have a wonderful day - "
+                f"thinking of you and would love to catch up soon."
+            )
+
+        draft = BirthdayMessageDraft(
+            person_id=person.id, year=target_year, draft_text=text, status=ReviewStatus.pending
+        )
+        db.add(draft)
+        created += 1
+
+    db.commit()
+    return created

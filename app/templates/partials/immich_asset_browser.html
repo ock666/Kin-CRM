@@ -1,0 +1,14 @@
+{% if error %}
+  <div class="notice notice-warn">{{ error }}</div>
+{% elif not assets %}
+  <p class="text-muted text-sm">No photos found.</p>
+{% else %}
+  <div class="photo-grid" style="max-height: 340px; overflow-y:auto;">
+    {% for a in assets %}
+      <label style="position:relative; cursor:pointer;">
+        <input type="checkbox" name="immich_asset_ids" value="{{ a.id }}" style="position:absolute; top:4px; left:4px; width:18px; height:18px;">
+        <img src="/immich/asset/{{ a.id }}/thumbnail" loading="lazy" alt="">
+      </label>
+    {% endfor %}
+  </div>
+{% endif %}
