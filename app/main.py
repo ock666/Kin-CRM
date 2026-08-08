@@ -19,7 +19,6 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title=settings.APP_NAME)
 
-app.add_middleware(SessionMiddleware, secret_key=settings.SESSION_SECRET, same_site="lax", max_age=60 * 60 * 24 * 30)
 app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
 
 
@@ -60,6 +59,13 @@ async def auth_gate(request: Request, call_next):
         db.close()
 
     return await call_next(request)
+
+
+# IMPORTANT: registered *after* auth_gate above so that SessionMiddleware ends up as the
+# outer layer (Starlette wraps middleware in reverse-registration order - the most recently
+# added middleware runs first). SessionMiddleware must run before auth_gate so that
+# `request.session` is actually available by the time auth_gate reads it.
+app.add_middleware(SessionMiddleware, secret_key=settings.SESSION_SECRET, same_site="lax", max_age=60 * 60 * 24 * 30)
 
 
 @app.on_event("startup")
