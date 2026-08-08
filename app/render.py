@@ -31,4 +31,4 @@ def render(request: Request, template: str, db: Session = None, user=None, activ
         "pending_review_count": _pending_review_count(db),
         **ctx,
     }
-    return templates.TemplateResponse(template, context)
+    return templates.TemplateResponse(request, template, context)

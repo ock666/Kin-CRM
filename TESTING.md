@@ -28,6 +28,19 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
+There's also an automated smoke test script (`scripts/smoke_test.sh`) that exercises the setup
+wizard, login, person creation, and export endpoints via curl - run it against a **brand new**
+instance right after `docker compose up`:
+
+```bash
+./scripts/smoke_test.sh              # defaults to http://localhost:8000
+./scripts/smoke_test.sh http://your-host:8000
+```
+
+It will create a real "Smoke Test" admin account and a "Smoke Test Friend" person, so only run it
+against a throwaway instance (or delete the test data afterwards). If you'd rather test manually,
+or want deeper coverage, walk through this checklist:
+
 1. Open `http://localhost:8000` — you should land on the **setup wizard** (create admin account).
 2. Log in, land on the **Today dashboard** (should be empty/friendly, no errors).
 3. **Add a person** (People → Add person) — fill in a birthday a few days out to test the birthday

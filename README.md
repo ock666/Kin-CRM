@@ -118,3 +118,14 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 DATA_DIR=./data uvicorn app.main:app --reload
 ```
+
+### Running the test suite
+
+```bash
+pip install -r requirements.txt -r requirements-dev.txt
+pytest
+```
+
+There's also `scripts/smoke_test.sh`, a curl-based smoke test you can run against a live,
+freshly-started container instead of (or in addition to) the pytest suite — see `TESTING.md`.
+
