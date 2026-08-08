@@ -66,8 +66,27 @@ class ImmichClient:
     def get_person(self, person_id: str) -> dict:
         return self._get(f"/people/{person_id}")
 
-    def get_person_assets(self, person_id: str) -> list[dict]:
-        return self._get(f"/people/{person_id}/assets")
+    def get_person_assets(self, person_id: str, max_pages: int = 5) -> list[dict]:
+        """Fetch all assets tagged with a given person.
+
+        Note: the simpler `GET /people/{id}/assets` endpoint (getPersonAssets) is not reliably
+        available across Immich server versions/deployments (some return 404), so we use the
+        documented, paginated `POST /search/metadata` endpoint with a `personIds` filter instead -
+        this is also what Immich's own support recommends for anything beyond trivial libraries.
+        """
+        results: list[dict] = []
+        page = 1
+        while page <= max_pages:
+            body = {"personIds": [person_id], "size": 200, "page": page}
+            data = self._post("/search/metadata", json=body)
+            assets = data.get("assets", {}) if isinstance(data, dict) else {}
+            items = assets.get("items", [])
+            results.extend(items)
+            next_page = assets.get("nextPage")
+            if not next_page or not items:
+                break
+            page += 1
+        return results
 
     def search_by_person(self, person_id: str, taken_after: Optional[str] = None,
                           taken_before: Optional[str] = None, size: int = 100) -> list[dict]:
