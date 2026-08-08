@@ -97,7 +97,7 @@
 <div class="card mt-2">
   <h3>📷 Photos</h3>
   {% if person.immich_person_id %}
-    <div id="person-photos" class="photo-grid" hx-get="/immich/gallery?person_id={{ person.id }}" hx-trigger="load" hx-swap="innerHTML">
+    <div id="person-photos" hx-get="/immich/gallery?person_id={{ person.id }}" hx-trigger="load" hx-swap="innerHTML">
       <p class="text-muted text-sm">Loading photos from Immich…</p>
     </div>
     <form method="post" action="/people/{{ person.id }}/unlink-immich" class="mt-1"><button class="btn btn-sm" type="submit">Unlink Immich face</button></form>

@@ -306,6 +306,54 @@ label { display: block; font-weight: 600; font-size: .875rem; margin: 0 0 .3rem;
   cursor: pointer;
 }
 
+.carousel-wrap {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+.photo-carousel {
+  display: flex;
+  gap: .6rem;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scroll-behavior: smooth;
+  padding: .25rem .1rem;
+  flex: 1;
+  min-width: 0;
+}
+.photo-carousel-item {
+  flex: 0 0 auto;
+  width: 150px;
+  height: 150px;
+  scroll-snap-align: start;
+  border-radius: 10px;
+  overflow: hidden;
+  display: block;
+  background: var(--accent-soft);
+}
+.photo-carousel-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.carousel-btn {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg-alt);
+  color: var(--text);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.carousel-btn:hover { background: var(--accent-soft); }
+
 .energy-low { color: var(--success); }
 .energy-medium { color: var(--warn); }
 .energy-high { color: var(--danger); }

@@ -104,4 +104,4 @@ def person_gallery(request: Request, db: Session = Depends(get_db), user=Depends
     except ImmichError as e:
         error = str(e)
     return render(request, "partials/immich_gallery.html", db=db, user=user,
-                  assets=assets[:24], error=error)
+                  assets=assets[:60], error=error)
