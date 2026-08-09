@@ -10,6 +10,7 @@ from ..deps import current_user
 from ..models import JournalEntry, JournalImage, Person, EventType, EnergyCost, Tag, NotableDate
 from ..render import render
 from ..services import checkins as checkin_service
+from ..services import gamification
 from ..services.ai_client import get_client_from_settings as ai_from_settings, AIError
 
 router = APIRouter()
@@ -70,6 +71,13 @@ def journal_create(
         db.add(JournalImage(journal_entry_id=entry.id, immich_asset_id=asset_id))
 
     db.commit()
+
+    # Gamification hook (pure Python, no AI calls) - reward logging a note, plus a bigger
+    # bonus if a photo was attached. Never blocks/slows the actual save above.
+    events = ["NOTE_ADDED"]
+    if immich_asset_ids:
+        events.append("PHOTO_ATTACHED")
+    gamification.award_and_flash(request, db, *events)
 
     # AI-assisted profile building: extract structured suggestions for human review.
     # Never applied automatically - see /journal/{id}/suggestions.

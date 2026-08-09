@@ -10,6 +10,7 @@ from ..models import Person, NotableDate
 from ..render import render
 from ..services import birthdays as bday_service
 from ..services import checkins as checkin_service
+from ..services import gamification
 from ..services.immich_client import get_client_from_settings as immich_from_settings, ImmichError
 from ..settings_store import get_setting
 
@@ -42,6 +43,7 @@ def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(curr
     upcoming_notable.sort(key=lambda t: t[1])
 
     overdue = checkin_service.overdue_people(db)
+    progress = gamification.get_stats_and_achievements(db)
 
     memories = []
     memories_error = None
@@ -59,7 +61,16 @@ def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(curr
         memories=memories,
         memories_error=memories_error,
         today=today,
+        progress=progress,
     )
+
+
+@router.get("/progress")
+def progress_page(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
+    if not user:
+        return RedirectResponse("/login")
+    progress = gamification.get_stats_and_achievements(db)
+    return render(request, "progress.html", db=db, user=user, active="progress", progress=progress)
 
 
 @router.post("/checkin/{person_id}/snooze")
@@ -76,7 +87,10 @@ def snooze_checkin(person_id: int, request: Request, db: Session = Depends(get_d
 def mark_contacted(person_id: int, request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
     person = db.get(Person, person_id)
     if person:
+        was_overdue = checkin_service.is_overdue(person)
         person.last_contact_date = dt.date.today()
         person.checkin_snoozed_until = None
         db.commit()
+        if was_overdue:
+            gamification.award_and_flash(request, db, "OVERDUE_CHECKIN")
     return RedirectResponse("/", status_code=303)

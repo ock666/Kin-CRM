@@ -20,12 +20,28 @@
       📥 Review queue
       {% if pending_review_count %}<span class="badge">{{ pending_review_count }}</span>{% endif %}
     </a>
+    <a class="nav-link {{ 'active' if active=='progress' else '' }}" href="/progress">🏆 Progress</a>
     <a class="nav-link {{ 'active' if active=='settings' else '' }}" href="/settings">⚙️ Settings</a>
     <div class="nav-spacer"></div>
     <a class="nav-link" href="/export">⬇️ Export data</a>
     <a class="nav-link" href="/logout">🚪 Log out</a>
   </nav>
   <main class="main">
+    {% if gamification_flash %}
+    <div class="notice notice-success gamification-toast" x-data="{ show: true }" x-show="show"
+         x-init="setTimeout(() => show = false, 7000)">
+      {% if gamification_flash.level_up %}
+        🎉 <strong>Level up!</strong> You're now level {{ gamification_flash.current_level }}.
+      {% endif %}
+      {% if gamification_flash.unlocked_badges %}
+        {% for slug in gamification_flash.unlocked_badges %}
+          🏆 <strong>New badge unlocked:</strong> {{ slug.replace('_', ' ')|title }}
+        {% endfor %}
+      {% endif %}
+      <span class="text-muted">(+{{ gamification_flash.xp_gained }} XP)</span>
+      <button type="button" class="btn btn-sm" style="float:right;" @click="show = false">✕</button>
+    </div>
+    {% endif %}
     {% block content %}{% endblock %}
   </main>
 </div>

@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Your progress — {{ app_name }}{% endblock %}
+{% block content %}
+<h1>🏆 Your progress</h1>
+<p class="text-muted text-sm mb-2">A little momentum tracker for staying in touch — shared across everyone with access to this Kin instance. No pressure, just a nice number that goes up.</p>
+
+<div class="card">
+  <div class="flex-between">
+    <span><strong>Level {{ progress.stats.current_level }}</strong> · {{ progress.stats.total_xp }} XP total</span>
+    <span class="text-muted">{{ progress.stats.streak_days }} day streak 🔥</span>
+  </div>
+  <div style="background: var(--accent-soft); border-radius: 999px; height: 12px; overflow: hidden; margin-top:.5rem;">
+    <div style="background: var(--accent); height: 100%; width: {{ progress.progress_pct }}%;"></div>
+  </div>
+  <p class="help-text mt-1 mb-0">{{ progress.next_level_threshold - progress.stats.total_xp }} XP to level {{ progress.stats.current_level + 1 }}</p>
+</div>
+
+<div class="card mt-2">
+  <h2>Achievements</h2>
+  <div class="grid grid-cols-2">
+    {% for a in progress.achievements %}
+      <div class="card" style="{{ '' if a.unlocked else 'opacity:.45;' }}">
+        <div class="flex-gap">
+          <span style="font-size:1.6rem;">{{ a.emoji }}</span>
+          <div>
+            <strong>{{ a.label }}</strong>
+            <p class="text-sm text-muted mb-0">{{ a.description }}</p>
+          </div>
+        </div>
+        {% if a.unlocked %}<span class="tag mt-1" style="background:var(--success-soft); color:var(--success);">Unlocked</span>{% else %}<span class="tag mt-1">Locked</span>{% endif %}
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="card mt-2">
+  <h3 class="mb-1">How XP works</h3>
+  <ul class="text-sm text-muted">
+    <li>+15 XP for logging a journal entry</li>
+    <li>+50 XP for attaching a photo to an entry</li>
+    <li>+30 XP for updating a person's profile</li>
+    <li>+100 XP for clearing a check-in that was actually overdue</li>
+  </ul>
+  <p class="help-text mb-0">This is a pure momentum tracker, not a task list — nothing here is ever punitive, and there's no way to lose XP or streaks by taking a break.</p>
+</div>
+{% endblock %}

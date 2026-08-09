@@ -9,6 +9,7 @@ from ..database import get_db
 from ..deps import current_user
 from ..models import Person, Tag, NotableDate, ScratchpadItem, NotablePersonRef
 from ..render import render
+from ..services import gamification
 from ..settings_store import get_setting
 
 router = APIRouter()
@@ -75,6 +76,7 @@ def people_create(
     )
     db.add(person)
     db.commit()
+    gamification.award_and_flash(request, db, "PROFILE_UPDATED")
     return RedirectResponse(f"/people/{person.id}", status_code=303)
 
 
@@ -137,6 +139,7 @@ def person_update(
     person.instagram_username = instagram_username.strip().lstrip("@") or None
     person.instagram_enabled = bool(instagram_enabled)
     db.commit()
+    gamification.award_and_flash(request, db, "PROFILE_UPDATED")
     return RedirectResponse(f"/people/{person.id}", status_code=303)
 
 
