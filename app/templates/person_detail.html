@@ -8,7 +8,7 @@
       {% if person.avatar_url %}<img src="{{ person.avatar_url }}" alt="">{% else %}{{ person.name|initials }}{% endif %}
     </div>
     <div style="flex:1;">
-      <h1 class="mb-0">{{ person.name }}{% if person.nickname %} <span class="text-muted">"{{ person.nickname }}"</span>{% endif %}</h1>
+      <h1 class="mb-0">{{ person.name }}{% if person.nickname and person.nickname != person.name %} <span class="text-muted">"{{ person.nickname }}"</span>{% endif %}</h1>
       <p class="text-muted mb-1">
         {{ person.relationship_label or "" }}{% if person.pronouns %} · {{ person.pronouns }}{% endif %}
         {% if person.archived %} · <span class="tag" style="background:var(--warn-soft); color:var(--warn);">Archived</span>{% endif %}
@@ -33,6 +33,23 @@
   </div>
 </div>
 
+<div class="card mt-2">
+  <h3>📌 Bring up next time</h3>
+  <p class="text-sm text-muted mb-1">Quick things to remember for your next conversation — these show up right at the top when you log a new entry for {{ person.nickname or person.name }}.</p>
+  {% for item in person.scratchpad_items %}
+    <div class="flex-between text-sm" style="padding:.3rem 0; border-top: 1px solid var(--border);">
+      <span>{{ item.text }}</span>
+      <form method="post" action="/scratchpad/{{ item.id }}/delete"><button class="btn btn-sm" type="submit">✓ Done</button></form>
+    </div>
+  {% else %}
+    <p class="text-muted text-sm">Nothing pinned right now.</p>
+  {% endfor %}
+  <form method="post" action="/people/{{ person.id }}/scratchpad" class="flex-gap mt-1">
+    <input type="text" name="text" placeholder="e.g. Ask how her vet visit went" required>
+    <button class="btn btn-sm" type="submit">+ Add</button>
+  </form>
+</div>
+
 <div class="grid grid-cols-2 mt-2">
   <div class="card">
     <h3>About</h3>
@@ -43,7 +60,31 @@
     <p class="text-sm mb-1"><strong>Met on:</strong> {{ person.met_date or "—" }}</p>
     <p class="text-sm mb-1"><strong>Location:</strong> {{ person.location or "—" }}</p>
     <p class="text-sm mb-1"><strong>Phone:</strong> {{ person.phone or "—" }}</p>
-    <p class="text-sm mb-0"><strong>Email:</strong> {{ person.email or "—" }}</p>
+    <p class="text-sm mb-1"><strong>Email:</strong> {{ person.email or "—" }}</p>
+    <p class="text-sm mb-1"><strong>Occupation:</strong> {{ person.occupation or "—" }}</p>
+    <p class="text-sm mb-0"><strong>Hobbies:</strong></p>
+    {% if person.hobbies %}
+      <div class="pill-row mt-1">
+        {% for h in person.hobbies.split(',') %}{% if h.strip() %}<span class="tag">{{ h.strip() }}</span>{% endif %}{% endfor %}
+      </div>
+    {% else %}
+      <p class="text-muted text-sm">—</p>
+    {% endif %}
+
+    <h3 class="mt-2">👪 Notable people</h3>
+    {% for np in person.notable_people_refs %}
+      <div class="flex-between text-sm" style="padding:.25rem 0;">
+        <span>{{ np.name }}{% if np.relation %} — {{ np.relation }}{% endif %}</span>
+        <form method="post" action="/notable-people/{{ np.id }}/delete"><button class="btn btn-sm" type="submit">✕</button></form>
+      </div>
+    {% else %}
+      <p class="text-muted text-sm">None yet — e.g. their partner, kids, or best friend.</p>
+    {% endfor %}
+    <form method="post" action="/people/{{ person.id }}/notable-people" class="field-row mt-1">
+      <input type="text" name="name" placeholder="Name (e.g. Sarah)" required>
+      <input type="text" name="relation" placeholder="Relation (e.g. Mum)">
+      <button class="btn btn-sm" type="submit">Add</button>
+    </form>
 
     <h3 class="mt-2">Notable dates</h3>
     {% for nd in person.notable_dates %}
@@ -91,6 +132,17 @@
         ✨ Suggest things to talk about
       </button>
     </div>
+
+    {% if person.gift_ideas %}
+    <h3 class="mt-2">🎁 Gift idea history</h3>
+    {% for gift in person.gift_ideas %}
+      <div class="flex-between text-sm" style="padding:.3rem 0; border-top: 1px solid var(--border);">
+        <span>{{ gift.description }}{% if gift.year %} <span class="text-muted">({{ gift.year }})</span>{% endif %}</span>
+        <span class="tag" style="{{ 'background:var(--success-soft); color:var(--success);' if gift.status.value == 'given' else '' }}">{{ gift.status.value }}</span>
+      </div>
+    {% endfor %}
+    <p class="help-text">New gift ideas are suggested automatically alongside birthday drafts in the <a href="/reviews">review queue</a> when AI is configured.</p>
+    {% endif %}
   </div>
 </div>
 

@@ -1,5 +1,6 @@
 {% if person %}
-<label class="tag" style="cursor:pointer; background: var(--accent-soft);">
+<label class="tag" data-name="{{ person.name|lower }}" style="cursor:pointer; background: var(--accent-soft);"
+  x-show="!personQuery || $el.dataset.name.includes(personQuery.toLowerCase())">
   <input type="checkbox" name="person_ids" value="{{ person.id }}" style="width:auto;" {{ "checked" if checked else "" }}>
   {{ person.name }}
 </label>

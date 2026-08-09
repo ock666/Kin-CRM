@@ -21,9 +21,10 @@ def journal_new(request: Request, db: Session = Depends(get_db), user=Depends(cu
     if not user:
         return RedirectResponse("/login")
     people = db.query(Person).filter(Person.archived.is_(False)).order_by(Person.name).all()
+    scratchpad_person = db.get(Person, person_id) if person_id else None
     return render(request, "journal_form.html", db=db, user=user, active="journal",
                   people=people, preselect_person_id=person_id, today=dt.date.today().isoformat(),
-                  entry=None)
+                  entry=None, scratchpad_person=scratchpad_person)
 
 
 @router.post("/people/quick-create")
@@ -99,7 +100,7 @@ def journal_edit(entry_id: int, request: Request, db: Session = Depends(get_db),
     people = db.query(Person).filter(Person.archived.is_(False)).order_by(Person.name).all()
     return render(request, "journal_form.html", db=db, user=user, active="journal",
                   people=people, entry=entry, today=entry.entry_date.isoformat(),
-                  preselect_person_id=None)
+                  preselect_person_id=None, scratchpad_person=None)
 
 
 @router.post("/journal/{entry_id}/edit")

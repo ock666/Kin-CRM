@@ -32,7 +32,8 @@ def _ensure_column(table: str, column: str, ddl_type: str, default_sql: str | No
 
 
 def run_startup_migrations():
-    # Example pattern for future schema changes - kept empty for the initial
-    # release since create_all() handles a brand-new database already:
-    # _ensure_column("people", "some_new_field", "TEXT")
-    pass
+    # v1.2: occupation/hobbies added to an existing `people` table - new tables (scratchpad_items,
+    # notable_person_refs, gift_ideas) don't need migration since create_all() creates any missing
+    # table automatically; only new *columns* on already-existing tables need this treatment.
+    _ensure_column("people", "occupation", "VARCHAR(255)")
+    _ensure_column("people", "hobbies", "TEXT")

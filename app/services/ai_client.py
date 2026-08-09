@@ -65,7 +65,7 @@ class AIClient:
         return _safe_json(raw)
 
     def draft_birthday_message(self, person_name: str, relationship_label: str,
-                                notes: str, tone: str = "warm and casual") -> str:
+                                context: str, tone: str = "warm and casual") -> str:
         system = (
             "You write short, genuine, human-sounding birthday messages. Avoid generic greeting-card "
             "cliches. Keep it brief (2-4 sentences), personal, and specific to details given. "
@@ -73,33 +73,74 @@ class AIClient:
         )
         user = (
             f"Write a birthday message for {person_name} ({relationship_label or 'friend'}).\n"
-            f"Relevant context/notes about them:\n{notes or 'No extra notes available.'}"
+            f"What we know about them:\n{context or 'No extra notes available.'}"
         )
         return self._chat(system, user, max_tokens=200, temperature=0.8)
 
-    def profile_summary(self, person_name: str, journal_snippets: list[str]) -> str:
+    def suggest_gift(self, person_name: str, context: str, previous_gifts: list[str]) -> str:
+        """Suggest a single specific gift idea under $40, avoiding anything already given or
+        suggested before. Always human-in-the-loop - lands in the review queue, never auto-bought
+        or sent anywhere."""
+        system = (
+            "You suggest ONE specific, thoughtful gift idea for someone based on what's known "
+            "about them. Hard constraint: it must plausibly cost under $40 USD - say so isn't "
+            "required, but never suggest anything clearly pricier. Never repeat anything already "
+            "given or suggested before (listed below). Respond with 1-2 sentences: the specific "
+            "gift idea plus a short reason it fits them. No preamble, no markdown, no price talk "
+            "unless it's part of the natural sentence."
+        )
+        prev = "\n".join(f"- {g}" for g in previous_gifts) if previous_gifts else "(none yet)"
+        user = (
+            f"Person: {person_name}\n\nWhat we know about them:\n{context or 'Not much known yet.'}\n\n"
+            f"Previously suggested/given gifts (do not repeat these or close variants):\n{prev}"
+        )
+        return self._chat(system, user, max_tokens=150, temperature=0.85)
+
+    def profile_summary(self, person_name: str, journal_snippets: list[str], context: str = "") -> str:
         system = (
             "You summarize a person's relationship history into a short, warm 3-5 sentence "
             "summary for a personal relationship-tracking app. Focus on who they are, shared "
             "history, and anything important to remember. Be concrete, not generic."
         )
         joined = "\n---\n".join(journal_snippets[-40:])
-        user = f"Person: {person_name}\n\nJournal entries (most recent last):\n{joined}"
+        context_block = f"Known context:\n{context}\n\n" if context else ""
+        user = f"Person: {person_name}\n{context_block}Journal entries (most recent last):\n{joined}"
         return self._chat(system, user, max_tokens=350, temperature=0.5)
 
-    def conversation_starters(self, person_name: str, journal_snippets: list[str]) -> list[str]:
+    def conversation_starters(self, person_name: str, journal_snippets: list[str], context: str = "") -> list[str]:
         system = (
             "Suggest 3-5 short, specific conversation starters or follow-up questions to ask "
             "next time the user talks to this person, based on their journal history. "
             "Respond ONLY as a JSON array of strings."
         )
         joined = "\n---\n".join(journal_snippets[-20:])
-        user = f"Person: {person_name}\n\nRecent journal entries:\n{joined or 'No entries yet.'}"
+        context_block = f"Known context:\n{context}\n\n" if context else ""
+        user = f"Person: {person_name}\n{context_block}Recent journal entries:\n{joined or 'No entries yet.'}"
         raw = self._chat(system, user, max_tokens=300, temperature=0.7)
         data = _safe_json(raw)
         if isinstance(data, list):
             return [str(x) for x in data]
         return []
+
+
+def build_person_context(person) -> str:
+    """Assemble a compact free-text context blurb about a person for AI prompts, combining
+    whatever profile fields exist (occupation, hobbies, notable people, notes, prior AI summary).
+    Duck-typed - works with any object exposing these attributes, no model import needed."""
+    parts = []
+    if getattr(person, "occupation", None):
+        parts.append(f"Occupation: {person.occupation}")
+    if getattr(person, "hobbies", None):
+        parts.append(f"Hobbies/interests: {person.hobbies}")
+    refs = getattr(person, "notable_people_refs", None)
+    if refs:
+        joined = ", ".join(f"{r.name} ({r.relation})" if r.relation else r.name for r in refs)
+        parts.append(f"People in their life: {joined}")
+    if getattr(person, "notes", None):
+        parts.append(f"Notes: {person.notes}")
+    if getattr(person, "ai_summary", None):
+        parts.append(f"Summary so far: {person.ai_summary}")
+    return "\n".join(parts)
 
 
 def _safe_json(raw: str):
