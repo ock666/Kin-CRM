@@ -7,19 +7,19 @@
   <a class="btn btn-primary" href="/journal/new">✏️ New entry</a>
 </div>
 
-{% if suggested_resolutions %}
+{% if unresolved_conflicts %}
 <div class="card">
-  <h2>🕊️ Possible resolutions</h2>
-  <p class="text-sm text-muted mb-1">Gentle suggestions only — nothing changes unless you say so.</p>
-  {% for conflict in suggested_resolutions %}
+  <h2>🕊️ A few things sitting open</h2>
+  <p class="text-sm text-muted mb-1">No rush — options and suggestions are ready on their profile whenever you want them.</p>
+  {% for conflict in unresolved_conflicts %}
     <div class="flex-between" style="padding:.5rem 0; border-top: 1px solid var(--border);">
       <div>
         <a href="/people/{{ conflict.person.id }}">{{ conflict.person.name }}</a>
-        <p class="text-sm mb-0">🤖 {{ conflict.ai_suggested_prompt }}</p>
+        <p class="text-sm text-muted mb-0">{{ conflict.summary[:90] }}{{ "…" if conflict.summary|length > 90 else "" }}</p>
       </div>
       <div class="flex-gap">
-        <form method="post" action="/conflicts/{{ conflict.id }}/resolve"><button class="btn btn-sm btn-primary" type="submit">Yes, Mark Resolved</button></form>
-        <form method="post" action="/conflicts/{{ conflict.id }}/dismiss-ai-suggestion"><button class="btn btn-sm" type="submit">Still Working on It</button></form>
+        <a class="btn btn-sm btn-primary" href="/people/{{ conflict.person.id }}">View options</a>
+        <form method="post" action="/conflicts/{{ conflict.id }}/dismiss-reminder"><button class="btn btn-sm" type="submit">Not now</button></form>
       </div>
     </div>
   {% endfor %}

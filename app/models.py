@@ -363,7 +363,13 @@ class ConflictLog(Base):
     status = Column(Enum(ConflictStatus), default=ConflictStatus.unresolved, nullable=False)
     resolved_at = Column(DateTime, nullable=True)
     resolution_notes = Column(Text, nullable=True)
-    ai_suggested_resolution = Column(Boolean, default=False)
-    ai_suggested_prompt = Column(String(500), nullable=True)
+    # AI-generated, conflict-specific approach suggestions (reflection + tailored scripts),
+    # cached as JSON so they're generated once and reused rather than re-calling the AI every
+    # time the card is viewed. Available immediately - no waiting period, no requirement to
+    # interact with the person first (see app/services/conflict_resolution.py).
+    ai_approach_json = Column(Text, nullable=True)
+    # Lets the user quietly dismiss the gentle dashboard reminder for this conflict without
+    # resolving/releasing it - it still shows on the person's own profile either way.
+    reminder_dismissed = Column(Boolean, default=False)
 
     person = relationship("Person", back_populates="conflict_logs")

@@ -1,60 +1,54 @@
-"""Implicit conflict-repair detection (v1.3).
+"""AI-assisted conflict approach suggestions (v1.3.1).
 
-Low-demand, AuDHD-safe by design: this NEVER changes a conflict's status automatically. It only
-ever sets `ai_suggested_resolution` + `ai_suggested_prompt` as a dismissible suggestion - a human
-always has to click "Yes, Mark Resolved" (or "Still Working on It" to dismiss without nagging
-again) for anything to actually change. See models.ConflictLog for the schema and
-app/services/ai_client.py's `analyze_conflict_resolution` for the actual LLM call.
+Design note: the original version of this feature made the AI passively watch for a NEW journal
+entry with the person (after a 48-hour "cooling off" buffer) to detect whether a conflict seemed
+to have naturally healed. Real-world feedback: Rejection Sensitive Dysphoria (RSD) commonly drives
+*avoidance* of the person involved, so gating any help behind "wait for a future interaction to
+go well" was actively unhelpful - it required the very contact the user may be anxious about
+before offering any support at all.
+
+This version instead generates conflict-SPECIFIC approach suggestions immediately from the
+conflict description itself - no waiting period, no requirement to interact with the person
+first. The user can act on them right away or come back to them whenever they feel ready; this
+only provides structure, safety, and a jumping-off point, never a verdict or an auto-action.
 """
 from __future__ import annotations
 
-import datetime as dt
+import json
 import logging
 
 from sqlalchemy.orm import Session
 
-from ..models import ConflictLog, ConflictStatus, JournalEntry
+from ..models import ConflictLog
 from .ai_client import AIError
 
 logger = logging.getLogger(__name__)
 
-BUFFER_HOURS = 48  # nervous-system buffer - never surface a resolution banner before this
-CONFIDENCE_THRESHOLD = 0.75  # safety gate - see PART 3 of the spec this implements
 
+def generate_approach_suggestions(db: Session, ai, conflict: ConflictLog, person_name: str) -> dict | None:
+    """Ask AI for conflict-specific approach/boundary scripts and cache them on the conflict
+    (so viewing the card again doesn't re-call the API). Returns the suggestions dict, or None if
+    AI isn't configured or the call fails - callers/templates fall back to generic scripts in
+    that case, so this never blocks the core feature."""
+    if ai is None:
+        return None
+    try:
+        suggestions = ai.suggest_conflict_approach(person_name, conflict.summary)
+    except AIError as e:
+        logger.info("Conflict approach suggestion failed for conflict %s: %s", conflict.id, e)
+        return None
 
-def check_for_implicit_resolution(db: Session, ai, entry: JournalEntry) -> None:
-    """Called after a new journal entry is saved. For each person tagged in the entry, look for
-    an open (UNRESOLVED) conflict logged more than 48 hours ago that hasn't already been flagged,
-    and ask the AI whether this new entry reads like a repair. Only ever *suggests* - never
-    changes status itself. Safe to call with ai=None (a no-op, matches every other AI feature in
-    this app degrading gracefully when AI isn't configured)."""
-    if ai is None or not entry.people:
-        return
-
-    cutoff = dt.datetime.utcnow() - dt.timedelta(hours=BUFFER_HOURS)
-
-    for person in entry.people:
-        open_conflicts = (
-            db.query(ConflictLog)
-            .filter(ConflictLog.person_id == person.id)
-            .filter(ConflictLog.status == ConflictStatus.unresolved)
-            .filter(ConflictLog.ai_suggested_resolution.is_(False))
-            .filter(ConflictLog.created_at <= cutoff)
-            .all()
-        )
-        for conflict in open_conflicts:
-            try:
-                analysis = ai.analyze_conflict_resolution(person.name, conflict.summary, entry.body)
-            except AIError as e:
-                logger.info("Conflict resolution analysis failed for person %s: %s", person.id, e)
-                continue
-
-            if analysis.is_resolved and analysis.confidence_score >= CONFIDENCE_THRESHOLD:
-                conflict.ai_suggested_resolution = True
-                conflict.ai_suggested_prompt = analysis.suggested_ui_prompt or (
-                    f"Your recent log with {person.nickname or person.name} felt warm and "
-                    "relaxed. Did that resolve the earlier tension?"
-                )
-                db.add(conflict)
-
+    data = suggestions.__dict__ if hasattr(suggestions, "__dict__") else dict(suggestions)
+    conflict.ai_approach_json = json.dumps(data)
+    db.add(conflict)
     db.commit()
+    return data
+
+
+def get_cached_suggestions(conflict: ConflictLog) -> dict | None:
+    if not conflict.ai_approach_json:
+        return None
+    try:
+        return json.loads(conflict.ai_approach_json)
+    except (TypeError, ValueError):
+        return None

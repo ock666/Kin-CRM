@@ -1,4 +1,5 @@
 import logging
+import json
 from pathlib import Path
 
 import markdown2
@@ -33,10 +34,21 @@ def _initials(name: str) -> str:
     return (parts[0][0] + parts[-1][0]).upper()
 
 
+def _parse_json(raw):
+    if not raw:
+        return None
+    try:
+        return json.loads(raw)
+    except (TypeError, ValueError):
+        return None
+
+
 templates.env.filters["markdown"] = lambda text: markdown2.markdown(text or "", extras=["break-on-newline", "linkify"])
 templates.env.filters["initials"] = _initials
+templates.env.filters["parse_json"] = _parse_json
 
 OPEN_PATHS = {"/login", "/setup", "/health"}
+
 
 
 @app.middleware("http")

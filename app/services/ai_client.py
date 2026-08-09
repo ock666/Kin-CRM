@@ -20,17 +20,15 @@ class AIError(Exception):
     pass
 
 
-class ConflictResolutionAnalysis(BaseModel):
-    """Structured output for the implicit-conflict-repair analyzer (see
-    AIClient.analyze_conflict_resolution below). AuDHD-safety rule baked into the prompt itself:
-    when in doubt, the model is instructed to return is_resolved=False - the confidence gate in
-    the calling route further requires confidence_score >= 0.75 before a suggestion is even
-    surfaced to the user, and even then it's just a dismissible suggestion, never an auto-action."""
-    is_resolved: bool
-    confidence_score: float  # 0.0 to 1.0
-    resolution_type: str  # "explicit_repair" | "implicit_warmth" | "implicit_normalcy" | "ongoing_friction" | "uncertain"
-    reasoning: str
-    suggested_ui_prompt: Optional[str] = None
+class ConflictApproachSuggestions(BaseModel):
+    """Structured output for the conflict approach-suggestion generator (see
+    AIClient.suggest_conflict_approach below). These are offered immediately, with no waiting
+    period and no requirement to interact with the person first - the user acts whenever *they*
+    feel ready. This is a suggestion/scaffolding engine, never a verdict or auto-action engine."""
+    reflection: str
+    approach_casual: str
+    approach_direct: str
+    boundary_script: str
 
 
 class AIClient:
@@ -110,41 +108,43 @@ class AIClient:
         )
         return self._chat(system, user, max_tokens=150, temperature=0.85)
 
-    def analyze_conflict_resolution(self, person_name: str, conflict_summary: str,
-                                     new_entry_text: str) -> ConflictResolutionAnalysis:
-        """Compare a past unresolved conflict against a newly logged interaction to gently detect
-        whether it's been explicitly or implicitly repaired. AuDHD-safety: the prompt instructs
-        the model to never assume repair from surface-level politeness, and to default to
-        is_resolved=False when uncertain - this is a suggestion engine, not a verdict engine."""
+    def suggest_conflict_approach(self, person_name: str, conflict_summary: str) -> ConflictApproachSuggestions:
+        """Generate conflict-SPECIFIC approach suggestions, immediately - no waiting period, no
+        requirement to interact with the person first. Rejection Sensitive Dysphoria (RSD) often
+        drives *avoidance* of the person involved, so gating help behind "wait and see if a future
+        interaction goes well" is actively unhelpful - it requires the very contact the user may
+        be anxious about before offering any support. Instead this just gives structure, safety,
+        and a jumping-off point the user can use whenever *they* feel ready, or ignore entirely."""
         system = (
-            "You are an empathetic interpersonal dynamics analyzer for an AuDHD-centered CRM. "
-            "Compare a past unresolved conflict against a newly logged interaction to evaluate if "
-            "the conflict has been implicitly or explicitly resolved.\n\n"
-            "RULES:\n"
-            "1. EXPLICIT RESOLUTION: New entry mentions apologizing, talking it through, or "
-            "clearing the air.\n"
-            "2. IMPLICIT RESOLUTION: New entry shows genuine warmth, relaxed hangout vibes, "
-            "laughing, or comfortable contact without referencing the conflict.\n"
-            "3. ONGOING FRICTION / UNCERTAIN: New entry shows coldness, obligation/masking, or "
-            "lacks enough emotional context.\n"
-            "4. AuDHD SAFETY: Never assume repair from surface-level politeness. When in doubt, "
-            "return is_resolved=false.\n\n"
-            "Respond strictly with valid JSON matching this schema:\n"
-            '{"is_resolved": boolean, "confidence_score": float, "resolution_type": string, '
-            '"reasoning": string, "suggested_ui_prompt": "Gentle, non-demanding 1-sentence prompt '
-            'for a UI banner asking if they want to close the conflict (or null if false)."}'
+            "You help someone who may have AuDHD/Rejection Sensitive Dysphoria (RSD) approach a "
+            "specific interpersonal conflict, whenever (if ever) they feel ready. Assume they may "
+            "still feel emotionally elevated or anxious about this even if time has passed, and "
+            "that they want to resolve things in good faith - never assume they're overreacting. "
+            "Write suggestions SPECIFIC to the situation described below - never generic "
+            "greeting-card phrases like 'thinking of our chat the other day'. Reference the actual "
+            "topic/situation in your own words where natural. Never assign blame to either party "
+            "unless the description clearly states who did what.\n\n"
+            "Write exactly these four things:\n"
+            "1. reflection: one short, warm, validating sentence about the specific situation - "
+            "no advice, just acknowledgement.\n"
+            "2. approach_casual: a relaxed-tone message they could send to check in / clear the "
+            "air, specific to this situation, ready to copy-paste as-is (1-3 sentences).\n"
+            "3. approach_direct: a warmer-but-clearer message that names wanting to talk it "
+            "through, specific to this situation, ready to copy-paste (1-3 sentences).\n"
+            "4. boundary_script: a gentle boundary-setting message for if they don't have the "
+            "bandwidth to deal with this right now, but want to leave the door open - specific to "
+            "this relationship/situation where possible, ready to copy-paste (1-2 sentences).\n\n"
+            "Respond ONLY with valid JSON matching this schema:\n"
+            '{"reflection": string, "approach_casual": string, "approach_direct": string, '
+            '"boundary_script": string}'
         )
-        user = (
-            f"Person: {person_name}\n\n"
-            f"Unresolved conflict, logged earlier:\n{conflict_summary}\n\n"
-            f"Newly logged interaction with this person:\n{new_entry_text}"
-        )
-        raw = self._chat(system, user, max_tokens=300, temperature=0.3)
+        user = f"Person: {person_name}\n\nWhat happened, in the user's own words:\n{conflict_summary}"
+        raw = self._chat(system, user, max_tokens=400, temperature=0.7)
         data = _safe_json(raw)
         try:
-            return ConflictResolutionAnalysis(**data)
+            return ConflictApproachSuggestions(**data)
         except Exception as e:
-            raise AIError(f"AI returned an unexpected shape for conflict analysis: {e}")
+            raise AIError(f"AI returned an unexpected shape for conflict suggestions: {e}")
 
     def profile_summary(self, person_name: str, journal_snippets: list[str], context: str = "") -> str:
         system = (

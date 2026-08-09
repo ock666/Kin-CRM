@@ -1,16 +1,11 @@
+{% set approach = conflict.ai_approach_json|parse_json %}
 <div class="card mt-1" style="border-color: var(--warn);">
-  {% if conflict.ai_suggested_prompt %}
-  <div class="notice notice-info mb-1">
-    🤖 {{ conflict.ai_suggested_prompt }}
-    <div class="flex-gap mt-1">
-      <form method="post" action="/conflicts/{{ conflict.id }}/resolve"><button class="btn btn-sm btn-primary" type="submit">Yes, Mark Resolved</button></form>
-      <form method="post" action="/conflicts/{{ conflict.id }}/dismiss-ai-suggestion"><button class="btn btn-sm" type="submit">Still Working on It</button></form>
-    </div>
-  </div>
-  {% endif %}
-
   <p class="text-sm text-muted mb-1">Logged {{ conflict.created_at.strftime('%Y-%m-%d') }}</p>
   <p class="text-sm mb-2">{{ conflict.summary }}</p>
+
+  {% if approach and approach.reflection %}
+  <p class="text-sm mb-2" style="font-style: italic;">💬 {{ approach.reflection }}</p>
+  {% endif %}
 
   <details class="mb-2">
     <summary style="cursor:pointer; font-weight:600;">🌱 RSD Grounding Check <span class="text-muted text-sm">(optional)</span></summary>
@@ -23,7 +18,7 @@
   </details>
 
   <div x-data="{ path: null }">
-    <p class="text-sm mb-1" style="font-weight:600;">Exploring next steps — no pressure, whatever fits right now:</p>
+    <p class="text-sm mb-1" style="font-weight:600;">Exploring next steps — ready whenever you are, no pressure:</p>
     <div class="pill-row mb-2">
       <button class="btn btn-sm" type="button" @click="path = (path === 'A' ? null : 'A')" :class="path === 'A' ? 'btn-primary' : ''">A. Approach &amp; Repair</button>
       <button class="btn btn-sm" type="button" @click="path = (path === 'B' ? null : 'B')" :class="path === 'B' ? 'btn-primary' : ''">B. Give Space &amp; Wait</button>
@@ -33,18 +28,32 @@
 
     <div x-show="path === 'A'" class="card mb-1" style="background: var(--bg-alt);">
       <p class="text-sm text-muted mb-1">When calm, but wanting clarity. Copy whichever fits:</p>
-      <div class="flex-gap mb-1" style="align-items:flex-start;">
-        <p class="text-sm mb-0" style="flex:1;">"Hey! I've been thinking about our chat the other day—I value our friendship and want to make sure we're good!"</p>
-        <button class="btn btn-sm" type="button"
-          data-script="Hey! I've been thinking about our chat the other day&#8212;I value our friendship and want to make sure we're good!"
-          onclick="navigator.clipboard.writeText(this.dataset.script); this.textContent='Copied ✓'; setTimeout(() => this.textContent='📋 Copy', 2000)">📋 Copy</button>
-      </div>
-      <div class="flex-gap" style="align-items:flex-start;">
-        <p class="text-sm mb-0" style="flex:1;">"Hey, I felt a little off after we hung out earlier. Would love to clear the air whenever you have bandwidth!"</p>
-        <button class="btn btn-sm" type="button"
-          data-script="Hey, I felt a little off after we hung out earlier. Would love to clear the air whenever you have bandwidth!"
-          onclick="navigator.clipboard.writeText(this.dataset.script); this.textContent='Copied ✓'; setTimeout(() => this.textContent='📋 Copy', 2000)">📋 Copy</button>
-      </div>
+      {% if approach %}
+        <div class="flex-gap mb-1" style="align-items:flex-start;">
+          <p class="text-sm mb-0" style="flex:1;">"{{ approach.approach_casual }}"</p>
+          <button class="btn btn-sm" type="button" data-script="{{ approach.approach_casual }}"
+            onclick="navigator.clipboard.writeText(this.dataset.script); this.textContent='Copied ✓'; setTimeout(() => this.textContent='📋 Copy', 2000)">📋 Copy</button>
+        </div>
+        <div class="flex-gap" style="align-items:flex-start;">
+          <p class="text-sm mb-0" style="flex:1;">"{{ approach.approach_direct }}"</p>
+          <button class="btn btn-sm" type="button" data-script="{{ approach.approach_direct }}"
+            onclick="navigator.clipboard.writeText(this.dataset.script); this.textContent='Copied ✓'; setTimeout(() => this.textContent='📋 Copy', 2000)">📋 Copy</button>
+        </div>
+      {% else %}
+        <div class="flex-gap mb-1" style="align-items:flex-start;">
+          <p class="text-sm mb-0" style="flex:1;">"Hey! I've been thinking about our chat the other day—I value our friendship and want to make sure we're good!"</p>
+          <button class="btn btn-sm" type="button"
+            data-script="Hey! I've been thinking about our chat the other day&#8212;I value our friendship and want to make sure we're good!"
+            onclick="navigator.clipboard.writeText(this.dataset.script); this.textContent='Copied ✓'; setTimeout(() => this.textContent='📋 Copy', 2000)">📋 Copy</button>
+        </div>
+        <div class="flex-gap" style="align-items:flex-start;">
+          <p class="text-sm mb-0" style="flex:1;">"Hey, I felt a little off after we hung out earlier. Would love to clear the air whenever you have bandwidth!"</p>
+          <button class="btn btn-sm" type="button"
+            data-script="Hey, I felt a little off after we hung out earlier. Would love to clear the air whenever you have bandwidth!"
+            onclick="navigator.clipboard.writeText(this.dataset.script); this.textContent='Copied ✓'; setTimeout(() => this.textContent='📋 Copy', 2000)">📋 Copy</button>
+        </div>
+        <p class="help-text mt-1 mb-0">These are generic placeholders — use the "✨ Get personalized suggestions" button below if you have AI configured.</p>
+      {% endif %}
     </div>
 
     <div x-show="path === 'B'" class="card mb-1" style="background: var(--bg-alt);">
@@ -56,9 +65,11 @@
     <div x-show="path === 'C'" class="card mb-1" style="background: var(--bg-alt);">
       <p class="text-sm text-muted mb-1">When low bandwidth or overextended. Copy this:</p>
       <div class="flex-gap" style="align-items:flex-start;">
-        <p class="text-sm mb-0" style="flex:1;">"I'm a bit low on energy/bandwidth this week, but let's catch up properly once my battery resets."</p>
+        <p class="text-sm mb-0" style="flex:1;">
+          {% if approach %}"{{ approach.boundary_script }}"{% else %}"I'm a bit low on energy/bandwidth this week, but let's catch up properly once my battery resets."{% endif %}
+        </p>
         <button class="btn btn-sm" type="button"
-          data-script="I'm a bit low on energy/bandwidth this week, but let's catch up properly once my battery resets."
+          data-script="{{ approach.boundary_script if approach else "I'm a bit low on energy/bandwidth this week, but let's catch up properly once my battery resets." }}"
           onclick="navigator.clipboard.writeText(this.dataset.script); this.textContent='Copied ✓'; setTimeout(() => this.textContent='📋 Copy', 2000)">📋 Copy</button>
       </div>
     </div>
@@ -69,6 +80,12 @@
         <button class="btn btn-primary" type="submit">Letting This Go</button>
       </form>
     </div>
+  </div>
+
+  <div class="flex-gap mt-2">
+    <form method="post" action="/conflicts/{{ conflict.id }}/generate-approach" class="generate-form">
+      <button class="btn btn-sm" type="submit">✨ {{ "Try different suggestions" if approach else "Get personalized suggestions" }}</button>
+    </form>
   </div>
 
   <details class="mt-2">

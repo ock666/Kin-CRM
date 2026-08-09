@@ -37,3 +37,9 @@ def run_startup_migrations():
     # table automatically; only new *columns* on already-existing tables need this treatment.
     _ensure_column("people", "occupation", "VARCHAR(255)")
     _ensure_column("people", "hobbies", "TEXT")
+
+    # v1.3: conflict_logs columns reworked from "wait 48h + AI-detect implicit repair" to
+    # "immediate, conflict-specific AI approach suggestions" - anyone who ran the earlier version
+    # of this feature needs these two new columns added to their existing table.
+    _ensure_column("conflict_logs", "ai_approach_json", "TEXT")
+    _ensure_column("conflict_logs", "reminder_dismissed", "BOOLEAN", default_sql="0")
