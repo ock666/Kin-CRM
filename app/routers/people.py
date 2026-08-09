@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..deps import current_user
-from ..models import Person, Tag, NotableDate
+from ..models import Person, Tag, NotableDate, ScratchpadItem, NotablePersonRef
 from ..render import render
 from ..settings_store import get_setting
 
@@ -55,12 +55,14 @@ def people_create(
     relationship_label: str = Form(""), birthday_month: str = Form(""), birthday_day: str = Form(""),
     birthday_year: str = Form(""), how_we_met: str = Form(""), met_date: str = Form(""),
     location: str = Form(""), phone: str = Form(""), email: str = Form(""), notes: str = Form(""),
+    occupation: str = Form(""), hobbies: str = Form(""),
     checkin_cadence_days: str = Form(""),
 ):
     if not user:
         return RedirectResponse("/login")
+    clean_name = name.strip()
     person = Person(
-        name=name.strip(), nickname=nickname or None, pronouns=pronouns or None,
+        name=clean_name, nickname=(nickname.strip() or clean_name), pronouns=pronouns or None,
         relationship_label=relationship_label or None,
         birthday_month=int(birthday_month) if birthday_month else None,
         birthday_day=int(birthday_day) if birthday_day else None,
@@ -68,6 +70,7 @@ def people_create(
         how_we_met=how_we_met or None,
         met_date=dt.date.fromisoformat(met_date) if met_date else None,
         location=location or None, phone=phone or None, email=email or None, notes=notes or None,
+        occupation=occupation.strip() or None, hobbies=hobbies.strip() or None,
         checkin_cadence_days=int(checkin_cadence_days) if checkin_cadence_days else None,
     )
     db.add(person)
@@ -105,6 +108,7 @@ def person_update(
     relationship_label: str = Form(""), birthday_month: str = Form(""), birthday_day: str = Form(""),
     birthday_year: str = Form(""), how_we_met: str = Form(""), met_date: str = Form(""),
     location: str = Form(""), phone: str = Form(""), email: str = Form(""), notes: str = Form(""),
+    occupation: str = Form(""), hobbies: str = Form(""),
     checkin_cadence_days: str = Form(""), instagram_username: str = Form(""),
     instagram_enabled: str = Form(""),
 ):
@@ -113,8 +117,9 @@ def person_update(
     person = db.get(Person, person_id)
     if not person:
         return RedirectResponse("/people")
-    person.name = name.strip()
-    person.nickname = nickname or None
+    clean_name = name.strip()
+    person.name = clean_name
+    person.nickname = nickname.strip() or clean_name
     person.pronouns = pronouns or None
     person.relationship_label = relationship_label or None
     person.birthday_month = int(birthday_month) if birthday_month else None
@@ -126,6 +131,8 @@ def person_update(
     person.phone = phone or None
     person.email = email or None
     person.notes = notes or None
+    person.occupation = occupation.strip() or None
+    person.hobbies = hobbies.strip() or None
     person.checkin_cadence_days = int(checkin_cadence_days) if checkin_cadence_days else None
     person.instagram_username = instagram_username.strip().lstrip("@") or None
     person.instagram_enabled = bool(instagram_enabled)
@@ -221,3 +228,45 @@ def unlink_immich(person_id: int, db: Session = Depends(get_db), user=Depends(cu
         person.avatar_url = None
         db.commit()
     return RedirectResponse(f"/people/{person_id}", status_code=303)
+
+
+@router.post("/people/{person_id}/scratchpad")
+def add_scratchpad_item(person_id: int, db: Session = Depends(get_db), user=Depends(current_user),
+                         text: str = Form(...)):
+    text = text.strip()
+    if text:
+        db.add(ScratchpadItem(person_id=person_id, text=text))
+        db.commit()
+    return RedirectResponse(f"/people/{person_id}", status_code=303)
+
+
+@router.post("/scratchpad/{item_id}/delete")
+def delete_scratchpad_item(item_id: int, db: Session = Depends(get_db), user=Depends(current_user)):
+    item = db.get(ScratchpadItem, item_id)
+    if item:
+        person_id = item.person_id
+        db.delete(item)
+        db.commit()
+        return RedirectResponse(f"/people/{person_id}", status_code=303)
+    return RedirectResponse("/people", status_code=303)
+
+
+@router.post("/people/{person_id}/notable-people")
+def add_notable_person(person_id: int, db: Session = Depends(get_db), user=Depends(current_user),
+                        name: str = Form(...), relation: str = Form("")):
+    name = name.strip()
+    if name:
+        db.add(NotablePersonRef(person_id=person_id, name=name, relation=relation.strip() or None))
+        db.commit()
+    return RedirectResponse(f"/people/{person_id}", status_code=303)
+
+
+@router.post("/notable-people/{ref_id}/delete")
+def delete_notable_person(ref_id: int, db: Session = Depends(get_db), user=Depends(current_user)):
+    ref = db.get(NotablePersonRef, ref_id)
+    if ref:
+        person_id = ref.person_id
+        db.delete(ref)
+        db.commit()
+        return RedirectResponse(f"/people/{person_id}", status_code=303)
+    return RedirectResponse("/people", status_code=303)

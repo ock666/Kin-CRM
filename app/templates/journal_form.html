@@ -5,6 +5,15 @@
   <h1>{{ "Edit entry" if entry else "✏️ New journal entry" }}</h1>
   <p class="text-muted text-sm mb-2">Jot down what happened — a hangout, a call, a random thought, a life update. Tag anyone involved and it'll show up on all of their timelines.</p>
 
+  {% if scratchpad_person and scratchpad_person.scratchpad_items %}
+  <div class="notice notice-info">
+    <strong>📌 Before you forget — bring up with {{ scratchpad_person.nickname or scratchpad_person.name }}:</strong>
+    <ul class="mt-1 mb-0">
+      {% for item in scratchpad_person.scratchpad_items %}<li>{{ item.text }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
   <form method="post" action="{{ '/journal/' ~ entry.id ~ '/edit' if entry else '/journal/new' }}" class="card">
     <div class="field">
       <label for="body">What's up? *</label>
@@ -45,11 +54,13 @@
       <input type="text" id="location" name="location" value="{{ entry.location if entry and entry.location else '' }}">
     </div>
 
-    <div class="field">
+    <div class="field" x-data="{ personQuery: '' }">
       <label>Who was this with? (tag anyone — it'll appear on all of their profiles)</label>
+      <input type="text" x-model="personQuery" placeholder="🔎 Search people to filter the list below..." class="mb-1">
       <div id="people-checkboxes" class="pill-row" style="margin-bottom:.5rem;">
         {% for p in people %}
-          <label class="tag" style="cursor:pointer; background: var(--accent-soft);">
+          <label class="tag" data-name="{{ p.name|lower }}" style="cursor:pointer; background: var(--accent-soft);"
+            x-show="!personQuery || $el.dataset.name.includes(personQuery.toLowerCase())">
             <input type="checkbox" name="person_ids" value="{{ p.id }}" style="width:auto;"
               {{ "checked" if (entry and p in entry.people) or (preselect_person_id and p.id == preselect_person_id) else "" }}>
             {{ p.name }}

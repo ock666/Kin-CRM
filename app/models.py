@@ -104,6 +104,9 @@ class Person(Base):
     notes = Column(Text, nullable=True)  # free-form persistent notes / AI summary lives here too
     ai_summary = Column(Text, nullable=True)
 
+    occupation = Column(String(255), nullable=True)
+    hobbies = Column(Text, nullable=True)  # comma-separated free text, e.g. "climbing, baking"
+
     avatar_url = Column(String(500), nullable=True)  # local upload path or immich proxy url
 
     # Immich linkage
@@ -129,11 +132,71 @@ class Person(Base):
     notable_dates = relationship("NotableDate", back_populates="person", cascade="all, delete-orphan")
     instagram_posts = relationship("InstagramPost", back_populates="person", cascade="all, delete-orphan")
     birthday_drafts = relationship("BirthdayMessageDraft", back_populates="person", cascade="all, delete-orphan")
+    scratchpad_items = relationship(
+        "ScratchpadItem", back_populates="person", cascade="all, delete-orphan",
+        order_by="ScratchpadItem.created_at"
+    )
+    notable_people_refs = relationship(
+        "NotablePersonRef", back_populates="person", cascade="all, delete-orphan"
+    )
+    gift_ideas = relationship(
+        "GiftIdea", back_populates="person", cascade="all, delete-orphan",
+        order_by="GiftIdea.created_at.desc()"
+    )
 
     journal_entries = relationship(
         "JournalEntry", secondary=journal_entry_people, back_populates="people",
         order_by="JournalEntry.entry_date.desc()"
     )
+
+
+class ScratchpadItem(Base):
+    """Fleeting 'bring up next time' reminders - e.g. "ask how her vet visit went".
+    Implemented as its own table (rather than a JSON column on Person) so items can be
+    added/removed individually without juggling array indices."""
+    __tablename__ = "scratchpad_items"
+
+    id = Column(Integer, primary_key=True)
+    person_id = Column(Integer, ForeignKey("people.id", ondelete="CASCADE"), nullable=False)
+    text = Column(String(500), nullable=False)
+    created_at = Column(DateTime, default=utcnow)
+
+    person = relationship("Person", back_populates="scratchpad_items")
+
+
+class NotablePersonRef(Base):
+    """A lightweight reference to someone in a person's life who doesn't need (or have) their
+    own full CRM profile or Immich link - e.g. {"name": "Sarah", "relation": "Mum"}."""
+    __tablename__ = "notable_person_refs"
+
+    id = Column(Integer, primary_key=True)
+    person_id = Column(Integer, ForeignKey("people.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String(255), nullable=False)
+    relation = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+
+    person = relationship("Person", back_populates="notable_people_refs")
+
+
+class GiftStatus(str, enum.Enum):
+    suggested = "suggested"
+    given = "given"
+    dismissed = "dismissed"
+
+
+class GiftIdea(Base):
+    """AI-suggested (or manually noted) gift ideas for a person, tracked over time so future
+    suggestions can avoid repeating something already given."""
+    __tablename__ = "gift_ideas"
+
+    id = Column(Integer, primary_key=True)
+    person_id = Column(Integer, ForeignKey("people.id", ondelete="CASCADE"), nullable=False)
+    year = Column(Integer, nullable=True)
+    description = Column(Text, nullable=False)
+    status = Column(Enum(GiftStatus), default=GiftStatus.suggested)
+    created_at = Column(DateTime, default=utcnow)
+
+    person = relationship("Person", back_populates="gift_ideas")
 
 
 class NotableDate(Base):

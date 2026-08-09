@@ -3,9 +3,9 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from ..models import Person, BirthdayMessageDraft, ReviewStatus
+from ..models import Person, BirthdayMessageDraft, GiftIdea, GiftStatus, ReviewStatus
 from ..settings_store import get_setting
-from .ai_client import get_client_from_settings, AIError
+from .ai_client import get_client_from_settings, build_person_context, AIError
 
 logger = logging.getLogger(__name__)
 
@@ -62,12 +62,11 @@ def generate_birthday_drafts(db: Session) -> int:
         if existing:
             continue
 
+        context = build_person_context(person)
         text = None
         if ai:
             try:
-                text = ai.draft_birthday_message(
-                    person.name, person.relationship_label or "", person.notes or person.ai_summary or ""
-                )
+                text = ai.draft_birthday_message(person.name, person.relationship_label or "", context)
             except AIError as e:
                 logger.info("AI birthday draft failed for %s: %s", person.name, e)
 
@@ -82,6 +81,24 @@ def generate_birthday_drafts(db: Session) -> int:
         )
         db.add(draft)
         created += 1
+
+        # Gift suggestion (<$40) alongside the birthday draft - only when AI is configured,
+        # since there's no sensible non-AI fallback for a *specific* gift idea. Always lands as
+        # a pending suggestion for review, never auto-bought/sent, and avoids repeating anything
+        # already suggested/given to this person before.
+        if ai:
+            existing_gift = db.query(GiftIdea).filter_by(person_id=person.id, year=target_year).first()
+            if not existing_gift:
+                previous = [g.description for g in person.gift_ideas]
+                try:
+                    gift_text = ai.suggest_gift(person.name, context, previous)
+                    if gift_text:
+                        db.add(GiftIdea(
+                            person_id=person.id, year=target_year, description=gift_text,
+                            status=GiftStatus.suggested,
+                        ))
+                except AIError as e:
+                    logger.info("AI gift suggestion failed for %s: %s", person.name, e)
 
     db.commit()
     return created

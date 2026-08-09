@@ -3,10 +3,12 @@
 {% elif not immich_people %}
   <p class="text-muted text-sm">No faces found in Immich yet.</p>
 {% else %}
-  <form method="post" action="/people/{{ person_id }}/link-immich">
+  <form method="post" action="/people/{{ person_id }}/link-immich" x-data="{ faceQuery: '' }">
+    <input type="text" x-model="faceQuery" placeholder="🔎 Search faces by name..." class="mb-1">
     <div class="grid grid-cols-3" style="max-height: 340px; overflow-y:auto;">
       {% for p in immich_people %}
-        <label class="card" style="cursor:pointer; padding:.6rem; display:flex; align-items:center; gap:.5rem;">
+        <label class="card" data-name="{{ (p.name or '')|lower }}" style="cursor:pointer; padding:.6rem; display:flex; align-items:center; gap:.5rem;"
+          x-show="!faceQuery || $el.dataset.name.includes(faceQuery.toLowerCase())">
           <input type="radio" name="immich_person_id" value="{{ p.id }}" style="width:auto;" required>
           <div class="avatar avatar-sm"><img src="/immich/person/{{ p.id }}/thumbnail" alt=""></div>
           <span class="text-sm">{{ p.name or "(unnamed)" }}</span>

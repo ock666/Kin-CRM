@@ -11,7 +11,9 @@
       </div>
       <div class="field">
         <label for="nickname">Nickname</label>
-        <input type="text" id="nickname" name="nickname" value="{{ person.nickname if person else '' }}">
+        <input type="text" id="nickname" name="nickname"
+               value="{{ '' if person and person.nickname == person.name else (person.nickname if person else '') }}"
+               placeholder="Defaults to name if left blank">
       </div>
     </div>
     <div class="field-row">
@@ -62,6 +64,17 @@
       <div class="field">
         <label for="email">Email</label>
         <input type="email" id="email" name="email" value="{{ person.email if person else '' }}">
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="occupation">Occupation</label>
+        <input type="text" id="occupation" name="occupation" value="{{ person.occupation if person else '' }}" placeholder="e.g. nurse, teacher">
+      </div>
+      <div class="field">
+        <label for="hobbies">Hobbies / interests</label>
+        <input type="text" id="hobbies" name="hobbies" value="{{ person.hobbies if person else '' }}" placeholder="comma-separated, e.g. climbing, baking, D&D">
       </div>
     </div>
 

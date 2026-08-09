@@ -14,6 +14,7 @@
     <p class="text-muted text-sm">Nothing pending. Drafts appear automatically as birthdays get close.</p>
   {% endif %}
   {% for d in bday_drafts %}
+    {% set gift = gifts_by_key.get((d.person_id, d.year)) %}
     <div class="card mt-1">
       <div class="flex-between mb-1">
         <strong>{{ d.person.name }}</strong>
@@ -27,9 +28,20 @@
           <button class="btn btn-sm btn-danger" type="submit" formaction="/reviews/birthday/{{ d.id }}/dismiss">Dismiss</button>
         </div>
       </form>
+      {% if gift %}
+      <div class="notice notice-info mt-1 mb-0">
+        <strong>🎁 Gift idea (&lt;$40):</strong> {{ gift.description }}
+        <div class="flex-gap mt-1">
+          <form method="post" action="/reviews/gift/{{ gift.id }}/given"><button class="btn btn-sm" type="submit">✓ Got it / gave it</button></form>
+          <form method="post" action="/reviews/gift/{{ gift.id }}/regenerate"><button class="btn btn-sm" type="submit">✨ Suggest something else</button></form>
+          <form method="post" action="/reviews/gift/{{ gift.id }}/dismiss"><button class="btn btn-sm" type="submit">Dismiss</button></form>
+        </div>
+      </div>
+      {% endif %}
     </div>
   {% endfor %}
   {% for d in approved_bday %}
+    {% set gift = gifts_by_key.get((d.person_id, d.year)) %}
     <div class="card mt-1" style="border-color: var(--success);">
       <div class="flex-between mb-1">
         <strong>{{ d.person.name }}</strong>
@@ -37,6 +49,15 @@
       </div>
       <p class="text-sm">{{ d.draft_text }}</p>
       <form method="post" action="/reviews/birthday/{{ d.id }}/sent"><button class="btn btn-sm" type="submit">✓ I sent this</button></form>
+      {% if gift %}
+      <div class="notice notice-info mt-1 mb-0">
+        <strong>🎁 Gift idea (&lt;$40):</strong> {{ gift.description }}
+        <div class="flex-gap mt-1">
+          <form method="post" action="/reviews/gift/{{ gift.id }}/given"><button class="btn btn-sm" type="submit">✓ Got it / gave it</button></form>
+          <form method="post" action="/reviews/gift/{{ gift.id }}/dismiss"><button class="btn btn-sm" type="submit">Dismiss</button></form>
+        </div>
+      </div>
+      {% endif %}
     </div>
   {% endfor %}
 </div>
