@@ -13,7 +13,10 @@
         {{ person.relationship_label or "" }}{% if person.pronouns %} · {{ person.pronouns }}{% endif %}
         {% if person.archived %} · <span class="tag" style="background:var(--warn-soft); color:var(--warn);">Archived</span>{% endif %}
       </p>
-      <div class="pill-row">
+      <span class="tag" title="Friend rank: based on how much you've logged and filled in for them">
+        {{ rank.emoji }} {{ rank.tier }} · {{ rank.score }}/100
+      </span>
+      <div class="pill-row mt-1">
         {% for t in person.tags %}
           <form method="post" action="/people/{{ person.id }}/tags/{{ t.id }}/remove" style="display:inline;">
             <button class="tag" type="submit" title="Remove tag" style="border:none; cursor:pointer;">{{ t.name }} ✕</button>
@@ -31,6 +34,9 @@
       <form method="post" action="/people/{{ person.id }}/archive"><button class="btn btn-sm" type="submit">{{ "Unarchive" if person.archived else "Archive" }}</button></form>
     </div>
   </div>
+  {% if rank.gaps %}
+  <p class="help-text mt-1 mb-0">💡 To strengthen this profile: {{ rank.gaps|join(', ') }}.</p>
+  {% endif %}
 </div>
 
 <div class="card mt-2">

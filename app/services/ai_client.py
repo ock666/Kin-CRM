@@ -125,7 +125,10 @@ class AIClient:
 
 def build_person_context(person) -> str:
     """Assemble a compact free-text context blurb about a person for AI prompts, combining
-    whatever profile fields exist (occupation, hobbies, notable people, notes, prior AI summary).
+    whatever profile fields exist (occupation, hobbies, notable people, notes, prior AI summary,
+    and friend-rank "gaps" - what's missing from their profile, so AI features can proactively
+    suggest what to ask about/fill in next, which is the whole point for someone who finds it
+    hard to know what to ask people about).
     Duck-typed - works with any object exposing these attributes, no model import needed."""
     parts = []
     if getattr(person, "occupation", None):
@@ -140,6 +143,15 @@ def build_person_context(person) -> str:
         parts.append(f"Notes: {person.notes}")
     if getattr(person, "ai_summary", None):
         parts.append(f"Summary so far: {person.ai_summary}")
+
+    try:
+        from .friend_rank import compute_friend_rank
+        gaps = compute_friend_rank(person).get("gaps")
+        if gaps:
+            parts.append(f"Not yet known about them (consider asking, if relevant): {', '.join(gaps)}")
+    except Exception:
+        pass  # friend-rank context is a nice-to-have, never let it break AI features
+
     return "\n".join(parts)
 
 

@@ -9,7 +9,7 @@ from ..database import get_db
 from ..deps import current_user
 from ..models import Person, Tag, NotableDate, ScratchpadItem, NotablePersonRef
 from ..render import render
-from ..services import gamification
+from ..services import friend_rank, gamification
 from ..settings_store import get_setting
 
 router = APIRouter()
@@ -36,8 +36,10 @@ def people_list(request: Request, db: Session = Depends(get_db), user=Depends(cu
     if tag:
         people = [p for p in people if any(t.name == tag for t in p.tags)]
     all_tags = db.query(Tag).order_by(Tag.name).all()
+    ranks = {p.id: friend_rank.compute_friend_rank(p) for p in people}
     return render(request, "people_list.html", db=db, user=user, active="people",
-                  people=people, all_tags=all_tags, q=q, active_tag=tag, show_archived=show_archived)
+                  people=people, all_tags=all_tags, q=q, active_tag=tag, show_archived=show_archived,
+                  ranks=ranks)
 
 
 @router.get("/people/new")
@@ -88,8 +90,9 @@ def person_detail(person_id: int, request: Request, db: Session = Depends(get_db
     if not person:
         return RedirectResponse("/people")
     entries = person.journal_entries
+    rank = friend_rank.compute_friend_rank(person)
     return render(request, "person_detail.html", db=db, user=user, active="people",
-                  person=person, entries=entries, today=dt.date.today())
+                  person=person, entries=entries, today=dt.date.today(), rank=rank)
 
 
 @router.get("/people/{person_id}/edit")
@@ -213,13 +216,14 @@ def delete_notable_date(nd_id: int, db: Session = Depends(get_db), user=Depends(
 
 
 @router.post("/people/{person_id}/link-immich")
-def link_immich(person_id: int, db: Session = Depends(get_db), user=Depends(current_user),
+def link_immich(person_id: int, request: Request, db: Session = Depends(get_db), user=Depends(current_user),
                  immich_person_id: str = Form(...)):
     person = db.get(Person, person_id)
     if person:
         person.immich_person_id = immich_person_id
         person.avatar_url = f"/immich/person/{immich_person_id}/thumbnail"
         db.commit()
+        gamification.check_only(request, db)
     return RedirectResponse(f"/people/{person_id}", status_code=303)
 
 
@@ -234,33 +238,36 @@ def unlink_immich(person_id: int, db: Session = Depends(get_db), user=Depends(cu
 
 
 @router.post("/people/{person_id}/scratchpad")
-def add_scratchpad_item(person_id: int, db: Session = Depends(get_db), user=Depends(current_user),
+def add_scratchpad_item(person_id: int, request: Request, db: Session = Depends(get_db), user=Depends(current_user),
                          text: str = Form(...)):
     text = text.strip()
     if text:
         db.add(ScratchpadItem(person_id=person_id, text=text))
         db.commit()
+        gamification.check_only(request, db)
     return RedirectResponse(f"/people/{person_id}", status_code=303)
 
 
 @router.post("/scratchpad/{item_id}/delete")
-def delete_scratchpad_item(item_id: int, db: Session = Depends(get_db), user=Depends(current_user)):
+def delete_scratchpad_item(item_id: int, request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
     item = db.get(ScratchpadItem, item_id)
     if item:
         person_id = item.person_id
         db.delete(item)
         db.commit()
+        gamification.check_only(request, db, context={"scratchpad_cleared": True})
         return RedirectResponse(f"/people/{person_id}", status_code=303)
     return RedirectResponse("/people", status_code=303)
 
 
 @router.post("/people/{person_id}/notable-people")
-def add_notable_person(person_id: int, db: Session = Depends(get_db), user=Depends(current_user),
+def add_notable_person(person_id: int, request: Request, db: Session = Depends(get_db), user=Depends(current_user),
                         name: str = Form(...), relation: str = Form("")):
     name = name.strip()
     if name:
         db.add(NotablePersonRef(person_id=person_id, name=name, relation=relation.strip() or None))
         db.commit()
+        gamification.check_only(request, db)
     return RedirectResponse(f"/people/{person_id}", status_code=303)
 
 

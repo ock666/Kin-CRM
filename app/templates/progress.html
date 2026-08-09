@@ -16,7 +16,7 @@
 </div>
 
 <div class="card mt-2">
-  <h2>Achievements</h2>
+  <h2 class="mb-1">Achievements <span class="text-muted text-sm">({{ progress.unlocked_count }} / {{ progress.total_count }} unlocked)</span></h2>
   <div class="grid grid-cols-2">
     {% for a in progress.achievements %}
       <div class="card" style="{{ '' if a.unlocked else 'opacity:.45;' }}">

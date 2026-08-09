@@ -30,10 +30,10 @@
 <div class="grid grid-people">
   {% for person in people %}
     <a class="person-card" href="/people/{{ person.id }}">
-      <div class="avatar avatar-lg">
+      <div class="avatar avatar-lg" style="position:relative;">
         {% if person.avatar_url %}<img src="{{ person.avatar_url }}" alt="">{% else %}{{ person.name|initials }}{% endif %}
       </div>
-      <div class="name">{{ person.nickname or person.name }}</div>
+      <div class="name">{{ person.nickname or person.name }} <span title="Friend rank">{{ ranks[person.id].emoji }}</span></div>
       {% if person.relationship_label %}<div class="sub">{{ person.relationship_label }}</div>{% endif %}
       {% if person.tags %}
       <div class="pill-row" style="justify-content:center;">

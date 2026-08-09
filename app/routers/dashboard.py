@@ -53,6 +53,9 @@ def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(curr
     except ImmichError as e:
         memories_error = str(e)
 
+    if memories:
+        gamification.check_only(request, db, context={"viewed_on_this_day": True})
+
     return render(
         request, "dashboard.html", db=db, user=user, active="dashboard",
         upcoming_birthdays=upcoming_birthdays,
@@ -92,5 +95,7 @@ def mark_contacted(person_id: int, request: Request, db: Session = Depends(get_d
         person.checkin_snoozed_until = None
         db.commit()
         if was_overdue:
-            gamification.award_and_flash(request, db, "OVERDUE_CHECKIN")
+            all_cleared = len(checkin_service.overdue_people(db)) == 0
+            gamification.award_and_flash(request, db, "OVERDUE_CHECKIN",
+                                          context={"all_overdue_cleared": all_cleared})
     return RedirectResponse("/", status_code=303)
