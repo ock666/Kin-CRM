@@ -23,12 +23,23 @@ def _pending_review_count(db: Session | None) -> int:
 
 
 def render(request: Request, template: str, db: Session = None, user=None, active: str = "", **ctx):
+    # One-shot "flash" notice for gamification level-ups/badge unlocks (see
+    # app/services/gamification.py) - popped from the session so it only ever displays once,
+    # right after the redirect that triggered it.
+    try:
+        gamification_flash = request.session.pop("gamification_flash", None)
+    except AssertionError:
+        # SessionMiddleware not present on this request scope (shouldn't happen in practice,
+        # but fail quietly rather than breaking the page render over a toast notice).
+        gamification_flash = None
+
     context = {
         "request": request,
         "app_name": settings.APP_NAME,
         "user": user,
         "active": active,
         "pending_review_count": _pending_review_count(db),
+        "gamification_flash": gamification_flash,
         **ctx,
     }
     return templates.TemplateResponse(request, template, context)

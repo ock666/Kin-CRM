@@ -62,6 +62,21 @@
 </div>
 
 <div class="card">
+  <div class="flex-between mb-1">
+    <h2 class="mb-0">🏆 Your progress</h2>
+    <a class="btn btn-sm" href="/progress">View all achievements</a>
+  </div>
+  <div class="flex-between">
+    <span class="text-sm"><strong>Level {{ progress.stats.current_level }}</strong> · {{ progress.stats.total_xp }} XP</span>
+    <span class="text-sm text-muted">{{ progress.stats.streak_days }} day streak 🔥</span>
+  </div>
+  <div style="background: var(--accent-soft); border-radius: 999px; height: 10px; overflow: hidden; margin-top:.4rem;">
+    <div style="background: var(--accent); height: 100%; width: {{ progress.progress_pct }}%;"></div>
+  </div>
+  <p class="help-text mt-1 mb-0">{{ progress.next_level_threshold - progress.stats.total_xp }} XP to level {{ progress.stats.current_level + 1 }}</p>
+</div>
+
+<div class="card">
   <h2>📸 On this day</h2>
   {% if memories_error %}
     <p class="text-muted text-sm">Connect Immich in <a href="/settings">Settings</a> to see photo memories here. ({{ memories_error }})</p>

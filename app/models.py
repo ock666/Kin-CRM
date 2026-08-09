@@ -311,3 +311,27 @@ class Setting(Base):
 
     key = Column(String(100), primary_key=True)
     value = Column(Text, nullable=True)
+
+
+# ---------------------------------------------------------------------------
+# Gamification (v1.2) - a shared/household-wide progression state (singleton row,
+# id fixed at 1) rather than per-login-user, matching this app's shared-workspace model.
+# All logic lives in app/services/gamification.py - pure Python, zero AI calls at runtime.
+# ---------------------------------------------------------------------------
+
+class UserStats(Base):
+    __tablename__ = "user_stats"
+
+    id = Column(Integer, primary_key=True, default=1)
+    total_xp = Column(Integer, default=0, nullable=False)
+    current_level = Column(Integer, default=1, nullable=False)
+    streak_days = Column(Integer, default=0, nullable=False)
+    last_active_date = Column(String(10), nullable=True)  # "YYYY-MM-DD"
+
+
+class UnlockedAchievement(Base):
+    __tablename__ = "unlocked_achievements"
+
+    id = Column(Integer, primary_key=True)
+    slug = Column(String(100), unique=True, nullable=False, index=True)
+    unlocked_at = Column(DateTime, default=utcnow)

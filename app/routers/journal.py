@@ -10,6 +10,7 @@ from ..deps import current_user
 from ..models import JournalEntry, JournalImage, Person, EventType, EnergyCost, Tag, NotableDate
 from ..render import render
 from ..services import checkins as checkin_service
+from ..services import gamification
 from ..services.ai_client import get_client_from_settings as ai_from_settings, AIError
 
 router = APIRouter()
@@ -70,6 +71,29 @@ def journal_create(
         db.add(JournalImage(journal_entry_id=entry.id, immich_asset_id=asset_id))
 
     db.commit()
+
+    # Gamification hook (pure Python, no AI calls) - reward logging a note, plus a bigger
+    # bonus if a photo was attached. Never blocks/slows the actual save above. Context carries
+    # a few event-specific details a handful of achievement checks need (see gamification.py).
+    events = ["NOTE_ADDED"]
+    if immich_asset_ids:
+        events.append("PHOTO_ATTACHED")
+
+    entry_created_at = entry.created_at or dt.datetime.utcnow()
+    years_back = entry_created_at.date().year - entry.entry_date.year
+    matches_birthday = any(
+        p.birthday_month == entry.entry_date.month and p.birthday_day == entry.entry_date.day
+        for p in entry.people
+    )
+    context = {
+        "entry_people_count": len(entry.people),
+        "entry_word_count": len(entry.body.split()),
+        "entry_hour": entry_created_at.hour,
+        "entry_matches_birthday": matches_birthday,
+        "entry_years_back": years_back,
+        "entry_is_new_year": (entry.entry_date.month, entry.entry_date.day) in {(12, 31), (1, 1)},
+    }
+    gamification.award_and_flash(request, db, *events, context=context)
 
     # AI-assisted profile building: extract structured suggestions for human review.
     # Never applied automatically - see /journal/{id}/suggestions.
