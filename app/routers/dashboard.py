@@ -47,7 +47,7 @@ def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(curr
     memories_error = None
     try:
         client = immich_from_settings(db)
-        memories = client.on_this_day()
+        memories = client.on_this_day_with_fallback()
     except ImmichError as e:
         memories_error = str(e)
 

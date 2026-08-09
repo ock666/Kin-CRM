@@ -16,6 +16,24 @@ class ImmichError(Exception):
     pass
 
 
+def _parse_asset_datetime(asset: dict) -> Optional[dt.datetime]:
+    """Prefer `localDateTime` (Immich's own timezone-adjusted local capture time) over
+    `fileCreatedAt` (which may be in UTC) so day/month comparisons reflect when the photo was
+    actually taken locally, not clipped by a UTC boundary."""
+    raw = asset.get("localDateTime") or asset.get("fileCreatedAt")
+    if not raw:
+        return None
+    try:
+        return dt.datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _asset_local_year(asset: dict) -> Optional[int]:
+    parsed = _parse_asset_datetime(asset)
+    return parsed.year if parsed else None
+
+
 class ImmichClient:
     def __init__(self, base_url: str, api_key: str, timeout: float = 15.0):
         if not base_url:
@@ -104,7 +122,13 @@ class ImmichClient:
         return data.get("assets", {}).get("items", [])
 
     def on_this_day(self) -> list[dict]:
-        """Immich's built-in memories endpoint - always relative to *today*."""
+        """Immich's built-in memories endpoint - always relative to *today*.
+
+        Note: this only returns results if Immich's own "Generate Memories" background job has
+        already run for today's date and didn't filter out the assets for its own reasons - it's
+        a pre-compiled collection, not a live search. See `on_this_day_with_fallback()` for a
+        more reliable path that also works when this returns nothing.
+        """
         try:
             data = self._get("/memories", params={"type": "on_this_day"})
         except ImmichError:
@@ -113,21 +137,53 @@ class ImmichClient:
             return data
         return []
 
+    def on_this_day_with_fallback(self, years_back: int = 15) -> list[dict]:
+        """Prefer Immich's native pre-compiled memories; if that's empty (e.g. the background
+        job hasn't run, or it filtered out older/untagged assets), fall back to directly
+        searching year-by-year and group the results into the same shape the native endpoint
+        returns (`[{"data": {"year": N}, "assets": [...]}, ...]`) so callers don't need to care
+        which path was used."""
+        native = self.on_this_day()
+        if native:
+            return native
+
+        today = dt.date.today()
+        assets = self.assets_on_date_across_years(today.month, today.day, years_back=years_back)
+        by_year: dict[int, list[dict]] = {}
+        for asset in assets:
+            year = _asset_local_year(asset)
+            if year is None:
+                continue
+            by_year.setdefault(year, []).append(asset)
+
+        return [
+            {"data": {"year": year}, "assets": by_year[year]}
+            for year in sorted(by_year.keys(), reverse=True)
+        ]
+
     def assets_on_date_across_years(self, month: int, day: int, years_back: int = 15,
                                      person_id: Optional[str] = None) -> list[dict]:
-        """Browse "what happened on this date" for any arbitrary day (not just today),
-        looping year by year since Immich's memories API only covers 'today'."""
+        """Browse "what happened on this date" for any arbitrary day across past years.
+
+        Immich stores asset timestamps in UTC, so a naive same-UTC-day query window can silently
+        clip photos taken in the early morning or late evening in the photographer's local
+        timezone (e.g. a 9am local photo taken in a UTC-8 timezone is stored as 5pm UTC the
+        *previous* day). To avoid that, we pad the query window by 24h on each side and then
+        filter precisely in Python using the asset's `localDateTime` field (Immich's own
+        timezone-adjusted local capture time), falling back to `fileCreatedAt` if that's missing.
+        """
         results = []
         this_year = dt.date.today().year
         for y in range(this_year - years_back, this_year + 1):
             try:
-                start = dt.date(y, month, day)
+                target = dt.date(y, month, day)
             except ValueError:
                 continue  # e.g. Feb 29 on non-leap years
-            end = start + dt.timedelta(days=1)
+            window_start = dt.datetime.combine(target, dt.time.min) - dt.timedelta(hours=24)
+            window_end = dt.datetime.combine(target, dt.time.min) + dt.timedelta(hours=48)
             body = {
-                "takenAfter": f"{start.isoformat()}T00:00:00.000Z",
-                "takenBefore": f"{end.isoformat()}T00:00:00.000Z",
+                "takenAfter": window_start.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+                "takenBefore": window_end.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
                 "size": 200,
             }
             if person_id:
@@ -135,9 +191,12 @@ class ImmichClient:
             try:
                 data = self._post("/search/metadata", json=body)
                 items = data.get("assets", {}).get("items", [])
-                results.extend(items)
             except ImmichError:
                 continue
+            for asset in items:
+                local_dt = _parse_asset_datetime(asset)
+                if local_dt and local_dt.month == month and local_dt.day == day:
+                    results.append(asset)
         return results
 
     def thumbnail_url(self, asset_id: str) -> str:
