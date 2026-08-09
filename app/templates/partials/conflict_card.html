@@ -1,0 +1,85 @@
+<div class="card mt-1" style="border-color: var(--warn);">
+  {% if conflict.ai_suggested_prompt %}
+  <div class="notice notice-info mb-1">
+    🤖 {{ conflict.ai_suggested_prompt }}
+    <div class="flex-gap mt-1">
+      <form method="post" action="/conflicts/{{ conflict.id }}/resolve"><button class="btn btn-sm btn-primary" type="submit">Yes, Mark Resolved</button></form>
+      <form method="post" action="/conflicts/{{ conflict.id }}/dismiss-ai-suggestion"><button class="btn btn-sm" type="submit">Still Working on It</button></form>
+    </div>
+  </div>
+  {% endif %}
+
+  <p class="text-sm text-muted mb-1">Logged {{ conflict.created_at.strftime('%Y-%m-%d') }}</p>
+  <p class="text-sm mb-2">{{ conflict.summary }}</p>
+
+  <details class="mb-2">
+    <summary style="cursor:pointer; font-weight:600;">🌱 RSD Grounding Check <span class="text-muted text-sm">(optional)</span></summary>
+    <div class="mt-1 text-sm">
+      <p class="mb-1"><strong>What is the actual factual thing that happened?</strong><br>
+      <span class="text-muted">Just the observable facts — no interpretation.</span></p>
+      <p class="mb-0"><strong>What is the story my anxiety is telling me about what it means?</strong><br>
+      <span class="text-muted">Notice the gap between the two — they're often different things.</span></p>
+    </div>
+  </details>
+
+  <div x-data="{ path: null }">
+    <p class="text-sm mb-1" style="font-weight:600;">Exploring next steps — no pressure, whatever fits right now:</p>
+    <div class="pill-row mb-2">
+      <button class="btn btn-sm" type="button" @click="path = (path === 'A' ? null : 'A')" :class="path === 'A' ? 'btn-primary' : ''">A. Approach &amp; Repair</button>
+      <button class="btn btn-sm" type="button" @click="path = (path === 'B' ? null : 'B')" :class="path === 'B' ? 'btn-primary' : ''">B. Give Space &amp; Wait</button>
+      <button class="btn btn-sm" type="button" @click="path = (path === 'C' ? null : 'C')" :class="path === 'C' ? 'btn-primary' : ''">C. Set a Gentle Boundary</button>
+      <button class="btn btn-sm" type="button" @click="path = (path === 'D' ? null : 'D')" :class="path === 'D' ? 'btn-primary' : ''">D. Let It Go</button>
+    </div>
+
+    <div x-show="path === 'A'" class="card mb-1" style="background: var(--bg-alt);">
+      <p class="text-sm text-muted mb-1">When calm, but wanting clarity. Copy whichever fits:</p>
+      <div class="flex-gap mb-1" style="align-items:flex-start;">
+        <p class="text-sm mb-0" style="flex:1;">"Hey! I've been thinking about our chat the other day—I value our friendship and want to make sure we're good!"</p>
+        <button class="btn btn-sm" type="button"
+          data-script="Hey! I've been thinking about our chat the other day&#8212;I value our friendship and want to make sure we're good!"
+          onclick="navigator.clipboard.writeText(this.dataset.script); this.textContent='Copied ✓'; setTimeout(() => this.textContent='📋 Copy', 2000)">📋 Copy</button>
+      </div>
+      <div class="flex-gap" style="align-items:flex-start;">
+        <p class="text-sm mb-0" style="flex:1;">"Hey, I felt a little off after we hung out earlier. Would love to clear the air whenever you have bandwidth!"</p>
+        <button class="btn btn-sm" type="button"
+          data-script="Hey, I felt a little off after we hung out earlier. Would love to clear the air whenever you have bandwidth!"
+          onclick="navigator.clipboard.writeText(this.dataset.script); this.textContent='Copied ✓'; setTimeout(() => this.textContent='📋 Copy', 2000)">📋 Copy</button>
+      </div>
+    </div>
+
+    <div x-show="path === 'B'" class="card mb-1" style="background: var(--bg-alt);">
+      <span class="tag" style="background: var(--success-soft); color: var(--success);">
+        No immediate action required. Letting your nervous system settle is productive relational work.
+      </span>
+    </div>
+
+    <div x-show="path === 'C'" class="card mb-1" style="background: var(--bg-alt);">
+      <p class="text-sm text-muted mb-1">When low bandwidth or overextended. Copy this:</p>
+      <div class="flex-gap" style="align-items:flex-start;">
+        <p class="text-sm mb-0" style="flex:1;">"I'm a bit low on energy/bandwidth this week, but let's catch up properly once my battery resets."</p>
+        <button class="btn btn-sm" type="button"
+          data-script="I'm a bit low on energy/bandwidth this week, but let's catch up properly once my battery resets."
+          onclick="navigator.clipboard.writeText(this.dataset.script); this.textContent='Copied ✓'; setTimeout(() => this.textContent='📋 Copy', 2000)">📋 Copy</button>
+      </div>
+    </div>
+
+    <div x-show="path === 'D'" class="card mb-1" style="background: var(--bg-alt);">
+      <p class="text-sm text-muted mb-1">Doing nothing is a completely valid outcome — not a failure to act.</p>
+      <form method="post" action="/conflicts/{{ conflict.id }}/release">
+        <button class="btn btn-primary" type="submit">Letting This Go</button>
+      </form>
+    </div>
+  </div>
+
+  <details class="mt-2">
+    <summary class="text-sm" style="cursor:pointer;">Or mark this resolved directly</summary>
+    <form method="post" action="/conflicts/{{ conflict.id }}/resolve" class="mt-1">
+      <textarea name="resolution_notes" rows="2" placeholder="Optional notes about how it resolved..."></textarea>
+      <button class="btn btn-sm btn-primary mt-1" type="submit">✓ Mark resolved</button>
+    </form>
+  </details>
+
+  <form method="post" action="/conflicts/{{ conflict.id }}/delete" class="mt-1" onsubmit="return confirm('Delete this conflict log entirely?');">
+    <button class="btn btn-sm btn-danger" type="submit">Delete log</button>
+  </form>
+</div>

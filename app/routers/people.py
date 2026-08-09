@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..deps import current_user
-from ..models import Person, Tag, NotableDate, ScratchpadItem, NotablePersonRef
+from ..models import Person, Tag, NotableDate, ScratchpadItem, NotablePersonRef, ConflictStatus
 from ..render import render
 from ..services import friend_rank, gamification
 from ..settings_store import get_setting
@@ -91,8 +91,10 @@ def person_detail(person_id: int, request: Request, db: Session = Depends(get_db
         return RedirectResponse("/people")
     entries = person.journal_entries
     rank = friend_rank.compute_friend_rank(person)
+    open_conflicts = [c for c in person.conflict_logs if c.status == ConflictStatus.unresolved]
     return render(request, "person_detail.html", db=db, user=user, active="people",
-                  person=person, entries=entries, today=dt.date.today(), rank=rank)
+                  person=person, entries=entries, today=dt.date.today(), rank=rank,
+                  open_conflicts=open_conflicts)
 
 
 @router.get("/people/{person_id}/edit")

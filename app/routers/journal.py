@@ -10,6 +10,7 @@ from ..deps import current_user
 from ..models import JournalEntry, JournalImage, Person, EventType, EnergyCost, Tag, NotableDate
 from ..render import render
 from ..services import checkins as checkin_service
+from ..services import conflict_resolution
 from ..services import gamification
 from ..services.ai_client import get_client_from_settings as ai_from_settings, AIError
 
@@ -97,6 +98,7 @@ def journal_create(
 
     # AI-assisted profile building: extract structured suggestions for human review.
     # Never applied automatically - see /journal/{id}/suggestions.
+    ai = None
     try:
         ai = ai_from_settings(db)
         if ai and entry.people:
@@ -106,6 +108,14 @@ def journal_create(
                 entry.ai_suggestions_json = json.dumps(suggestions)
                 entry.ai_processed = True
                 db.commit()
+    except AIError:
+        pass
+
+    # Implicit conflict-repair detection - gentle, dismissible suggestion only, never an
+    # auto-resolve. Respects a 48-hour nervous-system buffer (handled inside this call) and only
+    # ever flags a conflict if the AI is both confident (>=0.75) and configured at all.
+    try:
+        conflict_resolution.check_for_implicit_resolution(db, ai, entry)
     except AIError:
         pass
 

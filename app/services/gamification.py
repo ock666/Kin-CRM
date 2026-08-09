@@ -37,6 +37,7 @@ XP_EVENTS = {
     "PROFILE_UPDATED": 30,
     "PHOTO_ATTACHED": 50,
     "OVERDUE_CHECKIN": 100,
+    "CONFLICT_RESOLVED": 50,
 }
 
 # Metadata for display purposes only - kept separate from the pure unlock-condition logic in
@@ -78,6 +79,7 @@ ACHIEVEMENTS: dict[str, tuple[str, str, str, bool]] = {
     "memory_keeper": ("🖼️", "Memory Keeper", "Attached 5+ photos across your journal entries", False),
     "photo_album": ("📚", "Photo Album", "Attached 25+ photos across your journal entries", False),
     "on_this_day": ("🗓️", "On This Day", "Viewed an 'On This Day' Immich memory on the dashboard", False),
+    "peace_maker": ("🕊️", "Peace Maker", "Resolved or mindfully released an interpersonal conflict", False),
     # --- Hidden easter eggs ---
     "night_owl": ("🦉", "Night Owl", "Logged an entry between 1am and 5am", True),
     "birthday_hero": ("🎂", "Birthday Hero", "Logged an entry on someone's actual birthday", True),
@@ -270,6 +272,9 @@ def check_achievements(db: Session, stats: UserStats, event_type: str | None = N
         _unlock("the_revivalist")
         if context.get("all_overdue_cleared"):
             _unlock("no_friend_left_behind")
+
+    if event_type == "CONFLICT_RESOLVED":
+        _unlock("peace_maker")
 
     if context.get("entry_people_count", 0) >= 4:
         _unlock("party_planner")

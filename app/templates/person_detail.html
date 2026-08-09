@@ -56,6 +56,20 @@
   </form>
 </div>
 
+<div class="card mt-2">
+  <h3>🕊️ Working through things</h3>
+  <p class="text-sm text-muted mb-1">A low-pressure space to track something that felt off — no urgency, no "right" answer.</p>
+  {% for conflict in open_conflicts %}
+    {% include "partials/conflict_card.html" %}
+  {% else %}
+    <p class="text-muted text-sm">Nothing unresolved right now.</p>
+  {% endfor %}
+  <form method="post" action="/people/{{ person.id }}/conflicts" class="flex-gap mt-1">
+    <input type="text" name="summary" placeholder="Log something that felt off, if you want to track it...">
+    <button class="btn btn-sm" type="submit">+ Log</button>
+  </form>
+</div>
+
 <div class="grid grid-cols-2 mt-2">
   <div class="card">
     <h3>About</h3>

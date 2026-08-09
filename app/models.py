@@ -143,6 +143,10 @@ class Person(Base):
         "GiftIdea", back_populates="person", cascade="all, delete-orphan",
         order_by="GiftIdea.created_at.desc()"
     )
+    conflict_logs = relationship(
+        "ConflictLog", back_populates="person", cascade="all, delete-orphan",
+        order_by="ConflictLog.created_at.desc()"
+    )
 
     journal_entries = relationship(
         "JournalEntry", secondary=journal_entry_people, back_populates="people",
@@ -335,3 +339,31 @@ class UnlockedAchievement(Base):
     id = Column(Integer, primary_key=True)
     slug = Column(String(100), unique=True, nullable=False, index=True)
     unlocked_at = Column(DateTime, default=utcnow)
+
+
+# ---------------------------------------------------------------------------
+# Conflict resolution / RSD-aware repair tracking (v1.3) - low-demand, never-nagging by design.
+# AI only ever *suggests* a resolution (with a confidence gate) - status changes always require
+# an explicit human click. See app/services/conflict_ai.py for the analysis logic.
+# ---------------------------------------------------------------------------
+
+class ConflictStatus(str, enum.Enum):
+    unresolved = "UNRESOLVED"
+    resolved = "RESOLVED"
+    released = "RELEASED"  # "let it go" - a first-class, equally valid resolution path
+
+
+class ConflictLog(Base):
+    __tablename__ = "conflict_logs"
+
+    id = Column(Integer, primary_key=True)
+    person_id = Column(Integer, ForeignKey("people.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime, default=utcnow)
+    summary = Column(Text, nullable=False)
+    status = Column(Enum(ConflictStatus), default=ConflictStatus.unresolved, nullable=False)
+    resolved_at = Column(DateTime, nullable=True)
+    resolution_notes = Column(Text, nullable=True)
+    ai_suggested_resolution = Column(Boolean, default=False)
+    ai_suggested_prompt = Column(String(500), nullable=True)
+
+    person = relationship("Person", back_populates="conflict_logs")

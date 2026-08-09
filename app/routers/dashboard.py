@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..deps import current_user
-from ..models import Person, NotableDate
+from ..models import Person, NotableDate, ConflictLog, ConflictStatus
 from ..render import render
 from ..services import birthdays as bday_service
 from ..services import checkins as checkin_service
@@ -56,6 +56,16 @@ def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(curr
     if memories:
         gamification.check_only(request, db, context={"viewed_on_this_day": True})
 
+    # Gentle, dismissible AI-suggested conflict resolutions (see services/conflict_resolution.py).
+    # Never auto-resolved - just surfaced here for a one-click confirm or "still working on it".
+    suggested_resolutions = (
+        db.query(ConflictLog)
+        .filter(ConflictLog.status == ConflictStatus.unresolved)
+        .filter(ConflictLog.ai_suggested_resolution.is_(True))
+        .filter(ConflictLog.ai_suggested_prompt.isnot(None))
+        .all()
+    )
+
     return render(
         request, "dashboard.html", db=db, user=user, active="dashboard",
         upcoming_birthdays=upcoming_birthdays,
@@ -65,6 +75,7 @@ def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(curr
         memories_error=memories_error,
         today=today,
         progress=progress,
+        suggested_resolutions=suggested_resolutions,
     )
 
 

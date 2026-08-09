@@ -13,10 +13,24 @@ import re
 from typing import Optional
 
 from openai import OpenAI, APIError, APIConnectionError
+from pydantic import BaseModel
 
 
 class AIError(Exception):
     pass
+
+
+class ConflictResolutionAnalysis(BaseModel):
+    """Structured output for the implicit-conflict-repair analyzer (see
+    AIClient.analyze_conflict_resolution below). AuDHD-safety rule baked into the prompt itself:
+    when in doubt, the model is instructed to return is_resolved=False - the confidence gate in
+    the calling route further requires confidence_score >= 0.75 before a suggestion is even
+    surfaced to the user, and even then it's just a dismissible suggestion, never an auto-action."""
+    is_resolved: bool
+    confidence_score: float  # 0.0 to 1.0
+    resolution_type: str  # "explicit_repair" | "implicit_warmth" | "implicit_normalcy" | "ongoing_friction" | "uncertain"
+    reasoning: str
+    suggested_ui_prompt: Optional[str] = None
 
 
 class AIClient:
@@ -95,6 +109,42 @@ class AIClient:
             f"Previously suggested/given gifts (do not repeat these or close variants):\n{prev}"
         )
         return self._chat(system, user, max_tokens=150, temperature=0.85)
+
+    def analyze_conflict_resolution(self, person_name: str, conflict_summary: str,
+                                     new_entry_text: str) -> ConflictResolutionAnalysis:
+        """Compare a past unresolved conflict against a newly logged interaction to gently detect
+        whether it's been explicitly or implicitly repaired. AuDHD-safety: the prompt instructs
+        the model to never assume repair from surface-level politeness, and to default to
+        is_resolved=False when uncertain - this is a suggestion engine, not a verdict engine."""
+        system = (
+            "You are an empathetic interpersonal dynamics analyzer for an AuDHD-centered CRM. "
+            "Compare a past unresolved conflict against a newly logged interaction to evaluate if "
+            "the conflict has been implicitly or explicitly resolved.\n\n"
+            "RULES:\n"
+            "1. EXPLICIT RESOLUTION: New entry mentions apologizing, talking it through, or "
+            "clearing the air.\n"
+            "2. IMPLICIT RESOLUTION: New entry shows genuine warmth, relaxed hangout vibes, "
+            "laughing, or comfortable contact without referencing the conflict.\n"
+            "3. ONGOING FRICTION / UNCERTAIN: New entry shows coldness, obligation/masking, or "
+            "lacks enough emotional context.\n"
+            "4. AuDHD SAFETY: Never assume repair from surface-level politeness. When in doubt, "
+            "return is_resolved=false.\n\n"
+            "Respond strictly with valid JSON matching this schema:\n"
+            '{"is_resolved": boolean, "confidence_score": float, "resolution_type": string, '
+            '"reasoning": string, "suggested_ui_prompt": "Gentle, non-demanding 1-sentence prompt '
+            'for a UI banner asking if they want to close the conflict (or null if false)."}'
+        )
+        user = (
+            f"Person: {person_name}\n\n"
+            f"Unresolved conflict, logged earlier:\n{conflict_summary}\n\n"
+            f"Newly logged interaction with this person:\n{new_entry_text}"
+        )
+        raw = self._chat(system, user, max_tokens=300, temperature=0.3)
+        data = _safe_json(raw)
+        try:
+            return ConflictResolutionAnalysis(**data)
+        except Exception as e:
+            raise AIError(f"AI returned an unexpected shape for conflict analysis: {e}")
 
     def profile_summary(self, person_name: str, journal_snippets: list[str], context: str = "") -> str:
         system = (

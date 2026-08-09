@@ -27,6 +27,12 @@
     <a class="nav-link" href="/logout">🚪 Log out</a>
   </nav>
   <main class="main">
+    {% if notice_flash %}
+    <div class="notice notice-success" x-data="{ show: true }" x-show="show" x-init="setTimeout(() => show = false, 7000)">
+      {{ notice_flash }}
+      <button type="button" class="btn btn-sm" style="float:right;" @click="show = false">✕</button>
+    </div>
+    {% endif %}
     {% if gamification_flash %}
     <div class="notice notice-success gamification-toast" x-data="{ show: true }" x-show="show"
          x-init="setTimeout(() => show = false, 7000)">
