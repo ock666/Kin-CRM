@@ -10,6 +10,13 @@ from .ai_client import get_client_from_settings, build_person_context, AIError
 logger = logging.getLogger(__name__)
 
 
+def _safe_int(val: str | int | None, fallback: int) -> int:
+    try:
+        return int(val)
+    except (TypeError, ValueError):
+        return fallback
+
+
 def _next_birthday(person: Person, today: dt.date) -> dt.date | None:
     if not person.birthday_month or not person.birthday_day:
         return None
@@ -17,14 +24,18 @@ def _next_birthday(person: Person, today: dt.date) -> dt.date | None:
     try:
         candidate = dt.date(year, person.birthday_month, person.birthday_day)
     except ValueError:
-        candidate = dt.date(year, 3, 1) if person.birthday_month == 2 else None
-        if candidate is None:
+        if person.birthday_month == 2 and person.birthday_day == 29:
+            candidate = dt.date(year, 3, 1)
+        else:
             return None
     if candidate < today:
         try:
             candidate = dt.date(year + 1, person.birthday_month, person.birthday_day)
         except ValueError:
-            return None
+            if person.birthday_month == 2 and person.birthday_day == 29:
+                candidate = dt.date(year + 1, 3, 1)
+            else:
+                return None
     return candidate
 
 
@@ -46,7 +57,7 @@ def generate_birthday_drafts(db: Session) -> int:
     """Create pending BirthdayMessageDraft rows for people whose birthday is coming up
     soon, if one doesn't already exist for this year. Always human-in-the-loop -
     nothing is sent automatically. Returns number of drafts created."""
-    lead_days = int(get_setting(db, "birthday_lead_days", "3") or 3)
+    lead_days = _safe_int(get_setting(db, "birthday_lead_days", "3"), 3)
     today = dt.date.today()
     created = 0
 

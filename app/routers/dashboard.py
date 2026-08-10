@@ -17,25 +17,39 @@ from ..settings_store import get_setting
 router = APIRouter()
 
 
+def _safe_int(val: str | int | None, fallback: int) -> int:
+    try:
+        return int(val)
+    except (TypeError, ValueError):
+        return fallback
+
+
+def _safe_date(year: int, month: int, day: int) -> dt.date | None:
+    try:
+        return dt.date(year, month, day)
+    except ValueError:
+        if month == 2 and day == 29:
+            return dt.date(year, 3, 1)
+        return None
+
+
 @router.get("/")
 def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
     if not user:
         return RedirectResponse("/login")
 
     today = dt.date.today()
-    lead_days = int(get_setting(db, "birthday_lead_days", "3") or 3)
+    lead_days = _safe_int(get_setting(db, "birthday_lead_days", "3"), 3)
     upcoming_birthdays = bday_service.people_with_upcoming_birthdays(db, lead_days)
 
     upcoming_notable = []
     for nd in db.query(NotableDate).all():
-        try:
-            nb = dt.date(today.year, nd.month, nd.day)
-        except ValueError:
+        nb = _safe_date(today.year, nd.month, nd.day)
+        if nb is None:
             continue
         if nb < today:
-            try:
-                nb = dt.date(today.year + 1, nd.month, nd.day)
-            except ValueError:
+            nb = _safe_date(today.year + 1, nd.month, nd.day)
+            if nb is None:
                 continue
         delta = (nb - today).days
         if 0 <= delta <= lead_days:

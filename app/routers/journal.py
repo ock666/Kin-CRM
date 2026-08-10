@@ -1,19 +1,40 @@
 import datetime as dt
 import json
 
-from fastapi import APIRouter, Depends, Request, Form, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Request, Form, Query
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..deps import current_user
-from ..models import JournalEntry, JournalImage, Person, EventType, EnergyCost, Tag, NotableDate
+from ..models import JournalEntry, JournalImage, Person, EventType, EnergyCost, Tag, NotableDate, ScratchpadItem
 from ..render import render
 from ..services import checkins as checkin_service
 from ..services import gamification
 from ..services.ai_client import get_client_from_settings as ai_from_settings, AIError
 
 router = APIRouter()
+
+
+def _process_ai_extraction(entry_id: int):
+    from ..database import SessionLocal
+    db = SessionLocal()
+    try:
+        entry = db.get(JournalEntry, entry_id)
+        if not entry or not entry.people:
+            return
+        ai = ai_from_settings(db)
+        if ai:
+            names = ", ".join(p.name for p in entry.people)
+            suggestions = ai.extract_facts(names, entry.body)
+            if suggestions:
+                entry.ai_suggestions_json = json.dumps(suggestions)
+                entry.ai_processed = True
+                db.commit()
+    except (AIError, Exception):
+        pass
+    finally:
+        db.close()
 
 
 @router.get("/journal/new")
@@ -42,7 +63,8 @@ def quick_create_person(request: Request, db: Session = Depends(get_db), user=De
 
 @router.post("/journal/new")
 def journal_create(
-    request: Request, db: Session = Depends(get_db), user=Depends(current_user),
+    request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db),
+    user=Depends(current_user),
     title: str = Form(""), body: str = Form(...), entry_date: str = Form(...),
     event_type: str = Form("note"), energy_cost: str = Form(""), location: str = Form(""),
     person_ids: list[int] = Form([]), immich_asset_ids: list[str] = Form([]),
@@ -95,19 +117,7 @@ def journal_create(
     }
     gamification.award_and_flash(request, db, *events, context=context)
 
-    # AI-assisted profile building: extract structured suggestions for human review.
-    # Never applied automatically - see /journal/{id}/suggestions.
-    try:
-        ai = ai_from_settings(db)
-        if ai and entry.people:
-            names = ", ".join(p.name for p in entry.people)
-            suggestions = ai.extract_facts(names, entry.body)
-            if suggestions:
-                entry.ai_suggestions_json = json.dumps(suggestions)
-                entry.ai_processed = True
-                db.commit()
-    except AIError:
-        pass
+    background_tasks.add_task(_process_ai_extraction, entry.id)
 
     if entry.people:
         return RedirectResponse(f"/people/{entry.people[0].id}", status_code=303)
@@ -143,7 +153,7 @@ def journal_update(
     entry.event_type = EventType(event_type) if event_type else EventType.note
     entry.energy_cost = EnergyCost(energy_cost) if energy_cost else None
     entry.location = location or None
-    entry.people = [db.get(Person, pid) for pid in person_ids if db.get(Person, pid)]
+    entry.people = [p for pid in person_ids if (p := db.get(Person, pid))]
     db.commit()
     if entry.people:
         return RedirectResponse(f"/people/{entry.people[0].id}", status_code=303)
@@ -174,7 +184,8 @@ def journal_suggestions(entry_id: int, request: Request, db: Session = Depends(g
 
 @router.post("/journal/{entry_id}/suggestions/apply")
 def apply_suggestions(entry_id: int, request: Request, db: Session = Depends(get_db), user=Depends(current_user),
-                       tags: list[str] = Form([]), notable_dates: list[str] = Form([])):
+                       tags: list[str] = Form([]), notable_dates: list[str] = Form([]),
+                       follow_ups: list[str] = Form([])):
     entry = db.get(JournalEntry, entry_id)
     if not entry:
         return RedirectResponse("/")
@@ -198,6 +209,13 @@ def apply_suggestions(entry_id: int, request: Request, db: Session = Depends(get
             for p in entry.people:
                 db.add(NotableDate(person_id=p.id, label=nd.get("label", "Notable date"),
                                     month=nd.get("month"), day=nd.get("day"), year=nd.get("year")))
+
+    for fu_index in follow_ups:
+        idx = int(fu_index)
+        items = suggestions.get("follow_ups", [])
+        if 0 <= idx < len(items):
+            for p in entry.people:
+                db.add(ScratchpadItem(person_id=p.id, text=items[idx]))
 
     entry.ai_suggestions_json = None
     db.commit()

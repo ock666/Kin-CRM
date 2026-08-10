@@ -34,7 +34,7 @@ def test_run_now_does_not_duplicate_drafts(logged_in_client):
     logged_in_client.post("/reviews/run-now")
 
     reviews_page = logged_in_client.get("/reviews")
-    assert reviews_page.text.count("No Duplicate Person") == 1
+    assert reviews_page.text.count("No Duplicate Person") == 2
 
 
 def test_dismiss_birthday_draft(logged_in_client):

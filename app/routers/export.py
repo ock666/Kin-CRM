@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..deps import current_user
-from ..models import Person
+from ..models import Person, JournalEntry
 from ..render import render
 
 router = APIRouter()
@@ -42,6 +42,18 @@ def export_json(db: Session = Depends(get_db), user=Depends(current_user)):
             "scratchpad_items": [s.text for s in p.scratchpad_items],
             "gift_ideas": [{"year": g.year, "description": g.description, "status": g.status.value}
                             for g in p.gift_ideas],
+            "conflicts": [{
+                "summary": c.summary, "status": c.status.value,
+                "resolved_at": c.resolved_at.isoformat() if c.resolved_at else None,
+                "resolution_notes": c.resolution_notes,
+                "created_at": c.created_at.isoformat() if c.created_at else None,
+            } for c in p.conflict_logs],
+            "instagram_posts": [{
+                "ig_post_id": ip.ig_post_id, "caption": ip.caption,
+                "media_url": ip.media_url, "permalink": ip.permalink,
+                "post_type": ip.post_type, "posted_at": ip.posted_at.isoformat() if ip.posted_at else None,
+                "status": ip.status.value,
+            } for ip in p.instagram_posts],
             "journal_entries": [{
                 "date": e.entry_date.isoformat(), "title": e.title, "body": e.body,
                 "event_type": e.event_type.value, "with": [pp.name for pp in e.people],
@@ -71,3 +83,22 @@ def export_csv(db: Session = Depends(get_db), user=Depends(current_user)):
     buf.seek(0)
     return StreamingResponse(iter([buf.getvalue()]), media_type="text/csv",
                               headers={"Content-Disposition": "attachment; filename=kin_people.csv"})
+
+
+@router.get("/export/csv/journal")
+def export_csv_journal(db: Session = Depends(get_db), user=Depends(current_user)):
+    entries = db.query(JournalEntry).order_by(JournalEntry.entry_date.desc()).all()
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["date", "title", "body", "event_type", "energy_cost", "location",
+                      "people", "image_count", "source", "created_at"])
+    for e in entries:
+        writer.writerow([
+            e.entry_date.isoformat(), e.title or "", e.body or "", e.event_type.value if e.event_type else "",
+            e.energy_cost.value if e.energy_cost else "", e.location or "",
+            ", ".join(p.name for p in e.people), len(e.images), e.source or "manual",
+            e.created_at.isoformat() if e.created_at else "",
+        ])
+    buf.seek(0)
+    return StreamingResponse(iter([buf.getvalue()]), media_type="text/csv",
+                              headers={"Content-Disposition": "attachment; filename=kin_journal.csv"})

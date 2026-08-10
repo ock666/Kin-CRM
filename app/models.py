@@ -1,5 +1,5 @@
 import enum
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 
 from sqlalchemy import (
     Column, Integer, String, Text, Date, DateTime, Boolean, ForeignKey,
@@ -11,7 +11,7 @@ from .database import Base
 
 
 def utcnow():
-    return datetime.utcnow()
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 # ---------------------------------------------------------------------------
@@ -297,17 +297,6 @@ class BirthdayMessageDraft(Base):
     person = relationship("Person", back_populates="birthday_drafts")
 
     __table_args__ = (UniqueConstraint("person_id", "year", name="uq_person_year_bday"),)
-
-
-class Reminder(Base):
-    __tablename__ = "reminders"
-
-    id = Column(Integer, primary_key=True)
-    person_id = Column(Integer, ForeignKey("people.id", ondelete="CASCADE"), nullable=True)
-    title = Column(String(500), nullable=False)
-    due_date = Column(Date, nullable=True)
-    done = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=utcnow)
 
 
 class Setting(Base):

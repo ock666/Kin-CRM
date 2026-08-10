@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..deps import current_user
-from ..models import ConflictLog, ConflictStatus
+from ..models import ConflictLog, ConflictStatus, utcnow
 from ..services import conflict_resolution, gamification
 from ..services.ai_client import get_client_from_settings as ai_from_settings, AIError
 
@@ -53,7 +53,7 @@ def resolve_conflict(conflict_id: int, request: Request, db: Session = Depends(g
     if not conflict:
         return RedirectResponse("/", status_code=303)
     conflict.status = ConflictStatus.resolved
-    conflict.resolved_at = dt.datetime.utcnow()
+    conflict.resolved_at = utcnow()
     conflict.resolution_notes = resolution_notes.strip() or None
     db.commit()
 
@@ -71,7 +71,7 @@ def release_conflict(conflict_id: int, request: Request, db: Session = Depends(g
     if not conflict:
         return RedirectResponse("/", status_code=303)
     conflict.status = ConflictStatus.released
-    conflict.resolved_at = dt.datetime.utcnow()
+    conflict.resolved_at = utcnow()
     db.commit()
 
     gamification.award_and_flash(request, db, "CONFLICT_RESOLVED")

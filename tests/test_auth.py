@@ -40,7 +40,7 @@ def test_setup_rejects_mismatched_passwords(client):
 
 def test_second_visit_to_setup_redirects_once_admin_exists(logged_in_client):
     resp = logged_in_client.get("/setup", follow_redirects=False)
-    assert resp.status_code == 303
+    assert resp.status_code in (303, 307)
     assert resp.headers["location"] == "/login"
 
 

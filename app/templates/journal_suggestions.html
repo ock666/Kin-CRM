@@ -37,10 +37,15 @@
 
     {% if suggestions.follow_ups %}
       <h3>Things to remember / ask about next time</h3>
-      <ul class="text-sm">
-        {% for f in suggestions.follow_ups %}<li>{{ f }}</li>{% endfor %}
-      </ul>
-      <p class="help-text">These aren't saved anywhere automatically — copy anything useful into the person's notes.</p>
+      <div class="mb-2">
+        {% for f in suggestions.follow_ups %}
+          <label class="flex-gap" style="margin-bottom:.3rem;">
+            <input type="checkbox" name="follow_ups" value="{{ loop.index0 }}" style="width:auto;" checked>
+            <span class="text-sm">{{ f }}</span>
+          </label>
+        {% endfor %}
+      </div>
+      <p class="help-text">Selected items will be added to each person's scratchpad ("bring up next time").</p>
     {% endif %}
 
     {% if not suggestions.tags and not suggestions.notable_dates and not suggestions.follow_ups %}
