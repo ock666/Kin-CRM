@@ -1,0 +1,146 @@
+/* Kin PWA bootstrap
+   - Registers the service worker (install/offline).
+   - Captures beforeinstallprompt for a gentle, opt-in install affordance.
+   - Subscribes to Web Push only when the user has enabled it in Settings, and
+     never shows an aggressive permission prompt. Notifications are quiet, opt-in,
+     and respect the app's calm design principles. */
+(function () {
+  const API_BASE = '/api/push';
+
+  /* ---- Service worker registration ---- */
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    });
+  }
+
+  /* ---- Gentle install prompt ---- */
+  let deferredInstall = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstall = e;
+    const el = document.getElementById('install-app');
+    if (el) el.style.display = '';
+  });
+  window.addEventListener('appinstalled', () => {
+    const el = document.getElementById('install-app');
+    if (el) el.style.display = 'none';
+  });
+  window.installKin = function () {
+    if (deferredInstall) {
+      deferredInstall.prompt();
+      deferredInstall.userChoice.then(() => { deferredInstall = null; });
+    }
+  };
+
+  /* ---- Push subscription (opt-in) ---- */
+  const ASYNC = {
+    async urlBase64ToUint8Array(base64) {
+      const padding = '='.repeat((4 - (base64.length % 4)) % 4);
+      const base64str = (base64 + padding).replace(/-/g, '+').replace(/_/g, '/');
+      const raw = atob(base64str);
+      const arr = new Uint8Array(raw.length);
+      for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+      return arr;
+    }
+  };
+
+  async function getVapidKey() {
+    try {
+      const resp = await fetch(API_BASE + '/vapid-key', { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+      const data = await resp.json();
+      return data.public_key;
+    } catch (e) { return null; }
+  }
+
+  async function enablePush() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+    if (Notification.permission === 'denied') return false;
+    // Ask permission only when there's a request from the user action path.
+    if (Notification.permission === 'default') {
+      const granted = await Notification.requestPermission();
+      if (granted !== 'granted') return false;
+    }
+    const key = await getVapidKey();
+    if (!key) return false;
+    const registration = await navigator.serviceWorker.ready;
+    let sub = await registration.pushManager.getSubscription();
+    if (!sub) {
+      sub = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: ASYNC.urlBase64ToUint8Array(key)
+      });
+    }
+    await fetch(API_BASE + '/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      body: JSON.stringify(sub)
+    });
+    return true;
+  }
+
+  async function disablePush() {
+    const registration = await navigator.serviceWorker.ready;
+    const sub = await registration.pushManager.getSubscription();
+    if (sub) {
+      await fetch(API_BASE + '/unsubscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        body: JSON.stringify({ endpoint: sub.endpoint })
+      });
+      await sub.unsubscribe();
+    }
+  }
+
+  window.KinPush = {
+    enable: enablePush,
+    disable: disablePush,
+    async sendTest() {
+      try {
+        const resp = await fetch(API_BASE + '/test', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        const data = await resp.json();
+        if (resp.ok) { alert('Test notification sent! Check your device.'); }
+        else { alert(data.error || 'Test failed.'); }
+      } catch (e) { alert('Could not send a test notification right now.'); }
+    }
+  };
+
+  // Wire the Settings "enable notifications" checkbox to subscribe/unsubscribe this browser.
+  document.addEventListener('DOMContentLoaded', () => {
+    const box = document.getElementById('push-enabled-check');
+    if (!box) return;
+    box.addEventListener('change', async () => {
+      if (box.checked) {
+        const ok = await enablePush();
+        if (!ok) { box.checked = false; alert('Notifications couldn\'t be enabled on this device (permission denied or unsupported).'); }
+      } else {
+        await disablePush();
+      }
+    });
+  });
+
+  // Listen for the service worker telling an open, focused window to show a gentle in-app toast
+  // instead of a browser push notification (smart behavior: no double-notifying when open).
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      if (event.data && event.data.kind === 'kin-toast') {
+        showToast(event.data);
+      }
+    });
+  }
+
+  function showToast(data) {
+    let toast = document.getElementById('kin-toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'kin-toast';
+      toast.className = 'kin-toast';
+      document.body.appendChild(toast);
+    }
+    toast.textContent = data.body || 'Kin';
+    toast.classList.add('show');
+    clearTimeout(window.__kinToastTimer);
+    window.__kinToastTimer = setTimeout(() => toast.classList.remove('show'), 6000);
+    toast.onclick = () => { if (data.url) location.href = data.url; };
+  }
+})();

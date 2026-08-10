@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>You're offline — Kin</title>
+<link rel="stylesheet" href="/static/css/style.css">
+<style>
+  .offline {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    text-align: center;
+  }
+  .offline-card { max-width: 380px; }
+</style>
+</head>
+<body>
+  <div class="offline">
+    <div class="card offline-card">
+      <div style="font-size:2rem; margin-bottom:.5rem;">🪴</div>
+      <h2>You're offline</h2>
+      <p class="text-muted">No connection right now — that's fine, no rush. Your data is safe on the server and will be here when you're back online.</p>
+      <button class="btn btn-primary btn-block" onclick="location.reload()">Retry</button>
+    </div>
+  </div>
+</body>
+</html>

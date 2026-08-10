@@ -5,7 +5,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from ..database import SessionLocal
 from ..settings_store import get_setting
-from . import birthdays, instagram_poll
+from . import birthdays, instagram_poll, push as push_service
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +30,13 @@ def run_daily_jobs():
                 logger.info("Instagram poll errors: %s", summary["errors"])
         except Exception:
             logger.exception("Instagram poll failed")
+
+        # Web Push: after generating drafts, notify opted-in devices about due birthdays and
+        # overdue cadences - aggregated and quiet, a no-op if push isn't configured.
+        try:
+            push_service.send_push_notifications(db)
+        except Exception:
+            logger.exception("Push notification send failed")
     finally:
         db.close()
 

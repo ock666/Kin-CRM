@@ -4,9 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{% block title %}{{ app_name }}{% endblock %}</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#6a5acd">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="/static/icons/icon-192.png">
 <link rel="stylesheet" href="/static/css/style.css">
 <script src="/static/js/htmx.min.js" defer></script>
 <script src="/static/js/alpine.min.js" defer></script>
+<script src="/static/js/pwa.js" defer></script>
 </head>
 <body hx-headers='{"X-Requested-With": "XMLHttpRequest"}'>
 {% if user %}
@@ -23,6 +29,7 @@
     <a class="nav-link {{ 'active' if active=='progress' else '' }}" href="/progress">🏆 Progress</a>
     <a class="nav-link {{ 'active' if active=='settings' else '' }}" href="/settings">⚙️ Settings</a>
     <div class="nav-spacer"></div>
+    <a class="nav-link" id="install-app" href="#" style="display:none;" onclick="event.preventDefault(); installKin();">📲 Install Kin</a>
     <a class="nav-link" href="/export">⬇️ Export data</a>
     <a class="nav-link" href="/logout">🚪 Log out</a>
   </nav>

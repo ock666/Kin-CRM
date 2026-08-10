@@ -1,0 +1,25 @@
+{
+  "name": "Kin — Personal Relationship Manager",
+  "short_name": "Kin",
+  "description": "A calm, low-pressure personal relationship tracker designed for neurodivergent folks.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#faf9f7",
+  "theme_color": "#6a5acd",
+  "lang": "en",
+  "icons": [
+    {
+      "src": "/static/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

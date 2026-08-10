@@ -85,6 +85,26 @@
 </div>
 
 <div class="card mt-2">
+  <h2>🔔 Notifications</h2>
+  <p class="text-sm text-muted">Optional, gentle reminders on your phone or desktop. You'll only get quiet, aggregated nudges for the things you pick here — never spam. This works on devices where you've installed Kin and allows notifications (requires a secure HTTPS connection).</p>
+  <form method="post" action="/settings/push" class="mt-1">
+    <div class="field">
+      <label class="flex-gap" style="justify-content:space-between;">
+        <span>Enable gentle notifications</span>
+        <input type="checkbox" name="push_enabled" value="1" id="push-enabled-check"
+          {{ 'checked' if cfg.push_enabled == '1' else '' }}>
+      </label>
+    </div>
+    <div class="field">
+      <label class="flex-gap"><input type="checkbox" name="push_birthdays" value="1" id="push-birthdays-check" {{ 'checked' if cfg.push_birthdays != '0' else '' }}> Birthdays</label>
+      <label class="flex-gap"><input type="checkbox" name="push_cadence" value="1" id="push-cadence-check" {{ 'checked' if cfg.push_cadence != '0' else '' }}> Overdue check-in nudges</label>
+    </div>
+    <button class="btn btn-primary btn-sm" type="submit">Save preferences</button>
+    <button class="btn btn-sm" type="button" id="push-test-btn" onclick="KinPush.sendTest()">Send a test notification</button>
+  </form>
+</div>
+
+<div class="card mt-2">
   <h2>👥 People with access</h2>
   {% for u in users %}
     <div class="flex-between" style="padding:.4rem 0; border-top:1px solid var(--border);">

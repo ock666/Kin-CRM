@@ -14,6 +14,9 @@ DEFAULTS = {
     "birthday_lead_days": "3",
     "checkin_default_cadence_days": "60",
     "daily_job_hour": "8",
+    "push_enabled": "0",
+    "push_birthdays": "1",
+    "push_cadence": "1",
 }
 
 

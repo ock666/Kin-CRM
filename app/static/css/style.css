@@ -433,6 +433,27 @@ label { display: block; font-weight: 600; font-size: .875rem; margin: 0 0 .3rem;
 }
 .auth-card { width: 100%; max-width: 380px; }
 
+/* Gentle in-app notification toast (surfaces when the app is open & focused) */
+.kin-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 1.25rem;
+  transform: translateX(-50%) translateY(calc(100% + 2rem));
+  max-width: min(90vw, 420px);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding: .8rem 1rem;
+  font-size: .92rem;
+  z-index: 1000;
+  cursor: pointer;
+  opacity: 0;
+  transition: transform .35s ease, opacity .35s ease;
+}
+.kin-toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
 @media (max-width: 720px) {
   .layout { flex-direction: column; }
   .sidebar { width: 100%; flex-direction: row; overflow-x: auto; border-right: none; border-bottom: 1px solid var(--border); }

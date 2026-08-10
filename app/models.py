@@ -362,3 +362,20 @@ class ConflictLog(Base):
     reminder_dismissed = Column(Boolean, default=False)
 
     person = relationship("Person", back_populates="conflict_logs")
+
+
+# ---------------------------------------------------------------------------
+# Web Push subscriptions (PWA). One row per browser/device the user has enabled
+# notifications on. On every daily job, due birthday/overdue-cadence notifications
+# are pushed to these endpoints. Subscriptions are opt-in and removable at any time.
+# ---------------------------------------------------------------------------
+
+class PushSubscription(Base):
+    __tablename__ = "push_subscriptions"
+
+    id = Column(Integer, primary_key=True)
+    endpoint = Column(Text, unique=True, nullable=False)
+    p256dh = Column(Text, nullable=False)
+    auth = Column(Text, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+    created_at = Column(DateTime, default=utcnow)

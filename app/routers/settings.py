@@ -89,6 +89,22 @@ def save_general(request: Request, db: Session = Depends(get_db), user=Depends(c
     return RedirectResponse("/settings", status_code=303)
 
 
+@router.post("/settings/push")
+def save_push(request: Request, db: Session = Depends(get_db), user=Depends(current_user),
+              push_enabled: str = Form("0"), push_birthdays: str = Form("1"),
+              push_cadence: str = Form("1")):
+    """Notification preferences. These are pure server-side toggles describing WHAT to push;
+    the actual browser subscription (enable/disable) lives in the client (static/js/pwa.js).
+    Storing them here lets the scheduler gate which messages it creates without touching the
+    browser permission state."""
+    set_many(db, {
+        "push_enabled": push_enabled,
+        "push_birthdays": push_birthdays,
+        "push_cadence": push_cadence,
+    })
+    return RedirectResponse("/settings", status_code=303)
+
+
 @router.post("/settings/users/new")
 def add_user(request: Request, db: Session = Depends(get_db), user=Depends(current_user),
              name: str = Form(...), email: str = Form(...), password: str = Form(...)):

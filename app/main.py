@@ -4,7 +4,7 @@ from pathlib import Path
 
 import markdown2
 from fastapi import FastAPI, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -20,7 +20,8 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title=settings.APP_NAME)
 
-app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
+STATIC_DIR = Path(__file__).parent / "static"
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
 def _initials(name: str) -> str:
@@ -47,7 +48,27 @@ templates.env.filters["markdown"] = lambda text: markdown2.markdown(text or "", 
 templates.env.filters["initials"] = _initials
 templates.env.filters["parse_json"] = _parse_json
 
-OPEN_PATHS = {"/login", "/setup", "/health"}
+OPEN_PATHS = {"/login", "/setup", "/health", "/sw.js", "/manifest.webmanifest", "/static/offline.html"}
+
+
+# PWA assets served from the root so the service worker can control the whole site scope,
+# and so they remain reachable before/without authentication (browser install & offline need
+# this). The SW must be served with Service-Worker-Allowed: / to override its /static/ scope.
+@app.get("/sw.js")
+def service_worker():
+    return Response(
+        (STATIC_DIR / "sw.js").read_bytes(),
+        media_type="application/javascript",
+        headers={"Service-Worker-Allowed": "/", "Cache-Control": "no-cache"},
+    )
+
+
+@app.get("/manifest.webmanifest")
+def manifest():
+    return Response(
+        (STATIC_DIR / "manifest.webmanifest").read_bytes(),
+        media_type="application/manifest+json",
+    )
 
 
 
@@ -109,6 +130,7 @@ from .routers import reviews as reviews_router  # noqa: E402
 from .routers import export as export_router  # noqa: E402
 from .routers import ai as ai_router  # noqa: E402
 from .routers import conflicts as conflicts_router  # noqa: E402
+from .routers import push as push_router  # noqa: E402
 
 app.include_router(auth_router.router)
 app.include_router(dashboard_router.router)
@@ -120,3 +142,4 @@ app.include_router(reviews_router.router)
 app.include_router(export_router.router)
 app.include_router(ai_router.router)
 app.include_router(conflicts_router.router)
+app.include_router(push_router.router)
