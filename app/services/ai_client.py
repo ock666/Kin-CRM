@@ -24,11 +24,21 @@ class ConflictApproachSuggestions(BaseModel):
     """Structured output for the conflict approach-suggestion generator (see
     AIClient.suggest_conflict_approach below). These are offered immediately, with no waiting
     period and no requirement to interact with the person first - the user acts whenever *they*
-    feel ready. This is a suggestion/scaffolding engine, never a verdict or auto-action engine."""
+    feel ready. This is a suggestion/scaffolding engine, never a verdict or auto-action engine.
+
+    Fields added for the neurodivergent flow: explicit cooling-off guidance (how to ride out the
+    elevated RSD/anxiety window without forcing action) and follow-through scripts (what to do
+    *after* the first message - a reply, a rough patch mid-talk, or a defer). Combined with the
+    relational context passed to the prompt, these let the user lean on the scaffold at every
+    stage instead of getting a single opener and being left stranded."""
     reflection: str
+    cool_down: str  # validating framing + a specific way to wait out the elevated window
     approach_casual: str
     approach_direct: str
     boundary_script: str
+    if_they_reply: str  # how to handle the response while staying regulated
+    if_it_gets_hard: str  # staying grounding / pausing if the exchange becomes overwhelming
+    defer_script: str  # a gentle "I need to step back for now" message for mid-conversation exits
 
 
 class AIClient:
@@ -108,38 +118,77 @@ class AIClient:
         )
         return self._chat(system, user, max_tokens=150, temperature=0.85)
 
-    def suggest_conflict_approach(self, person_name: str, conflict_summary: str) -> ConflictApproachSuggestions:
-        """Generate conflict-SPECIFIC approach suggestions, immediately - no waiting period, no
-        requirement to interact with the person first. Rejection Sensitive Dysphoria (RSD) often
-        drives *avoidance* of the person involved, so gating help behind "wait and see if a future
-        interaction goes well" is actively unhelpful - it requires the very contact the user may
-        be anxious about before offering any support. Instead this just gives structure, safety,
-        and a jumping-off point the user can use whenever *they* feel ready, or ignore entirely."""
+    def suggest_conflict_approach(self, person_name: str, conflict_summary: str,
+                                  relationship_context: str = "") -> ConflictApproachSuggestions:
+        """Generate conflict-SPECIFIC approach & navigation support, immediately - no waiting
+        period, no requirement to interact with the person first. Rejection Sensitive Dysphoria
+        (RSD) often drives *avoidance* of the person involved, so gating help behind "wait and see
+        if a future interaction goes well" is actively unhelpful - it requires the very contact the
+        user may be anxious about before offering any support. Instead this gives structure,
+        safety, and a jumping-off point the user can lean on across the whole arc of the conflict
+        (cooling off -> first message -> handling the reply -> pausing if it gets overwhelming),
+        usable whenever *they* feel ready, or ignorable entirely.
+
+        `relationship_context` carries what we know about this specific relationship (closeness,
+        shared history, prior conflicts, known facts) so the scripts feel tailored to THIS person
+        rather than generic."""
+        first_name = person_name.split()[0] if person_name else person_name
         system = (
-            "You help someone who may have AuDHD/Rejection Sensitive Dysphoria (RSD) approach a "
-            "specific interpersonal conflict, whenever (if ever) they feel ready. Assume they may "
-            "still feel emotionally elevated or anxious about this even if time has passed, and "
-            "that they want to resolve things in good faith - never assume they're overreacting. "
-            "Write suggestions SPECIFIC to the situation described below - never generic "
-            "greeting-card phrases like 'thinking of our chat the other day'. Reference the actual "
-            "topic/situation in your own words where natural. Never assign blame to either party "
-            "unless the description clearly states who did what.\n\n"
-            "Write exactly these four things:\n"
-            "1. reflection: one short, warm, validating sentence about the specific situation - "
-            "no advice, just acknowledgement.\n"
-            "2. approach_casual: a relaxed-tone message they could send to check in / clear the "
-            "air, specific to this situation, ready to copy-paste as-is (1-3 sentences).\n"
-            "3. approach_direct: a warmer-but-clearer message that names wanting to talk it "
+            "You help someone with AuDHD/Rejection Sensitive Dysphoria (RSD) navigate a specific "
+            "interpersonal conflict, whenever (if ever) they feel ready. They may also have social "
+            "anxiety. Assume they may still feel emotionally elevated or anxious about this even if "
+            "time has passed, and that they want to resolve things in good faith - never assume "
+            "they're overreacting or that they have to act. Your job is gentle scaffolding and "
+            "grounding, not judgment and not pressure. Never assign blame to either party unless the "
+            "description clearly states who did what.\n\n"
+            "Write suggestions SPECIFIC to the situation described and the relationship context "
+            "given below - never generic greeting-card phrases like 'thinking of our chat the other "
+            "day'. Reference the actual topic/situation and, where it helps, the real closeness "
+            "between the two people, in your own words where natural.\n\n"
+            "Assume the user experiences RSD: a perceived or real social rejection can feel "
+            "catastrophic, spike anxiety, and drive avoidance of the person involved. Address this "
+            "compassionately and concretely. Never shame them for struggling to act, for needing to "
+            "wait, or for choosing to let it go.\n\n"
+            "Write exactly these things:\n"
+            "1. reflection: one short, warm, validating sentence about the specific situation - no "
+            "advice, just acknowledgement.\n"
+            "2. cool_down: 2-3 sentences of calming, concrete support for the cooling-off window. "
+            "Normalize needing space when the feelings are still elevated, and give one SPECIFIC, "
+            "grounding way to ride it out without acting out of anxiety (e.g. setting the thought "
+            "aside for a specific amount of time, physically grounding, or writing the anxious story "
+            "down to look at it later). Reassure them it is not urgent and there is no deadline. "
+            "Never frame waiting as avoidance or failure.\n"
+            "3. approach_casual: a relaxed-tone message they could send to check in / clear the "
+            "air, specific to this situation and relationship, ready to copy-paste as-is (1-3 "
+            "sentences).\n"
+            "4. approach_direct: a warmer-but-clearer message that names wanting to talk it "
             "through, specific to this situation, ready to copy-paste (1-3 sentences).\n"
-            "4. boundary_script: a gentle boundary-setting message for if they don't have the "
-            "bandwidth to deal with this right now, but want to leave the door open - specific to "
-            "this relationship/situation where possible, ready to copy-paste (1-2 sentences).\n\n"
+            "5. boundary_script: a gentle boundary-setting message for if they don't have the "
+            "bandwidth right now, but want to leave the door open - specific to this relationship/"
+            "situation where possible, ready to copy-paste (1-2 sentences).\n"
+            "6. if_they_reply: short guidance (2-3 sentences) on staying regulated while reading "
+            f"and responding to {first_name}'s reply: remind them to slow down, read it more "
+            "than once before responding, that a neutral/curt reply is not proof of rejection, and "
+            "that they don't have to reply immediately. Include ONE specific short copy-paste "
+            "fallback line they can use if they feel the urge to just disappear.\n"
+            "7. if_it_gets_hard: short grounding guidance (2-3 sentences) for if the actual "
+            "conversation becomes overwhelming mid-way: permission to slow down or pause, one "
+            "grounding reminder, and a pointer to 'defer_script' as a legitimate exit - this is not "
+            "a failure.\n"
+            "8. defer_script: a gentle, self-respecting message to send if they need to step back "
+            "from the conversation now, without pretending nothing happened or burning the "
+            "relationship - leaves the door open to revisit later, ready to copy-paste (1-2 "
+            "sentences).\n\n"
+            "Relationship context (use this to tailor tone and length - closer/safer relationships "
+            "can carry a warmer directness; newer/more fragile ones need more care):\n"
+            "{relationship_context or '(no specific context available - keep it general but warm)'}\n\n"
             "Respond ONLY with valid JSON matching this schema:\n"
-            '{"reflection": string, "approach_casual": string, "approach_direct": string, '
-            '"boundary_script": string}'
+            '{"reflection": string, "cool_down": string, "approach_casual": string, '
+            '"approach_direct": string, "boundary_script": string, "if_they_reply": string, '
+            '"if_it_gets_hard": string, "defer_script": string}'
         )
         user = f"Person: {person_name}\n\nWhat happened, in the user's own words:\n{conflict_summary}"
-        raw = self._chat(system, user, max_tokens=400, temperature=0.7)
+        raw = self._chat(system, user, max_tokens=700, temperature=0.7)
         data = _safe_json(raw)
         try:
             return ConflictApproachSuggestions(**data)

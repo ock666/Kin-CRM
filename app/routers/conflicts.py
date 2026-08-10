@@ -39,7 +39,7 @@ def add_conflict(person_id: int, request: Request, db: Session = Depends(get_db)
     try:
         ai = ai_from_settings(db)
         if ai:
-            conflict_resolution.generate_approach_suggestions(db, ai, conflict, conflict.person.name)
+            conflict_resolution.generate_approach_suggestions(db, ai, conflict, conflict.person)
     except AIError:
         pass
 
@@ -101,7 +101,7 @@ def generate_approach(conflict_id: int, request: Request, db: Session = Depends(
     try:
         ai = ai_from_settings(db)
         if ai:
-            conflict_resolution.generate_approach_suggestions(db, ai, conflict, conflict.person.name)
+            conflict_resolution.generate_approach_suggestions(db, ai, conflict, conflict.person)
         else:
             request.session["notice_flash"] = "Add an AI provider in Settings to get personalized suggestions."
     except AIError:
