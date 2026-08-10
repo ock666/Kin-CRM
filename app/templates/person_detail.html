@@ -16,6 +16,11 @@
       <span class="tag" title="Friend rank: based on how much you've logged and filled in for them">
         {{ rank.emoji }} {{ rank.tier }} · {{ rank.score }}/100
       </span>
+      {% if watermeter and watermeter.state != 'dormant' %}
+      <span class="tag {{ 'tag-' ~ watermeter.state }}" title="Check-in cadence: it's been a while since you two last talked">
+        {{ watermeter.emoji }} {{ watermeter.label }} {% if watermeter.pct >= 100 %} ({{ watermeter.pct }}%){% endif %}
+      </span>
+      {% endif %}
       <div class="pill-row mt-1">
         {% for t in person.tags %}
           <form method="post" action="/people/{{ person.id }}/tags/{{ t.id }}/remove" style="display:inline;">

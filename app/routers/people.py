@@ -9,7 +9,7 @@ from ..database import get_db
 from ..deps import current_user
 from ..models import Person, Tag, NotableDate, ScratchpadItem, NotablePersonRef, ConflictStatus
 from ..render import render
-from ..services import friend_rank, gamification
+from ..services import checkins, friend_rank, gamification
 from ..settings_store import get_setting
 
 router = APIRouter()
@@ -37,9 +37,10 @@ def people_list(request: Request, db: Session = Depends(get_db), user=Depends(cu
         people = [p for p in people if any(t.name == tag for t in p.tags)]
     all_tags = db.query(Tag).order_by(Tag.name).all()
     ranks = {p.id: friend_rank.compute_friend_rank(p) for p in people}
+    watermeters = {p.id: checkins.compute_cadence_watermeter(p) for p in people}
     return render(request, "people_list.html", db=db, user=user, active="people",
                   people=people, all_tags=all_tags, q=q, active_tag=tag, show_archived=show_archived,
-                  ranks=ranks)
+                  ranks=ranks, watermeters=watermeters)
 
 
 @router.get("/people/new")
@@ -91,10 +92,11 @@ def person_detail(person_id: int, request: Request, db: Session = Depends(get_db
         return RedirectResponse("/people")
     entries = person.journal_entries
     rank = friend_rank.compute_friend_rank(person)
+    watermeter = checkins.compute_cadence_watermeter(person)
     open_conflicts = [c for c in person.conflict_logs if c.status == ConflictStatus.unresolved]
     return render(request, "person_detail.html", db=db, user=user, active="people",
                   person=person, entries=entries, today=dt.date.today(), rank=rank,
-                  open_conflicts=open_conflicts)
+                  watermeter=watermeter, open_conflicts=open_conflicts)
 
 
 @router.get("/people/{person_id}/edit")

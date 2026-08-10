@@ -233,6 +233,47 @@ label { display: block; font-weight: 600; font-size: .875rem; margin: 0 0 .3rem;
 .person-card .name { font-weight: 650; }
 .person-card .sub { font-size: .8rem; color: var(--text-muted); }
 
+/* "Needs watering" cadence meter - a gentle plant metaphor for check-in intervals.
+   A leaf that slowly drops as a contact drifts past their cadence, rather than a
+   shaming red-alert. Non-punitive: just information, easy to ignore or act on. */
+.watermeter {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  width: 100%;
+  max-width: 180px;
+  margin: .1rem auto .2rem;
+}
+.watermeter-emoji { font-size: .85rem; line-height: 1; flex-shrink: 0; }
+.watermeter-bar {
+  flex: 1;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  min-width: 0;
+}
+.watermeter-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width .4s ease;
+}
+.watermeter-fill.state-healthy { background: var(--success); }
+.watermeter-fill.state-getting_dry { background: var(--warn); }
+.watermeter-fill.state-wilting { background: var(--danger); }
+.watermeter-label { font-size: .68rem; font-weight: 650; white-space: nowrap; flex-shrink: 0; }
+.watermeter-label.state-healthy { color: var(--success); }
+.watermeter-label.state-getting_dry { color: var(--warn); }
+.watermeter-label.state-wilting { color: var(--danger); }
+.watermeter.dormant { justify-content: center; }
+.watermeter.dormant .watermeter-emoji { opacity: .55; }
+
+/* Cadence state tint for tag-style meters (person detail page) */
+.tag-healthy { background: var(--success-soft); color: var(--success); }
+.tag-getting_dry { background: var(--warn-soft); color: var(--warn); }
+.tag-wilting { background: var(--danger-soft); color: var(--danger); }
+
 .tag {
   display: inline-flex;
   align-items: center;
