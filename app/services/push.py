@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 from ..models import PushSubscription
 from ..settings_store import get_setting, set_setting
 from . import birthdays, checkins
+from . import grace as grace_service
 
 logger = logging.getLogger(__name__)
 
@@ -157,8 +158,11 @@ def send_test(db: Session) -> int:
 def send_push_notifications(db: Session) -> int:
     """Send aggregated push notifications to all opted-in subscriptions. Returns the number of
     subscriptions successfully notified, or 0 if push isn't configured / disabled / nothing to
-    send. Never raises - failures are logged and dead subscriptions are pruned."""
+    send. Never raises - failures are logged and dead subscriptions are pruned. Silence applies
+    during grace mode (stepping back) so the user gets a true break."""
     if get_setting(db, "push_enabled", "0") == "0":
+        return 0
+    if grace_service.is_grace_active(db):
         return 0
     vapid = ensure_vapid_keys(db)
     if not vapid:

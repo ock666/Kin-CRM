@@ -7,6 +7,18 @@
   <a class="btn btn-primary" href="/journal/new">✏️ New entry</a>
 </div>
 
+{% if grace_active %}
+<div class="card" style="border-color: var(--success-soft);">
+  <div class="flex-gap" style="justify-content:space-between; flex-wrap:wrap;">
+    <div>
+      <h2 class="mb-0">🕊️ Stepping back</h2>
+      <p class="text-muted mb-0 text-sm">Gentle nudges and reminders are paused{% if grace_remaining %} for {{ grace_remaining }} more day{{ "s" if grace_remaining != 1 else "" }}{% endif %}. Nothing is lost — this is exactly the right thing to do when you need space.</p>
+    </div>
+    <form method="post" action="/grace/end"><button class="btn btn-sm" type="submit">Back to normal</button></form>
+  </div>
+</div>
+{% endif %}
+
 {% if unresolved_conflicts %}
 <div class="card">
   <h2>🕊️ A few things sitting open</h2>
@@ -57,7 +69,7 @@
 <div class="card">
   <h2>💬 Time to reach out</h2>
   {% if not overdue %}
-    <p class="text-muted">Nothing overdue right now — nice work staying in touch!</p>
+    <p class="text-muted">{% if grace_active %}Paused while you're stepping back — nothing's due right now, no pressure at all.{% else %}Nothing overdue right now — nice work staying in touch!{% endif %}</p>
   {% else %}
     <p class="text-sm text-muted">A gentle nudge, not a scoreboard — snooze anything that's not the right time.</p>
     {% for person, days_over in overdue %}
@@ -77,6 +89,14 @@
         </div>
       </div>
     {% endfor %}
+  {% endif %}
+  {% if not grace_active %}
+  <div class="flex-gap mt-2" style="border-top:1px solid var(--border); padding-top:.75rem;">
+    <form method="post" action="/grace/start">
+      <button class="btn btn-sm" type="submit" title="Pause all gentle nudges and reminders for a week — no questions asked">🕊️ Stepping back for now</button>
+    </form>
+    <span class="text-sm text-muted">Need a break? Pause the gentle nudges for a week — nothing is lost, no reason needed.</span>
+  </div>
   {% endif %}
 </div>
 

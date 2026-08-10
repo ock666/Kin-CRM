@@ -11,6 +11,7 @@ from ..render import render
 from ..services import birthdays as bday_service
 from ..services import checkins as checkin_service
 from ..services import gamification
+from ..services import grace as grace_service
 from ..services.immich_client import get_client_from_settings as immich_from_settings, ImmichError
 from ..settings_store import get_setting
 
@@ -56,7 +57,26 @@ def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(curr
             upcoming_notable.append((nd, delta))
     upcoming_notable.sort(key=lambda t: t[1])
 
-    overdue = checkin_service.overdue_people(db)
+    # Grace mode ("stepping back for now"): when active, silence the demanding nudges so the
+    # user gets a genuine break. Reaching out stays untouched and no data is lost - the cards
+    # simply return when grace ends (the calm banner explains how long is left).
+    grace_active = grace_service.is_grace_active(db)
+    grace_remaining = grace_service.remaining_days(db) if grace_active else None
+
+    if grace_active:
+        overdue = []
+        unresolved_conflicts = []
+    else:
+        overdue = checkin_service.overdue_people(db)
+        # Gentle, dismissible reminder about unresolved conflicts - not AI-detected, just "this
+        # is still open" - the user can view options and act whenever they feel ready, or dismiss.
+        unresolved_conflicts = (
+            db.query(ConflictLog)
+            .filter(ConflictLog.status == ConflictStatus.unresolved)
+            .filter(ConflictLog.reminder_dismissed.is_(False))
+            .all()
+        )
+
     progress = gamification.get_stats_and_achievements(db)
 
     memories = []
@@ -70,15 +90,6 @@ def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(curr
     if memories:
         gamification.check_only(request, db, context={"viewed_on_this_day": True})
 
-    # Gentle, dismissible reminder about unresolved conflicts - not AI-detected, just "this is
-    # still open" - the user can view options and act whenever they feel ready, or dismiss.
-    unresolved_conflicts = (
-        db.query(ConflictLog)
-        .filter(ConflictLog.status == ConflictStatus.unresolved)
-        .filter(ConflictLog.reminder_dismissed.is_(False))
-        .all()
-    )
-
     return render(
         request, "dashboard.html", db=db, user=user, active="dashboard",
         upcoming_birthdays=upcoming_birthdays,
@@ -89,7 +100,25 @@ def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(curr
         today=today,
         progress=progress,
         unresolved_conflicts=unresolved_conflicts,
+        grace_active=grace_active,
+        grace_remaining=grace_remaining,
     )
+
+
+@router.post("/grace/start")
+def start_grace(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
+    """'Stepping back for now' - no reason needed. Silences gentle nudges & push for a week."""
+    grace_service.start_grace(db)
+    request.session["notice_flash"] = "Stepping back for a week. Gentle nudge and reminders are paused — take the time you need. 🕊️"
+    return RedirectResponse("/", status_code=303)
+
+
+@router.post("/grace/end")
+def end_grace(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
+    """Come out of grace mode early."""
+    grace_service.end_grace(db)
+    request.session["notice_flash"] = "Welcome back — easy does it. Gentle reminders are on again."
+    return RedirectResponse("/", status_code=303)
 
 
 @router.get("/progress")

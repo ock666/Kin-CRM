@@ -17,6 +17,7 @@ DEFAULTS = {
     "push_enabled": "0",
     "push_birthdays": "1",
     "push_cadence": "1",
+    "grace_until": "",
 }
 
 
