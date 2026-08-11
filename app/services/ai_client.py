@@ -255,6 +255,31 @@ class AIClient:
             return [str(x) for x in data]
         return []
 
+    def icebreaker_scripts(self, person_name: str, context: str, journal_snippets: list[str],
+                            days_since_contact: int = 0) -> list[str]:
+        """Generate 3 short, copy-paste quick-reply scripts for reconnecting after being out of
+        touch, referencing specifics from the person's profile and recent shared history."""
+        system = (
+            "You write short, warm, copy-paste quick-reply messages for someone reconnecting "
+            "after being out of touch with a friend. The messages should reference specifics "
+            "from the person's profile and recent journal history (shared events, hobbies, "
+            "people in their life, how they met, recent news) so they feel personal, never "
+            "generic. Each is 1-2 sentences, ready to send as-is, low-pressure, genuinely "
+            "optional. Produce 3 short scripts with varied angles (a gentle check-in, a "
+            "specific callback to shared history or recent news, a low-effort invitation or "
+            "acknowledgment of the time gap). Respond ONLY as a JSON array of strings."
+        )
+        gap_note = f"It's been {days_since_contact} days since last contact." if days_since_contact else ""
+        joined = "\n---\n".join(journal_snippets[-20:])
+        context_block = f"Known context:\n{context}\n\n" if context else ""
+        gap_block = f"\n{gap_note}\n" if gap_note else ""
+        user = f"Person: {person_name}{gap_block}{context_block}Recent journal entries:\n{joined or 'No entries yet.'}"
+        raw = self._chat(system, user, max_tokens=300, temperature=0.7)
+        data = _safe_json(raw)
+        if isinstance(data, list):
+            return [str(x) for x in data]
+        return []
+
 
 def build_person_context(person) -> str:
     """Assemble a compact free-text context blurb about a person for AI prompts, combining

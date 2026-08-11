@@ -93,3 +93,33 @@ def conversation_starters(person_id: int, request: Request, db: Session = Depend
         return render(request, "partials/ai_list.html", db=db, user=user, items=items, error=None)
     except AIError as e:
         return render(request, "partials/ai_list.html", db=db, user=user, items=[], error=str(e))
+
+
+@router.get("/people/{person_id}/quick-replies")
+def quick_replies(person_id: int, request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
+    person = db.get(Person, person_id)
+    if not person:
+        return render(request, "partials/quick_replies.html", db=db, user=user, replies=[],
+                      error="Person not found.")
+
+    import datetime as dt
+    today = dt.date.today()
+    days_since = None
+    if person.last_contact_date:
+        days_since = (today - person.last_contact_date).days
+
+    try:
+        ai = get_client_from_settings(db)
+        if ai:
+            snippets = _journal_snippets(person)
+            context = build_person_context(person)
+            replies = ai.icebreaker_scripts(person.name, context, snippets, days_since or 0)
+            if replies:
+                return render(request, "partials/quick_replies.html", db=db, user=user,
+                              replies=replies, error=None)
+    except AIError:
+        pass
+
+    from ..services.replies import template_quick_replies
+    replies = template_quick_replies(person, days_since)
+    return render(request, "partials/quick_replies.html", db=db, user=user, replies=replies, error=None)

@@ -172,6 +172,10 @@
       </button>
     </div>
 
+    <div class="mt-2">
+      {% include "partials/micro_replies.html" %}
+    </div>
+
     <h3 class="mt-2">🎯 Things to ask (gaps)</h3>
     <div id="ai-gap-questions">
       {% set gap_items = person.ai_starters_json|parse_json if person.ai_starters_json else none %}

@@ -1,19 +1,8 @@
-<!-- Reusable "quick reply" scripts - low-effort, copy-paste reply templates to help break
-     the "can't think of what to say" barrier. Calm and genuinely optional. -->
-<details class="quick-reply" style="margin-top:.3rem;">
+<details class="quick-reply" hx-get="/ai/people/{{ person.id }}/quick-replies"
+         hx-trigger="toggle" hx-swap="innerHTML"
+         hx-on:toggle="if(!this.open) this.removeAttribute('hx-get')">
   <summary class="text-sm" style="cursor:pointer; font-weight:600; color:var(--accent);">💬 Not sure what to say? Quick reply ideas</summary>
-  <div class="mt-1" style="display:flex; flex-direction:column; gap:.4rem;">
-    {% set replies = [
-      "Hey, sorry for the slow reply — how's your week been?",
-      "Just been thinking of you! Hope you're doing well. No rush on replying.",
-      "Hey! It's been a while — how are things going? Would love to catch up whenever you're free."
-    ] %}
-    {% for script in replies %}
-    <div class="flex-gap" style="align-items:flex-start;">
-      <p class="text-sm mb-0" style="flex:1; font-style:italic;">"{{ script }}"</p>
-      <button class="btn btn-sm" type="button" data-script="{{ script }}"
-        onclick="navigator.clipboard.writeText(this.dataset.script); this.textContent='Copied ✓'; setTimeout(() => this.textContent='📋 Copy', 2000)">📋 Copy</button>
-    </div>
-    {% endfor %}
+  <div style="padding:.3rem;">
+    <p class="text-muted text-sm">Loading…</p>
   </div>
 </details>

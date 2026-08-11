@@ -1,0 +1,15 @@
+{% if error %}
+  <p class="text-muted text-sm">{{ error }}</p>
+{% elif not replies %}
+  <p class="text-muted text-sm">No suggestions available right now.</p>
+{% else %}
+  <div style="display:flex; flex-direction:column; gap:.4rem;">
+    {% for script in replies %}
+    <div class="flex-gap" style="align-items:flex-start;">
+      <p class="text-sm mb-0" style="flex:1; font-style:italic;">"{{ script }}"</p>
+      <button class="btn btn-sm" type="button" data-script="{{ script }}"
+        onclick="navigator.clipboard.writeText(this.dataset.script); this.textContent='Copied ✓'; setTimeout(() => this.textContent='📋 Copy', 2000)">📋 Copy</button>
+    </div>
+    {% endfor %}
+  </div>
+{% endif %}
