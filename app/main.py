@@ -132,6 +132,7 @@ from .routers import ai as ai_router  # noqa: E402
 from .routers import conflicts as conflicts_router  # noqa: E402
 from .routers import push as push_router  # noqa: E402
 from .routers import data_import as import_router  # noqa: E402
+from .routers import regulation as regulation_router  # noqa: E402
 
 app.include_router(auth_router.router)
 app.include_router(dashboard_router.router)
@@ -145,6 +146,7 @@ app.include_router(ai_router.router)
 app.include_router(conflicts_router.router)
 app.include_router(push_router.router)
 app.include_router(import_router.router)
+app.include_router(regulation_router.router)
 
 
 # Calm, on-brand error pages - never a bare stack trace, never more alarming than the moment

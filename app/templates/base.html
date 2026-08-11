@@ -27,6 +27,7 @@
       {% if pending_review_count %}<span class="badge">{{ pending_review_count }}</span>{% endif %}
     </a>
     <a class="nav-link {{ 'active' if active=='progress' else '' }}" href="/progress">🏆 Progress</a>
+    <a class="nav-link {{ 'active' if active=='regulation' else '' }}" href="/regulation">🧘 Regulation</a>
     <a class="nav-link {{ 'active' if active=='settings' else '' }}" href="/settings">⚙️ Settings</a>
     <a class="nav-link {{ 'active' if active=='import' else '' }}" href="/import">📥 Import</a>
     <a class="nav-link {{ 'active' if active=='privacy' else '' }}" href="/privacy">🛡️ Privacy &amp; data</a>
@@ -80,6 +81,7 @@ function kinChat() {
     messages: [],
     input: '',
     loading: false,
+    retentionExpired: false,
 
     openChat(id, name) {
       this.conflictId = id;
@@ -88,6 +90,7 @@ function kinChat() {
       this.messages = [];
       this.input = '';
       this.loading = false;
+      this.retentionExpired = false;
       this.loadHistory();
       const self = this;
       this.$nextTick(() => {
@@ -105,10 +108,17 @@ function kinChat() {
       try {
         const resp = await fetch(`/conflicts/${this.conflictId}/chat`);
         if (resp.ok) {
-          this.messages = await resp.json();
+          const data = await resp.json();
+          if (data.retention_expired) {
+            this.retentionExpired = true;
+            this.messages = [];
+            this.scrollDown();
+            return;
+          }
+          this.messages = data;
         }
       } catch (e) { /* silent */ }
-      if (this.messages.length === 0) {
+      if (!this.retentionExpired && this.messages.length === 0) {
         this.loading = true;
         await this.streamMessage('__open__');
         this.loading = false;

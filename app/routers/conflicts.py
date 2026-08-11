@@ -27,6 +27,21 @@ from ..services.ai_client import (
 router = APIRouter()
 
 
+def _retention_expired(db: Session, conflict: ConflictLog, today: dt.datetime | None = None) -> bool:
+    if not conflict.chat_messages:
+        return False
+    from ..settings_store import get_setting
+    try:
+        days = int(get_setting(db, "chat_retention_days", "14") or 14)
+    except ValueError:
+        days = 14
+    now = today if today else dt.datetime.utcnow()
+    last = conflict.chat_messages[-1]
+    if last.created_at and last.created_at < now - dt.timedelta(days=days):
+        return True
+    return False
+
+
 def _build_support_system_prompt(conflict_summary: str, person_name: str,
                                   relationship_context: str = "") -> str:
     return (
@@ -111,7 +126,7 @@ def release_conflict(conflict_id: int, request: Request, db: Session = Depends(g
     conflict.resolved_at = utcnow()
     db.commit()
 
-    gamification.award_and_flash(request, db, "CONFLICT_RESOLVED")
+    gamification.award_and_flash(request, db, "CONFLICT_RELEASED")
     request.session["notice_flash"] = "Closed. Choosing peace and releasing pressure is a valid path. 🕊️"
     return RedirectResponse(f"/people/{conflict.person_id}", status_code=303)
 
@@ -162,6 +177,8 @@ def get_chat_messages(conflict_id: int, db: Session = Depends(get_db), user=Depe
     conflict = db.get(ConflictLog, conflict_id)
     if not conflict:
         return JSONResponse({"error": "not found"}, status_code=404)
+    if _retention_expired(db, conflict):
+        return JSONResponse({"retention_expired": True, "messages": []})
     msgs = (
         db.query(ConflictChatMessage)
         .filter_by(conflict_id=conflict_id)
@@ -184,6 +201,9 @@ async def conflict_chat(conflict_id: int, request: Request, db: Session = Depend
 
     body = await request.json()
     message = (body.get("message") or "").strip()
+
+    if _retention_expired(db, conflict):
+        return JSONResponse({"error": "chat_archived", "message": "This conversation is water under the bridge — archived."}, status_code=410)
 
     person_name = conflict.person.name if conflict.person else "someone"
     relation_ctx = conflict_resolution.build_relationship_context(conflict.person) if conflict.person else ""
@@ -251,6 +271,8 @@ async def chat_insight(conflict_id: int, request: Request, db: Session = Depends
     conflict = db.get(ConflictLog, conflict_id)
     if not conflict:
         return JSONResponse({"error": "not found"}, status_code=404)
+    if _retention_expired(db, conflict):
+        return JSONResponse({"error": "chat_archived"}, status_code=410)
     messages = (
         db.query(ConflictChatMessage)
         .filter_by(conflict_id=conflict_id)

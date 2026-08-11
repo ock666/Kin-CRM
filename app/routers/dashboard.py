@@ -144,6 +144,7 @@ def save_reassurance(request: Request, db: Session = Depends(get_db), user=Depen
 def start_grace(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
     """'Stepping back for now' - no reason needed. Silences gentle nudges & push for a week."""
     grace_service.start_grace(db)
+    gamification.award_and_flash(request, db, "REST_GRACE")
     request.session["notice_flash"] = "Stepping back for a week. Gentle nudge and reminders are paused — take the time you need. 🕊️"
     return RedirectResponse("/", status_code=303)
 
@@ -171,6 +172,7 @@ def snooze_checkin(person_id: int, request: Request, db: Session = Depends(get_d
     if person:
         person.checkin_snoozed_until = dt.date.today() + dt.timedelta(days=days)
         db.commit()
+        gamification.award_and_flash(request, db, "REST_SNOOZE")
     return RedirectResponse("/", status_code=303)
 
 

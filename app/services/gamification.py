@@ -39,6 +39,10 @@ XP_EVENTS = {
     "OVERDUE_CHECKIN": 100,
     "MICRO_CHECKIN": 10,
     "CONFLICT_RESOLVED": 50,
+    "REST_SNOOZE": 10,
+    "REST_GRACE": 15,
+    "CONFLICT_RELEASED": 50,
+    "REST_SPACE": 10,
 }
 
 # Metadata for display purposes only - kept separate from the pure unlock-condition logic in
@@ -88,6 +92,12 @@ ACHIEVEMENTS: dict[str, tuple[str, str, str, bool]] = {
     "time_traveler": ("⏳", "Time Traveler", "Logged a backdated memory from more than 5 years ago", True),
     "new_years_toast": ("🥂", "Auld Lang Syne", "Logged an entry on New Year's Eve or Day", True),
     "completionist": ("🏆", "The Completionist", "Unlocked 30 other achievements", True),
+    # --- Rest & self-care (anti-productivity — celebrating taking space) ---
+    "calm_taker": ("😴", "Calm Taker", "Snoozed a check-in — resting is productive", False),
+    "grace_giver": ("🕊️", "Graceful", "Used 'stepping back' mode to pause", False),
+    "let_it_go": ("🎈", "Let It Go", "Mindfully released a conflict without forcing repair", False),
+    "space_keeper": ("🛡️", "Space Keeper", "Set 'wants space' for someone", False),
+    "drift_aware": ("🌊", "Drift Aware", "Marked a relationship as drifted apart", False),
 }
 
 
@@ -276,6 +286,18 @@ def check_achievements(db: Session, stats: UserStats, event_type: str | None = N
 
     if event_type == "CONFLICT_RESOLVED":
         _unlock("peace_maker")
+
+    # --- Rest & self-care achievements ---
+    if event_type == "REST_SNOOZE":
+        _unlock("calm_taker")
+    if event_type == "REST_GRACE":
+        _unlock("grace_giver")
+    if event_type == "CONFLICT_RELEASED":
+        _unlock("let_it_go")
+    if event_type == "REST_SPACE":
+        _unlock("space_keeper")
+    if context.get("drift_acknowledged"):
+        _unlock("drift_aware")
 
     if context.get("entry_people_count", 0) >= 4:
         _unlock("party_planner")

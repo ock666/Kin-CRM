@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Regulation — {{ app_name }}{% endblock %}
+{% block content %}
+<h1>🧘 Regulation toolkit</h1>
+<p class="text-sm text-muted mb-2">Quick grounding when things feel overwhelming. Use anytime — no one's keeping score.</p>
+
+<div class="grid grid-cols-2">
+  <div class="card">
+    <h3>🌱 5-4-3-2-1 Grounding</h3>
+    <p class="text-sm text-muted mb-1">Engage senses to anchor in the moment.</p>
+    <ol class="text-sm" style="padding-left:1.2rem;">
+      <li><strong>5</strong> things you can <em>see</em></li>
+      <li><strong>4</strong> things you can <em>feel</em></li>
+      <li><strong>3</strong> things you can <em>hear</em></li>
+      <li><strong>2</strong> things you can <em>smell</em></li>
+      <li><strong>1</strong> thing you can <em>taste</em></li>
+    </ol>
+    <p class="help-text mt-1">Take your time. No rush. Try to really notice each one.</p>
+  </div>
+
+  <div class="card" x-data="{ count: 4, phase: 'inhale', running: false, interval: null }">
+    <h3>🫁 Box breathing</h3>
+    <p class="text-sm text-muted mb-1">Inhale → hold → exhale → hold (4sec each).</p>
+    <div style="text-align:center; padding:1rem;">
+      <div class="text-sm mb-1" x-text="phase === 'inhale' ? '⬆️ Inhale' : phase === 'hold1' ? '⏸️ Hold' : phase === 'exhale' ? '⬇️ Exhale' : '⏸️ Hold'"></div>
+      <div style="font-size:2rem; font-weight:700;" x-text="count"></div>
+    </div>
+    <div class="flex-gap" style="justify-content:center;">
+      <button class="btn btn-sm btn-primary" x-show="!running" @click="
+        running = true; phase = 'inhale'; count = 4;
+        interval = setInterval(() => {
+          count--;
+          if (count === 0) {
+            if (phase === 'inhale') { phase = 'hold1'; count = 4; }
+            else if (phase === 'hold1') { phase = 'exhale'; count = 4; }
+            else if (phase === 'exhale') { phase = 'hold2'; count = 4; }
+            else { phase = 'inhale'; count = 4; }
+          }
+        }, 1000);
+      ">Start</button>
+      <button class="btn btn-sm" x-show="running" @click="running = false; clearInterval(interval); phase = 'inhale'; count = 4;">Stop</button>
+    </div>
+  </div>
+</div>
+
+<div class="card mt-2">
+  <h3>🧠 Facts vs. the RSD story</h3>
+  <p class="text-sm text-muted mb-1">When your anxiety is telling you a story — try this:</p>
+  <div class="grid grid-cols-2">
+    <div>
+      <p class="text-sm mb-1"><strong>Facts (observable):</strong></p>
+      <ul class="text-sm text-muted" style="padding-left:1.2rem;">
+        <li>What actually happened? No interpretation.</li>
+        <li>What did they say or do, word for word?</li>
+        <li>What's the evidence?</li>
+      </ul>
+    </div>
+    <div>
+      <p class="text-sm mb-1"><strong>Story (anxiety's version):</strong></p>
+      <ul class="text-sm text-muted" style="padding-left:1.2rem;">
+        <li>What meaning am I attaching to it?</li>
+        <li>What am I assuming they think?</li>
+        <li>What would I tell a friend in my shoes?</li>
+      </ul>
+    </div>
+  </div>
+  <p class="help-text mt-1">Notice the gap between them — they're often different things.</p>
+</div>
+
+<div class="card mt-2">
+  <h3>🧊 Physical grounding</h3>
+  <p class="text-sm text-muted mb-1">Quick resets you can do anywhere:</p>
+  <ul class="text-sm" style="padding-left:1.2rem;">
+    <li>Run cold water over your wrists for 30 seconds</li>
+    <li>Press your feet firmly into the floor — feel the ground</li>
+    <li>Squeeze and release your fists 5 times</li>
+    <li>Notice the temperature of the air on your skin</li>
+    <li>Stretch your neck gently side to side</li>
+  </ul>
+</div>
+
+<div class="card mt-2" style="border-color: var(--info-soft);">
+  <h3>🕊️ Reminders</h3>
+  <p class="text-sm mb-1">Feeling overwhelmed is not a moral failure. Taking space is allowed. You don't have to fix it right now.</p>
+  <p class="text-sm mb-0">If you need someone to talk to right now, crisis lines are available — <strong>988</strong> (US) or <strong>111</strong> (NHS UK).</p>
+</div>
+{% endblock %}

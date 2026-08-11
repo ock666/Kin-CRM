@@ -21,6 +21,7 @@ DEFAULTS = {
     "grace_until": "",
     "reassurance_note": "",
     "conflict_plan_idle_minutes": "15",
+    "chat_retention_days": "14",
 }
 
 

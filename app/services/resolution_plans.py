@@ -116,13 +116,26 @@ def _generate_plan_for_conflict(db: Session, ai, conflict: ConflictLog):
     from .conflict_resolution import build_relationship_context
     context = build_relationship_context(conflict.person) if conflict.person else ""
 
-    transcript = "\n".join(
-        f"{m.role}: {m.content}" for m in conflict.chat_messages
-    )
+    from ..settings_store import get_setting
+    try:
+        retention = int(get_setting(db, "chat_retention_days", "14") or 14)
+    except ValueError:
+        retention = 14
+    import datetime as dt
+    cutoff = dt.datetime.utcnow() - dt.timedelta(days=retention)
+    last_msg = conflict.chat_messages[-1] if conflict.chat_messages else None
+    expired = last_msg and last_msg.created_at and last_msg.created_at < cutoff
+
+    if expired:
+        transcript = ""
+    else:
+        transcript = "\n".join(
+            f"{m.role}: {m.content}" for m in conflict.chat_messages
+        )
 
     plan = ai.suggest_resolution_plan(
         conflict.summary, transcript, person_name, context,
     )
-    data = plan.dict()
+    data = plan.model_dump()
     conflict.resolution_plan_json = json.dumps(data)
     conflict.plan_generated_at = dt.datetime.utcnow()

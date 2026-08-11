@@ -93,11 +93,14 @@ def save_instagram(request: Request, db: Session = Depends(get_db), user=Depends
 @router.post("/settings/general")
 def save_general(request: Request, db: Session = Depends(get_db), user=Depends(current_user),
                   birthday_lead_days: str = Form("3"), checkin_default_cadence_days: str = Form("60"),
-                  daily_job_hour: str = Form("8")):
+                  daily_job_hour: str = Form("8"), conflict_plan_idle_minutes: str = Form("15"),
+                  chat_retention_days: str = Form("14")):
     set_many(db, {
         "birthday_lead_days": birthday_lead_days,
         "checkin_default_cadence_days": checkin_default_cadence_days,
         "daily_job_hour": daily_job_hour,
+        "conflict_plan_idle_minutes": conflict_plan_idle_minutes,
+        "chat_retention_days": chat_retention_days,
     })
     return RedirectResponse("/settings", status_code=303)
 

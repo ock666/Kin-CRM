@@ -85,6 +85,14 @@
       <label for="daily_job_hour">Hour of day to run background checks (0-23, server time)</label>
       <input type="number" id="daily_job_hour" name="daily_job_hour" value="{{ cfg.daily_job_hour }}" min="0" max="23">
     </div>
+    <div class="field">
+      <label for="conflict_plan_idle_minutes">Minutes before auto-generating a resolution plan after chat idle</label>
+      <input type="number" id="conflict_plan_idle_minutes" name="conflict_plan_idle_minutes" value="{{ cfg.conflict_plan_idle_minutes or '15' }}" min="5">
+    </div>
+    <div class="field">
+      <label for="chat_retention_days">Days to keep active chat transcripts (older chats archived, still in export)</label>
+      <input type="number" id="chat_retention_days" name="chat_retention_days" value="{{ cfg.chat_retention_days or '14' }}" min="1">
+    </div>
     <button class="btn btn-primary btn-sm" type="submit">Save</button>
   </form>
 </div>

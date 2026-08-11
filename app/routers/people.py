@@ -326,6 +326,11 @@ def set_relationship_state(person_id: int, request: Request, db: Session = Depen
         person.relationship_state = RelationshipState(state)
         db.commit()
         labels = {"none": "cleared", "wants_space": "set to 'wants space'", "drifted": "marked as drifted"}
+        context = {}
+        if state == "wants_space":
+            gamification.award_and_flash(request, db, "REST_SPACE")
+        elif state == "drifted":
+            gamification.award_and_flash(request, db, "REST_SPACE", context={"drift_acknowledged": True})
         request.session["notice_flash"] = f"Relationship state {labels[state]}. 🕊️"
     return RedirectResponse(f"/people/{person_id}", status_code=303)
 

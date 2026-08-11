@@ -20,11 +20,15 @@
     <div x-show="loading" class="text-sm text-muted" style="padding:.5rem;">
       <em>Thinking…</em>
     </div>
-    <div x-show="messages.length === 0 && !loading" class="text-sm text-muted" style="text-align:center; padding:2rem 1rem;">
+    <div x-show="messages.length === 0 && !loading && !retentionExpired" class="text-sm text-muted" style="text-align:center; padding:2rem 1rem;">
       Your counsellor is here. Take your time — share what's on your mind.
     </div>
+    <div x-show="retentionExpired" class="text-sm text-muted" style="text-align:center; padding:2rem 1rem;">
+      🌊 Water under the bridge — this conversation has been archived.<br>
+      <span class="text-sm">You can revisit it anytime through your <a href="/export">data export</a>.</span>
+    </div>
   </div>
-  <form class="chat-input" @submit.prevent="send()">
+  <form class="chat-input" @submit.prevent="send()" x-show="!retentionExpired">
     <textarea x-model="input" @keydown.enter.prevent="if(!$event.shiftKey) send()"
               placeholder="Type your message… (Enter to send, Shift+Enter for new line)"
               rows="2" :disabled="loading"></textarea>
@@ -43,7 +47,7 @@
         try { await fetch(`/conflicts/${this.conflictId}/chat/insight/save`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({insight:this.insight.trim()}) }); this.editing = false; this.insight = ''; } catch(e) {}
         this.saving = false;
       }
-    }" class="chat-insight-bar" x-show="messages.length > 0" x-cloak>
+    }" class="chat-insight-bar" x-show="messages.length > 0 && !retentionExpired" x-cloak>
     <template x-if="!editing">
       <button class="btn btn-sm" @click="editing = true; insight = ''; saving = false; fetchInsight()">💡 Save insight to journal</button>
     </template>
