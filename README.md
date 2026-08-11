@@ -1,321 +1,142 @@
-# Kin — remember your people, not the pressure
+<div id="top"></div>
 
-Kin is a self-hosted relationship manager built by and for neurodivergent brains.
-It handles the remembering, nudging, and structure of staying in touch — so you
-can focus on the people, not the overwhelm.
+[![Contributors][contributors-shield]][contributors-url]
+[![Forks][forks-shield]][forks-url]
+[![Stargazers][stars-shield]][stars-url]
+[![Issues][issues-shield]][issues-url]
+[![MIT License][license-shield]][license-url]
 
-## Why Kin exists
 
-Kin was born from a lived need. I'm Skye — a 30-year-old trans woman in
-Brisbane, Australia, living with AuDHD, rejection sensitive dysphoria (RSD),
-and high social anxiety.
+<!-- PROJECT LOGO -->
+<br />
+<div align="center">
+  <a href="https://github.com/ock666/Kin-CRM">
+    <img src="images/kin-logo.png" alt="Logo" width="280" height="153">
+  </a>
 
-Relationships can be exhausting when the social world doesn't come with an
-instruction manual: one ambiguous reply turns into hours of rumination, "you
-should reach out more" lands as guilt instead of a lifeline, and overwhelm makes
-even remembering a friend's birthday feel like a chore.
+  <h3 align="center">Kin</h3>
 
-Kin is the gentle external brain I built to cope. It remembers what I can't
-always hold onto, gives me a safe sounding board when confusion or RSD takes
-over, and helps me regulate and make sense of the social world instead of
-dreading it. Every design choice — the soft nudges, the human-in-the-loop AI,
-the freedom to snooze or step back — comes from what actually helps me.
+  <p align="center">
+    remember your people, not the pressure
+    <br />
+    <a href="https://github.com/ock666/Kin-CRM"><strong>Explore the docs »</strong></a>
+    <br />
+    <br />
+    <a href="https://github.com/ock666/Kin-CRM/issues">Report Bug</a>
+    ·
+    <a href="https://github.com/ock666/Kin-CRM/issues">Request Feature</a>
+  </p>
+</div>
+
+
+
+<!-- TABLE OF CONTENTS -->
+<details>
+  <summary>Table of Contents</summary>
+  <ol>
+    <li>
+      <a href="#about-the-project">About The Project</a>
+      <ul>
+        <li><a href="#built-with">Built With</a></li>
+      </ul>
+    </li>
+    <li>
+      <a href="#getting-started">Getting Started</a>
+      <ul>
+        <li><a href="#prerequisites">Prerequisites</a></li>
+        <li><a href="#installation">Installation</a></li>
+      </ul>
+    </li>
+    <li><a href="#configuration">Configuration</a></li>
+    <li><a href="#features">Features</a></li>
+    <li><a href="#roadmap">Roadmap</a></li>
+    <li><a href="#contributing">Contributing</a></li>
+    <li><a href="#license">License</a></li>
+    <li><a href="#contact">Contact</a></li>
+    <li><a href="#acknowledgments">Acknowledgments</a></li>
+  </ol>
+</details>
+
+
+
+<!-- ABOUT THE PROJECT -->
+## About The Project
+
+Kin is a self-hosted relationship manager built by and for neurodivergent brains — designed to help with AuDHD (Autism + ADHD), Rejection Sensitive Dysphoria (RSD), social anxiety, and overwhelm.
+
+It handles the remembering, the nudging, and the structure of staying in touch — so you can focus on the people, not the pressure.
+
+### Why Kin exists
+
+Kin was born from a lived need. I'm Skye — a 30-year-old trans woman in Brisbane, Australia, living with AuDHD, RSD, and high social anxiety.
+
+Relationships can be exhausting when the social world doesn't come with an instruction manual: one ambiguous reply turns into hours of rumination, "you should reach out more" lands as guilt instead of a lifeline, and overwhelm makes even remembering a friend's birthday feel like a chore.
+
+Kin is the gentle external brain I built to cope. It remembers what I can't always hold onto, gives me a safe sounding board when confusion or RSD takes over, and helps me regulate and make sense of the social world instead of dreading it. Every design choice — the soft nudges, the human-in-the-loop AI, the freedom to snooze or step back — comes from what actually helps me.
 
 I hope it can help others too.
 
-## Design philosophy
+### Design philosophy
 
-- **Gentle, never punitive.** Check-in reminders are soft "needs watering" nudges,
-  not guilt-inducing overdue alarms. Everything is snoozable. Nothing shouts.
-- **Human-in-the-loop AI.** AI writes suggestions; you review and approve.
-  Nothing is applied to a profile or sent anywhere without your explicit click.
-- **Low barrier to capture.** One big text box. Minimal required fields.
-  Cross-tag people in one entry. Brain dump first, organise later.
-- **Visual-first.** Avatar grids, tag colours, water meters — built for brains
-  that balk at dense spreadsheets and long forms.
-- **No lock-in.** Full JSON/CSV export, local SQLite database, data stays on
-  your server. Leave anytime with everything.
-- **AuDHD/RSD-first.** Designed around the realities of executive dysfunction,
-  rejection sensitivity, and social anxiety before anything else.
+- **Gentle, never punitive.** Check-in reminders are soft "needs watering" nudges, not guilt-inducing overdue alarms. Everything is snoozable. Nothing shouts.
+- **Human-in-the-loop AI.** AI writes suggestions; you review and approve. Nothing is applied to a profile or sent anywhere without your explicit click.
+- **Low barrier to capture.** One big text box. Minimal required fields. Cross-tag people in one entry. Brain dump first, organise later.
+- **Visual-first.** Avatar grids, tag colours, water meters — built for brains that balk at dense spreadsheets and long forms.
+- **No lock-in.** Full JSON/CSV export, local SQLite database, data stays on your server. Leave anytime with everything.
+- **AuDHD/RSD-first.** Designed around the realities of executive dysfunction, rejection sensitivity, and social anxiety before anything else.
 
-## Features
+<p align="right">(<a href="#top">back to top</a>)</p>
 
-### Today dashboard
 
-- **Upcoming birthdays & notable dates** surfaced as they approach (configurable
-  lead time). Birthday message drafts auto-generated daily and waiting in the
-  Review Queue for your approval — nothing is ever sent or posted automatically.
-- **"Time to reach out"** list — gentle cadence nudges ("it's been a while
-  since you talked to X"), with one-tap snooze and mark-contacted. Every overdue
-  person gets person-specific **quick reply ideas** (AI-generated from their
-  profile and your shared history, with a template fallback when AI isn't
-  configured) — copy-paste scripts to break the silence barrier.
-- **Grace mode** ("stepping back for now"): pause all gentle nudges and push
-  notifications for a week, no questions asked, no reason needed. Taking space
-  is productive relational work.
-- **"Read back when anxious"** — a personal reassurance note you write yourself,
-  plus recently unlocked achievements, to ground you on hard days.
-- **"On this day"** Immich photo memories widget.
 
-### People & relationships
+### Built With
 
-- **Rich profiles**: birthday, how-you-met, pronouns, relationship label,
-  location, contact info, occupation, hobbies, AI bio blurb, notes timeline.
-- **Friend rank**: a live-computed completeness score (0–100) that gently
-  nudges you to fill in what's missing — "not yet known: their birthday"
-  rather than a guilt counter.
-- **"Needs watering" cadence meter** — a plant metaphor instead of an overdue
-  red alert. Healthy, getting dry, needs watering, or dormant (no cadence set).
-- **Tag circles**: group people by tag into colour-coded circles (family, work,
-  friends) with visual headers and an "Uncircled" bucket. Tag colour picker per
-  circle.
-- **Relationship states** (system-suggests, you confirm):
-  - *In conflict* — auto-derived from unresolved conflict logs (the user already
-    logged the conflict, no extra click needed).
-  - *Wants space* / *Drifted* — user-set states that soften or suppress
-    reach-out nudges and push notifications for that person.
-- **Scratchpad** — fleeting "bring up next time" reminders (e.g. "ask how her
-  vet visit went") pinned prominently on the person's profile and surfaced in
-  the journal form.
-- **Notable people** — lightweight references to someone in their life who
-  doesn't need a full CRM profile (e.g. their partner, kids).
-- **Notable dates** — anniversaries, kids' birthdays, and other recurring dates
-  surfaced alongside birthdays.
-- **Cross-tag journal entries** — tag multiple people in one entry and it
-  appears on *all* of their timelines.
+* [FastAPI](https://fastapi.tiangolo.com/)
+* [SQLite](https://www.sqlite.org/)
+* [HTMX](https://htmx.org/)
+* [Alpine.js](https://alpinejs.dev/)
+* [Docker](https://www.docker.com/)
+* [APScheduler](https://apscheduler.readthedocs.io/)
+* [Jinja2](https://jinja.palletsprojects.com/)
+* [Immich](https://immich.app)
+* [OpenAI / Ollama](https://ollama.com)
 
-### Journal: quick-capture logging
+<p align="right">(<a href="#top">back to top</a>)</p>
 
-- One text box. Minimal friction. Optional title, date, location, energy cost
-  (low/medium/high), and event type (hangout, call, message, gift, milestone…).
-- **Energy cost tracking**: tag how draining an interaction was, so you can plan
-  social bandwidth over time.
-- Attach Immich photos to entries via an inline asset browser.
-- AI auto-extracts tags, notable dates, and follow-up reminders from entries
-  — you review and apply what's useful, dismiss the rest.
 
-### Conflict resolution (RSD-aware)
 
-- Log something that felt off — no urgency, no pressure to act.
-- **"Talk it through"**: a persistent, streaming support chat with an AI
-  counsellor persona (gpt-4o recommended). Preloaded with the conflict summary
-  and relationship context. Validates first, helps you work through feelings
-  and arrive at a logical understanding. Transcript persists per conflict,
-  auto-archives after 14 days ("water under the bridge"), and is always
-  exportable.
-- **Resolution plan**: auto-generated structured guide (summary, feelings,
-  goal, ordered steps, copy-paste messages, boundary scripts, release option)
-  after 15 minutes of chat inactivity. Also manually triggerable.
-- **RSD grounding check** — "what are the facts vs. what's the story anxiety
-  is telling me?" embedded in every conflict card.
-- **"Save insight to journal"** — capture a key takeaway from the chat as a
-  journal entry on the person's timeline (AI-drafts, you edit).
-- **Release path**: "Letting this go" is explicitly a first-class, equally
-  valid resolution — not a fallback.
+<!-- GETTING STARTED -->
+## Getting Started
 
-### Gamification (non-punitive, celebrating rest too)
+Kin runs as a single Docker container with a local SQLite database. No external services are required — everything lives on your hardware.
 
-- Shared household-wide XP and levels (not per-user — matching the
-  shared-workspace model).
-- 45+ achievements: consistency streaks, breadth/depth, special moments, and
-  **rest achievements** that celebrate taking space (snoozing a check-in,
-  entering grace mode, releasing a conflict, setting "wants space").
-- Achievements are unlocked silently; a toast only appears for something
-  genuinely noteworthy (a level-up or a new badge).
+### Prerequisites
 
-### AI assistant (optional, bring-your-own-key)
+* Docker and Docker Compose
+* (Optional) An Immich server for photo integration
+* (Optional) An OpenAI API key or a local Ollama server for AI features
 
-Works with any OpenAI-compatible chat completions endpoint (OpenAI, Ollama,
-local servers). Two separate models configurable in Settings:
+### Installation
 
-- **Primary model** (e.g. gpt-4o-mini): profile summaries, fact extraction,
-  conversation starters, gap questions, icebreaker scripts, birthday drafts,
-  gift ideas, bio blurbs.
-- **Support chat model** (e.g. gpt-4o): the "Talk it through" conflict
-  counsellor and resolution plan generation.
+1. Clone the repo
+   ```sh
+   git clone https://github.com/ock666/Kin-CRM.git kin && cd kin
+   ```
+2. Copy the example environment file
+   ```sh
+   cp .env.example .env
+   ```
+3. Start the container
+   ```sh
+   docker compose up -d --build
+   ```
+4. Open `http://localhost:8000` and follow the setup wizard to create your admin account.
 
-All AI output is a **suggestion** you explicitly approve or dismiss — nothing
-is written to a profile automatically.
+Your data lives in the Docker volume at `/mnt/user/appdata/personal-crm_kin_data` mapped to `/data` inside the container — a SQLite database plus any cached Instagram session files. Back it up like any other volume, or export from the in-app Export page anytime.
 
-### Regulation toolkit
+### Development
 
-- Sidebar `🧘 Regulation` link — always accessible, zero AI, no pressure.
-- 5-4-3-2-1 grounding, box breathing (interactive countdown), facts-vs-RSD
-  reality check framework, physical grounding tips.
-- Inclusive help lines — AU, US, UK — with crisis numbers, mental health
-  support, and dedicated LGBTQIA+ helplines. Explicitly secular and
-  queer-affirming. No religiously affiliated organisations.
-
-### PWA: install anywhere, gentle push notifications
-
-- Install Kin as a standalone app (mobile or desktop) via the PWA manifest.
-- Opt-in, aggregated push notifications for birthdays and overdue cadences
-  — quiet, never spammy, silenced during grace mode.
-- Offline-first: the app shell caches and works without a connection.
-
-### Integrations
-
-- **Immich**: link a person to a recognized face, pull in their photos
-  automatically, browse assets from journal entries, "On this day" dashboard
-  widget.
-- **Instagram** (optional, unofficial, off by default): periodically reads
-  recent posts from accounts you follow and queues them for review. Uses a
-  reverse-engineered client; see the `⚠️ About Instagram` section.
-
-### Data ownership
-
-- Full JSON export (people, journal, tags, notable dates, conflicts, chat
-  transcripts, resolution plans, gift ideas, Instagram posts, settings).
-- CSV export (people + journal).
-- JSON/CSV import (get-or-create by name, non-destructive).
-- All data lives in a local SQLite database (or Postgres if you prefer).
-
----
-
-## Architecture
-
-Kin is a single FastAPI service rendering server-side Jinja2 templates with
-HTMX and Alpine.js for interactivity (both vendored locally under
-`app/static/js` — no CDN, no build step, no Node toolchain needed).
-
-- **Database**: SQLite (default, plenty for personal use) with an optional
-  Postgres path.
-- **Migrations**: a small startup migration helper (`app/migrations.py`)
-  patches new columns onto existing tables as the schema evolves — no Alembic
-  required.
-- **Scheduler**: APScheduler runs daily jobs (birthday drafts, Instagram poll,
-  push notifications) plus a per-15-minute job for idle resolution plans.
-- **Auth**: session-based via signed cookies; first-run setup wizard.
-- **PWA**: service worker for offline + push; web manifest for install.
-
-## Quick start (Docker)
-
-```bash
-git clone https://github.com/ock666/personal-crm.git kin && cd kin
-cp .env.example .env    # edit TZ etc. if you like
-docker compose up -d --build
-```
-
-Open `http://localhost:8000` and follow the setup wizard to create your admin
-account.
-
-Your data lives in the Docker volume `/mnt/user/appdata/personal-crm_kin_data`
-mapped to `/data` inside the container — a SQLite database plus any cached
-Instagram session files. Back it up like any other volume, or export from the
-in-app **Export** page anytime.
-
-### Using Postgres instead of SQLite
-
-SQLite is plenty for personal use. If you'd rather run Postgres, set
-`DATABASE_URL` (e.g. `postgresql+psycopg2://user:pass@postgres:5432/kin`) as
-an environment variable and add a `postgres` service to `docker-compose.yml`.
-
-## Configuration
-
-Set these in `docker-compose.yml` under `environment:` or in a `.env` file:
-
-| Variable | Default | Description |
-|---|---|---|
-| `DATA_DIR` | `/data` | Where the SQLite DB + uploads live inside the container |
-| `TZ` | `UTC` | Server timezone (affects daily job scheduling) |
-| `DISABLE_SCHEDULER` | `0` | Set to `1` to disable background jobs (testing) |
-| `SESSION_SECRET` | auto-generated | Persisted to `/data/.session_secret` on first run |
-| `DATABASE_URL` | (SQLite) | Optional Postgres connection string |
-
-In-app settings (stored in the database, configurable via Settings page):
-birthday lead time, default check-in cadence, daily job hour, support chat
-model, conflict plan idle minutes, chat retention days, push preferences.
-
-## Connecting Immich
-
-1. In Immich, go to **Account Settings → API Keys** and create a new key.
-2. In Kin, go to **Settings → Immich**, enter your Immich server URL and the
-   API key, and press *Test connection*.
-3. On a person's profile, click **Link Immich face** to associate them with a
-   recognised face — their photos and the "On this day" widget start working
-   immediately.
-
-## Connecting an AI assistant
-
-Kin works fully without AI — it's purely additive. To enable it, go to
-**Settings → AI assistant** and fill in:
-
-- **API base URL**: `https://api.openai.com/v1` for OpenAI, or e.g.
-  `http://ollama:11434/v1` for a local Ollama server on the same Docker
-  network.
-- **API key**: your OpenAI key (Ollama doesn't validate this — put any
-  placeholder value).
-- **Primary model**: e.g. `gpt-4o-mini`, or a local model name like
-  `llama3.2`.
-- **Support chat model**: e.g. `gpt-4o` — used exclusively for the "Talk it
-  through" conflict support chat and resolution plan generation. A more capable
-  model is recommended for the counselling role.
-
-Press *Test connection* to verify everything works.
-
-## ⚠️ About the Instagram integration
-
-This uses [`instagrapi`](https://github.com/subzeroid/instagrapi), an
-**unofficial**, reverse-engineered client — there is no public Instagram API
-for monitoring other accounts' posts. Please read before enabling it in
-**Settings → Instagram**:
-
-- It's against Instagram's Terms of Service. Use a **secondary/throwaway
-  account** that follows the people you want to track — never your primary
-  personal account.
-- Instagram may challenge the login (2FA/checkpoint) or restrict the account,
-  especially on first login from a new server. This integration may need
-  occasional maintenance as Instagram changes.
-- Nothing is posted, messaged, or liked automatically — it only *reads* recent
-  posts from accounts you specify and queues them in the Review Queue for you
-  to turn into a journal entry or dismiss.
-- If this doesn't feel worth the risk, leave it disabled — every other feature
-  works fine without it.
-
-## Data model (in brief)
-
-- **People**: name, birthday, how-you-met, contact info, occupation, hobbies,
-  tags, notable dates/people, scratchpad items, gift ideas, check-in cadence,
-  relationship state, Immich/Instagram linkage, avatar.
-- **Journal entries**: body, date, event type, energy cost, location, source
-  (manual/instagram/ai), attached photos, cross-referenced people.
-- **Conflicts**: summary, status (unresolved/resolved/released), AI-generated
-  approach suggestions, persistent support chat transcript with associated AI
-  counsellor messages, auto-generated resolution plans.
-- **Review queue**: pending birthday message drafts, AI gift suggestions, and
-  unreviewed Instagram posts — all awaiting explicit user approval.
-- **Tags**: free-form, per-person, with configurable colours. Filter people,
-  group into circles, AI-extractable from entries.
-- **Settings**: key/value store for Immich creds, AI keys/models, Instagram
-  creds, push preferences, grace state, cadence defaults, retention windows.
-
-## Privacy & security
-
-- Sessions use a signed cookie (secret auto-generated and persisted to your
-  data volume on first run). The app has no CSRF token layer beyond
-  `SameSite=Lax` cookies — it's designed for **trusted, private-network use**
-  (home server, VPN, Tailscale, etc.), not for exposing directly to the public
-  internet without a reverse proxy that adds its own auth and rate limiting.
-- API keys and passwords for Immich, AI providers, and Instagram are stored in
-  the database in plain text (necessary since the app needs to use them to call
-  external services). Treat your data volume the same way you'd treat any other
-  secrets store.
-- AI features send data to your configured AI provider (OpenAI, Ollama, or a
-  local server). Conflict support chat transcripts are kept on your server and
-  auto-archived after 14 days; they are fully exportable and removable.
-- All personal data lives on your hardware. There are no analytics, no
-  telemetry, no external servers, and no third-party services beyond the
-  optional integrations you explicitly configure (Immich, Instagram, AI).
-- This app is not a replacement for professional mental health care. If you
-  need immediate support, crisis and help lines are listed on the Regulation
-  toolkit page.
-
-## Development
-
-Kin is a single FastAPI service with server-side Jinja2 rendering, HTMX and
-Alpine.js for interactivity, and SQLite by default.
-
-```bash
+```sh
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 DATA_DIR=./data uvicorn app.main:app --reload
@@ -323,15 +144,212 @@ DATA_DIR=./data uvicorn app.main:app --reload
 
 ### Running tests
 
-```bash
+```sh
 pip install -r requirements.txt -r requirements-dev.txt
 pytest
 ```
 
-152 tests covering auth, people, journal, export, reviews, settings, push,
-gamification, friend rank, conflict resolution, support chat, birthday
-calculation, quick replies, resolution plans, achievements, retention, grace
-mode, check-in logic, states, circles, and import/export.
+152 tests covering auth, people, journal, export, reviews, settings, push, gamification, conflict resolution, chat, birthdays, quick replies, resolution plans, achievements, retention, grace mode, and more.
 
-There's also `scripts/smoke_test.sh`, a curl-based smoke test for running
-against a live, freshly-started container — see `TESTING.md`.
+<p align="right">(<a href="#top">back to top</a>)</p>
+
+
+
+<!-- CONFIGURATION -->
+## Configuration
+
+| Variable | Default | Description |
+|---|---|---|
+| `DATA_DIR` | `/data` | Where the SQLite DB + uploads live inside the container |
+| `TZ` | `UTC` | Server timezone (affects daily job scheduling) |
+| `DISABLE_SCHEDULER` | `0` | Set to `1` for testing |
+| `SESSION_SECRET` | auto-generated | Persisted to `/data/.session_secret` on first run |
+| `DATABASE_URL` | (SQLite) | Optional Postgres connection string |
+
+### Connecting Immich
+
+1. In Immich, go to Account Settings → API Keys and create a key.
+2. In Kin, go to Settings → Immich, enter your server URL and API key, then *Test connection*.
+3. On a person's profile, click *Link Immich face* to associate them with a recognized face.
+
+### Connecting AI
+
+Kin works fully without AI — it's purely additive. In Settings → AI assistant, configure:
+
+- **API base URL**: `https://api.openai.com/v1` (OpenAI) or `http://ollama:11434/v1` (Ollama)
+- **API key**: your OpenAI key (Ollama doesn't validate this)
+- **Primary model**: `gpt-4o-mini` for summaries, fact extraction, birthday drafts, conversation starters, quick replies, bio blurbs, gift ideas
+- **Support chat model**: `gpt-4o` for the conflict support chat and resolution plan generation (a more capable model is recommended for the counselling role)
+
+All AI output is a suggestion you explicitly approve or dismiss — nothing is written to a profile automatically.
+
+### Instagram integration (use with caution)
+
+Kin includes an optional, unofficial Instagram reader using [instagrapi](https://github.com/subzeroid/instagrapi). It's against Instagram's Terms of Service. Use a throwaway/secondary account only — never your primary account. Nothing is ever posted or messaged. Posts land in the Review Queue for your approval. Leave it disabled if you'd rather not risk it; everything else works fine without it.
+
+<p align="right">(<a href="#top">back to top</a>)</p>
+
+
+
+<!-- FEATURES -->
+## Features
+
+### Today dashboard
+- **Upcoming birthdays & notable dates** surfaced as they approach with configurable lead time
+- **"Time to reach out"** — gentle cadence nudges with per-person quick reply ideas (AI-generated from profile data or template fallback)
+- **Grace mode** — pause all nudges and push notifications for a week, no reason needed
+- **"On this day"** Immich photo memories widget
+- **"Read back when anxious"** — your own reassurance note plus recently unlocked achievements
+
+### People & relationships
+- Rich profiles: birthday, how-you-met, pronouns, relationship label, location, contact info, occupation, hobbies, AI bio blurb
+- **Friend rank**: a live-computed completeness score (0-100) that gently nudges filling in missing fields — "not yet known: their birthday", never guilt
+- **"Needs watering" cadence meter** — a plant metaphor (healthy / getting dry / needs watering / dormant) instead of an overdue red alert
+- **Tag circles**: group people by tag into colour-coded circles (family, work, friends) with visual headers
+- **Relationship states** (system-suggests, user confirms): *In conflict* (auto-derived from unresolved conflict logs), *Wants space*, *Drifted* — each softens or suppresses reach-out nudges and push notifications
+- **Scratchpad**: fleeting "bring up next time" reminders pinned on the person's profile
+- **Notable people**: lightweight references to people in their life without full CRM profiles
+- **Notable dates**: anniversaries, kids' birthdays, recurring dates
+
+### Journal: quick-capture logging
+- One text box. Optional title, date, location, energy cost (low/medium/high), event type
+- Energy cost tracking for planning social bandwidth over time
+- Cross-tag people in one entry — appears on all their timelines
+- Attach Immich photos via inline browser
+- AI auto-extracts tags, notable dates, and follow-up reminders — you review and apply
+
+### Conflict resolution (RSD-aware)
+- Log something that felt off — no urgency, no pressure to act
+- **"Talk it through"**: persistent, streaming support chat with an AI counsellor (gpt-4o). Preloaded with conflict summary and relationship context. Validates first, helps you work through feelings and arrive at a logical understanding
+- **Resolution plan**: auto-generated structured guide (summary, feelings, goal, ordered steps, copy-paste messages, boundary scripts, release option) after chat idle
+- **RSD grounding check**: "what are the facts vs. what's the story anxiety is telling me?"
+- Release path: "Letting this go" is a first-class, equally valid outcome — not a fallback
+- Chat transcripts auto-archive after 14 days ("water under the bridge"), always exportable
+
+### Gamification (celebrating rest too)
+- Shared household-wide XP, levels, and 45+ achievements
+- **Rest achievements**: celebrate snoozing a check-in, entering grace mode, releasing a conflict, setting "wants space" — rest is productive
+- Achievements unlock silently; toasts only for level-ups or new badges
+
+### AI assistant (optional, bring-your-own-key)
+- **Conversation starters**: "what to talk about" tailored from journal history
+- **Quick reply scripts**: copy-paste icebreakers per person (dashboard and profile)
+- **Profile summaries** and **bio blurbs**
+- **Birthday message drafts** and **gift ideas** — pre-approved, nothing auto-sent
+- **Chat insight → journal**: save key takeaways from support chats
+
+### Regulation toolkit
+- Sidebar `🧘 Regulation` link — always accessible, zero AI, no pressure
+- 5-4-3-2-1 grounding, box breathing (interactive countdown), facts-vs-RSD reality check, physical grounding
+- Inclusive help lines: AU (000, Lifeline, Beyond Blue, QLife), US (988, Trevor Project, Trans Lifeline), UK (999/111, Mind, Switchboard) — secular and queer-affirming only
+
+### PWA: install anywhere
+- Install as a standalone app (mobile or desktop) via the PWA manifest
+- Opt-in aggregated push notifications — quiet, never spammy, silenced during grace mode
+- Offline-first: app shell caches and works without a connection
+
+### Data ownership
+- Full JSON export (people, journal, tags, conflicts, chat transcripts, resolution plans, gift ideas, Instagram posts, settings)
+- CSV export (people + journal)
+- JSON/CSV import (get-or-create by name, non-destructive)
+- All data in a local SQLite database (or Postgres if you prefer)
+
+<p align="right">(<a href="#top">back to top</a>)</p>
+
+
+
+<!-- ROADMAP -->
+## Roadmap
+
+- [x] Today dashboard: birthdays, notable dates, reach-out nudges
+- [x] Quick-capture journaling with cross-tagging, energy cost, photo attachments
+- [x] Friend rank, water-cadence meter, tag circles, relationship states
+- [x] Conflict resolution: support chat (gpt-4o), resolution plans, RSD grounding
+- [x] Gamification: XP, levels, achievements including rest badges
+- [x] AI assist: summaries, starters, quick replies, gap questions, birthday drafts, gift ideas, bio
+- [x] Grace mode (one-week pause), reassurance notes, per-person snoozing
+- [x] Regulation toolkit with inclusive help lines
+- [x] Immich integration (face linking, asset browser, on-this-day, PWA push)
+- [x] PWA: installable, offline, gentle push notifications
+- [x] JSON/CSV export + import
+- [x] Chat transcript retention (14-day archive), resolution plan auto-generation
+- [ ] ICS calendar feed for birthdays and notable dates
+- [ ] Voice-to-text journal capture (Web Speech API / Whisper)
+- [ ] Emotional battery tracker (energy/overwhelm check-ins over time)
+- [ ] RSD reality-check journal (predict → revisit → recalibrate)
+- [ ] Initiative tracker (who contacts whom — gentle awareness)
+- [ ] Relationship weather (daily temperature for key people)
+- [ ] Group entities (named groups beyond flat tags)
+- [ ] Data lifetime controls, in-app backup to S3/path
+- [ ] Reduced motion / high contrast / calm UI modes
+
+See the [open issues](https://github.com/ock666/Kin-CRM/issues) for more.
+
+<p align="right">(<a href="#top">back to top</a>)</p>
+
+
+
+<!-- CONTRIBUTING -->
+## Contributing
+
+Contributions are what make the open source community such an amazing place. Any contributions you make are **greatly appreciated**.
+
+If you have a suggestion, please fork the repo and create a pull request. You can also open an issue with the tag "enhancement". Don't forget to give the project a star — thanks!
+
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+<p align="right">(<a href="#top">back to top</a>)</p>
+
+
+
+<!-- LICENSE -->
+## License
+
+Distributed under the MIT License. See `LICENSE.txt` for more information.
+
+<p align="right">(<a href="#top">back to top</a>)</p>
+
+
+
+<!-- CONTACT -->
+## Contact
+
+Skye — [skye@skyenet.io](mailto:skye@skyenet.io)
+
+Project Link: [https://github.com/ock666/Kin-CRM](https://github.com/ock666/Kin-CRM)
+
+<p align="right">(<a href="#top">back to top</a>)</p>
+
+
+
+<!-- ACKNOWLEDGMENTS -->
+## Acknowledgments
+
+* Hacker ethos and the open source community
+* [Best-README-Template](https://github.com/othneildrew/Best-README-Template) for the structure
+* [Immich](https://immich.app) for the self-hosted photo library
+* [Ollama](https://ollama.com) for local AI
+* [OpenAI](https://openai.com) for the language models that power the AI features
+* [Img Shields](https://shields.io) for the badges
+* Every neurodivergent person who's ever been told "just try harder" — this one's for us
+
+<p align="right">(<a href="#top">back to top</a>)</p>
+
+
+
+<!-- MARKDOWN LINKS & IMAGES -->
+<!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
+[contributors-shield]: https://img.shields.io/github/contributors/ock666/Kin-CRM.svg?style=for-the-badge
+[contributors-url]: https://github.com/ock666/Kin-CRM/graphs/contributors
+[forks-shield]: https://img.shields.io/github/forks/ock666/Kin-CRM.svg?style=for-the-badge
+[forks-url]: https://github.com/ock666/Kin-CRM/network/members
+[stars-shield]: https://img.shields.io/github/stars/ock666/Kin-CRM.svg?style=for-the-badge
+[stars-url]: https://github.com/ock666/Kin-CRM/stargazers
+[issues-shield]: https://img.shields.io/github/issues/ock666/Kin-CRM.svg?style=for-the-badge
+[issues-url]: https://github.com/ock666/Kin-CRM/issues
+[license-shield]: https://img.shields.io/github/license/ock666/Kin-CRM?style=for-the-badge
+[license-url]: https://github.com/ock666/Kin-CRM/blob/main/LICENSE.txt
