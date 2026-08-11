@@ -39,6 +39,14 @@ def _next_birthday(person: Person, today: dt.date) -> dt.date | None:
     return candidate
 
 
+def days_until_birthday(person: Person, today: dt.date | None = None) -> int | None:
+    """Days until a person's next birthday (0 = today). None when they have no birthday set."""
+    nb = _next_birthday(person, today or dt.date.today())
+    if nb is None:
+        return None
+    return (nb - (today or dt.date.today())).days
+
+
 def people_with_upcoming_birthdays(db: Session, lead_days: int) -> list[tuple[Person, int]]:
     """Returns (person, days_until) for people whose birthday falls within lead_days."""
     today = dt.date.today()

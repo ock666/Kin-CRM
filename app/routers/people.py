@@ -9,6 +9,7 @@ from ..database import get_db
 from ..deps import current_user
 from ..models import Person, Tag, NotableDate, ScratchpadItem, NotablePersonRef, ConflictStatus
 from ..render import render
+from ..services import birthdays as bday_service
 from ..services import checkins, friend_rank, gamification
 from ..settings_store import get_setting
 
@@ -59,7 +60,7 @@ def people_create(
     relationship_label: str = Form(""), birthday_month: str = Form(""), birthday_day: str = Form(""),
     birthday_year: str = Form(""), how_we_met: str = Form(""), met_date: str = Form(""),
     location: str = Form(""), phone: str = Form(""), email: str = Form(""), notes: str = Form(""),
-    occupation: str = Form(""), hobbies: str = Form(""),
+    occupation: str = Form(""), hobbies: str = Form(""), bio: str = Form(""),
     checkin_cadence_days: str = Form(""),
 ):
     if not user:
@@ -75,6 +76,7 @@ def people_create(
         met_date=dt.date.fromisoformat(met_date) if met_date else None,
         location=location or None, phone=phone or None, email=email or None, notes=notes or None,
         occupation=occupation.strip() or None, hobbies=hobbies.strip() or None,
+        bio=bio.strip() or None,
         checkin_cadence_days=int(checkin_cadence_days) if checkin_cadence_days else None,
     )
     db.add(person)
@@ -94,9 +96,15 @@ def person_detail(person_id: int, request: Request, db: Session = Depends(get_db
     rank = friend_rank.compute_friend_rank(person)
     watermeter = checkins.compute_cadence_watermeter(person)
     open_conflicts = [c for c in person.conflict_logs if c.status == ConflictStatus.unresolved]
+    bday_days = bday_service.days_until_birthday(person)
+    try:
+        bday_lead = int(get_setting(db, "birthday_lead_days", "3") or 3)
+    except ValueError:
+        bday_lead = 3
     return render(request, "person_detail.html", db=db, user=user, active="people",
                   person=person, entries=entries, today=dt.date.today(), rank=rank,
-                  watermeter=watermeter, open_conflicts=open_conflicts)
+                  watermeter=watermeter, open_conflicts=open_conflicts,
+                  bday_days=bday_days, bday_lead=bday_lead)
 
 
 @router.get("/people/{person_id}/edit")
@@ -117,7 +125,7 @@ def person_update(
     relationship_label: str = Form(""), birthday_month: str = Form(""), birthday_day: str = Form(""),
     birthday_year: str = Form(""), how_we_met: str = Form(""), met_date: str = Form(""),
     location: str = Form(""), phone: str = Form(""), email: str = Form(""), notes: str = Form(""),
-    occupation: str = Form(""), hobbies: str = Form(""),
+    occupation: str = Form(""), hobbies: str = Form(""), bio: str = Form(""),
     checkin_cadence_days: str = Form(""), instagram_username: str = Form(""),
     instagram_enabled: str = Form(""),
 ):
@@ -142,6 +150,7 @@ def person_update(
     person.notes = notes or None
     person.occupation = occupation.strip() or None
     person.hobbies = hobbies.strip() or None
+    person.bio = bio.strip() or None
     person.checkin_cadence_days = int(checkin_cadence_days) if checkin_cadence_days else None
     person.instagram_username = instagram_username.strip().lstrip("@") or None
     person.instagram_enabled = bool(instagram_enabled)

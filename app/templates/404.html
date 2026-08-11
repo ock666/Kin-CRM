@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Not found — {{ app_name }}{% endblock %}
+{% block content %}
+<div class="empty-state" style="padding-top:4rem;">
+  <div style="font-size:3rem; margin-bottom:.5rem;">🪴</div>
+  <h1>That page isn't here</h1>
+  <p class="text-muted">Nothing's lost — the link just doesn't point anywhere. No need to worry about it.</p>
+  <div class="flex-gap" style="justify-content:center; margin-top:1.5rem;">
+    <a class="btn btn-primary" href="/">🏠 Back to Today</a>
+    <a class="btn" href="/people">👥 People</a>
+  </div>
+</div>
+{% endblock %}

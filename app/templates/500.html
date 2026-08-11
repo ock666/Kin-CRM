@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Something went wrong — {{ app_name }}{% endblock %}
+{% block content %}
+<div class="empty-state" style="padding-top:4rem;">
+  <div style="font-size:3rem; margin-bottom:.5rem;">😮‍💨</div>
+  <h1>Something went wrong</h1>
+  <p class="text-muted">A hiccup on our end — not your fault, and none of your data is affected. Try the page again in a moment.</p>
+  <div class="flex-gap" style="justify-content:center; margin-top:1.5rem;">
+    <a class="btn btn-primary" href="/">🏠 Back to Today</a>
+    <button class="btn" onclick="location.reload()">↻ Retry</button>
+  </div>
+</div>
+{% endblock %}

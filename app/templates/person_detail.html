@@ -13,6 +13,14 @@
         {{ person.relationship_label or "" }}{% if person.pronouns %} · {{ person.pronouns }}{% endif %}
         {% if person.archived %} · <span class="tag" style="background:var(--warn-soft); color:var(--warn);">Archived</span>{% endif %}
       </p>
+      {% if person.bio %}
+        <p class="text-sm mb-1" style="font-style:italic;">{{ person.bio }}</p>
+      {% endif %}
+      <p class="text-sm mb-1">
+        <button class="btn btn-sm" hx-post="/ai/people/{{ person.id }}/bio" hx-target="#bio-result" hx-swap="innerHTML">✨ Generate bio</button>
+        <span id="bio-result"></span>
+        <a class="btn btn-sm" href="/people/{{ person.id }}/edit#bio">✏️ Edit</a>
+      </p>
       <span class="tag" title="Friend rank: based on how much you've logged and filled in for them">
         {{ rank.emoji }} {{ rank.tier }} · {{ rank.score }}/100
       </span>
@@ -79,7 +87,13 @@
   <div class="card">
     <h3>About</h3>
     <p class="text-sm mb-1"><strong>Birthday:</strong>
-      {% if person.birthday_month %}{{ person.birthday_month }}/{{ person.birthday_day }}{% if person.birthday_year %}/{{ person.birthday_year }}{% endif %}{% else %}—{% endif %}
+      {% if person.birthday_month %}{{ person.birthday_month }}/{{ person.birthday_day }}{% if person.birthday_year %}/{{ person.birthday_year }}{% endif %}
+        {% if bday_days is not none and bday_days <= bday_lead %}
+          <span class="tag" style="background:var(--success-soft); color:var(--success);">
+            🎂 {{ "today!" if bday_days == 0 else "in " ~ bday_days ~ " day" ~ ("s" if bday_days != 1 else "") ~ " — no rush, a gentle birthday draft will be ready" }}
+          </span>
+        {% endif %}
+      {% else %}—{% endif %}
     </p>
     <p class="text-sm mb-1"><strong>How we met:</strong> {{ person.how_we_met or "—" }}</p>
     <p class="text-sm mb-1"><strong>Met on:</strong> {{ person.met_date or "—" }}</p>
@@ -156,6 +170,18 @@
       <button class="btn btn-sm" hx-get="/ai/people/{{ person.id }}/starters" hx-target="#ai-starters" hx-swap="innerHTML">
         ✨ Suggest things to talk about
       </button>
+    </div>
+
+    <h3 class="mt-2">🎯 Things to ask (gaps)</h3>
+    <div id="ai-gap-questions">
+      {% set gap_items = person.ai_starters_json|parse_json if person.ai_starters_json else none %}
+      {% if gap_items %}
+        {% with items = gap_items, error = none %}{% include "partials/ai_list.html" %}{% endwith %}
+      {% else %}
+        <button class="btn btn-sm" hx-post="/ai/people/{{ person.id }}/gap-questions" hx-target="#ai-gap-questions" hx-swap="innerHTML">
+          ✨ What's good to ask?
+        </button>
+      {% endif %}
     </div>
 
     {% if person.gift_ideas %}

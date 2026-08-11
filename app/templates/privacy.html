@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Privacy &amp; data — {{ app_name }}{% endblock %}
+{% block content %}
+<div class="container-narrow">
+  <h1>🛡️ Privacy &amp; your data</h1>
+  <p class="text-muted text-sm mb-2">Kin is designed to keep your relationships — and the details about them — close. Here's where everything lives and how it stays yours.</p>
+
+  <div class="card">
+    <h3>Where your data lives</h3>
+    <p class="text-sm">Everything you enter is stored in Kin's own database on the server you run it on. There is no third-party cloud where your people, notes, or journal are shared by default.</p>
+  </div>
+
+  <div class="card mt-1">
+    <h3>What's stored</h3>
+    <ul class="text-sm mb-0" style="padding-left:1.1rem;">
+      <li>People profiles, tags, notable dates, and notes</li>
+      <li>Journal entries, photos (as references), and check-in history</li>
+      <li>Gamification progress (level, XP, achievements)</li>
+      <li>Optional push-notification subscriptions on devices you enable</li>
+    </ul>
+    <p class="text-sm text-muted mb-0 mt-1">You can see and delete any of it, and export everything at any time.</p>
+  </div>
+
+  <div class="card mt-1">
+    <h3>Self-hosting</h3>
+    <p class="text-sm">Kin runs as a single container (FastAPI + SQLite/Postgres). It's made to be self-hosted: run it on your own server, keep the data directory on your own storage, reach it over HTTPS (e.g. via a Cloudflare Tunnel so install &amp; push work). Nothing phones home.</p>
+  </div>
+
+  <div class="card mt-1">
+    <h3>Optional third-party connections</h3>
+    <p class="text-sm mb-0">Only if you turn them on in <a href="/settings">Settings</a>:
+      <ul class="text-sm mb-0" style="padding-left:1.1rem;">
+        <li><strong>AI assistant</strong> — sends journal/context snippets to the AI endpoint you configure (your API key stays on your server).</li>
+        <li><strong>Immich</strong> — pulls in your own photo memories from your own Immich server.</li>
+        <li><strong>Instagram</strong> — polls chosen accounts (see the warning in Settings; use a throwaway account).</li>
+      </ul>
+    </p>
+  </div>
+
+  <div class="card mt-1">
+    <h3>Your rights &amp; backups</h3>
+    <p class="text-sm mb-0">You can <a href="/export">export everything</a> as JSON or CSV any time, and <a href="/import">import</a> it back. Deleting a person removes their record; there's also a gentle "stepping back" mode if you need a break from reminders.</p>
+  </div>
+</div>
+{% endblock %}

@@ -1,3 +1,5 @@
+import json
+
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
@@ -6,12 +8,51 @@ from ..deps import current_user
 from ..models import Person
 from ..render import render
 from ..services.ai_client import get_client_from_settings, build_person_context, AIError
+from ..services import friend_rank
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 
 
 def _journal_snippets(person: Person) -> list[str]:
     return [f"[{e.entry_date}] {e.title or ''} {e.body}".strip() for e in person.journal_entries]
+
+
+@router.post("/people/{person_id}/bio")
+def generate_bio(person_id: int, request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
+    person = db.get(Person, person_id)
+    if not person:
+        return render(request, "partials/ai_text.html", db=db, user=user, text=None,
+                      error="Person not found.")
+    try:
+        ai = get_client_from_settings(db)
+        if not ai:
+            return render(request, "partials/ai_text.html", db=db, user=user, text=None,
+                          error="AI isn't configured yet. Add an API key in Settings.")
+        bio = ai.bio_blurb(person.name, build_person_context(person))
+        person.bio = bio
+        db.commit()
+        return render(request, "partials/ai_text.html", db=db, user=user, text=bio, error=None)
+    except AIError as e:
+        return render(request, "partials/ai_text.html", db=db, user=user, text=None, error=str(e))
+
+
+@router.post("/people/{person_id}/gap-questions")
+def generate_gap_questions(person_id: int, request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
+    person = db.get(Person, person_id)
+    if not person:
+        return render(request, "partials/ai_list.html", db=db, user=user, items=[], error="Person not found.")
+    try:
+        ai = get_client_from_settings(db)
+        if not ai:
+            return render(request, "partials/ai_list.html", db=db, user=user, items=[],
+                          error="AI isn't configured yet. Add an API key in Settings.")
+        gaps = friend_rank.compute_friend_rank(person).get("gaps", [])
+        items = ai.conversation_gap_questions(person.name, build_person_context(person), gaps)
+        person.ai_starters_json = json.dumps(items)
+        db.commit()
+        return render(request, "partials/ai_list.html", db=db, user=user, items=items, error=None)
+    except AIError as e:
+        return render(request, "partials/ai_list.html", db=db, user=user, items=[], error=str(e))
 
 
 @router.post("/people/{person_id}/summary")

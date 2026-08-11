@@ -106,6 +106,8 @@ class Person(Base):
 
     occupation = Column(String(255), nullable=True)
     hobbies = Column(Text, nullable=True)  # comma-separated free text, e.g. "climbing, baking"
+    bio = Column(Text, nullable=True)  # short, warm one-liner about who they are (AI or manual)
+    ai_starters_json = Column(Text, nullable=True)  # cached AI conversation-gap questions (JSON list)
 
     avatar_url = Column(String(500), nullable=True)  # local upload path or immich proxy url
 

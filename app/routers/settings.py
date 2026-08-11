@@ -14,6 +14,13 @@ from ..services.ai_client import AIClient, AIError
 router = APIRouter()
 
 
+@router.get("/privacy")
+def privacy_page(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
+    if not user:
+        return RedirectResponse("/login")
+    return render(request, "privacy.html", db=db, user=user, active="privacy")
+
+
 @router.get("/settings")
 def settings_page(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
     if not user:

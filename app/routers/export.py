@@ -1,4 +1,5 @@
 import csv
+import datetime as dt
 import io
 import json
 
@@ -23,10 +24,15 @@ def export_page(request: Request, db: Session = Depends(get_db), user=Depends(cu
 
 @router.get("/export/json")
 def export_json(db: Session = Depends(get_db), user=Depends(current_user)):
-    people = db.query(Person).all()
-    data = []
+    people = db.query(Person).order_by(Person.name).all()
+    data = {
+        "format": "kin-export",
+        "version": 2,
+        "exported_at": dt.datetime.utcnow().isoformat(),
+        "exported_people": [],
+    }
     for p in people:
-        data.append({
+        data["exported_people"].append({
             "name": p.name, "nickname": p.nickname, "pronouns": p.pronouns,
             "relationship_label": p.relationship_label,
             "birthday": f"{p.birthday_month}/{p.birthday_day}/{p.birthday_year or ''}" if p.birthday_month else None,
@@ -34,10 +40,18 @@ def export_json(db: Session = Depends(get_db), user=Depends(current_user)):
             "met_date": p.met_date.isoformat() if p.met_date else None,
             "location": p.location, "phone": p.phone, "email": p.email, "notes": p.notes,
             "occupation": p.occupation, "hobbies": p.hobbies,
+            "bio": p.bio,
             "ai_summary": p.ai_summary,
+            "ai_starters_json": p.ai_starters_json,
+            "avatar_url": p.avatar_url,
+            "archived": p.archived,
+            "checkin_cadence_days": p.checkin_cadence_days,
+            "last_contact_date": p.last_contact_date.isoformat() if p.last_contact_date else None,
+            "instagram_username": p.instagram_username,
+            "instagram_enabled": p.instagram_enabled,
             "tags": [t.name for t in p.tags],
-            "notable_dates": [{"label": nd.label, "month": nd.month, "day": nd.day, "year": nd.year}
-                               for nd in p.notable_dates],
+            "notable_dates": [{"label": nd.label, "month": nd.month, "day": nd.day, "year": nd.year,
+                               "recurring": nd.recurring, "notes": nd.notes} for nd in p.notable_dates],
             "notable_people": [{"name": np.name, "relation": np.relation} for np in p.notable_people_refs],
             "scratchpad_items": [s.text for s in p.scratchpad_items],
             "gift_ideas": [{"year": g.year, "description": g.description, "status": g.status.value}
@@ -47,6 +61,8 @@ def export_json(db: Session = Depends(get_db), user=Depends(current_user)):
                 "resolved_at": c.resolved_at.isoformat() if c.resolved_at else None,
                 "resolution_notes": c.resolution_notes,
                 "created_at": c.created_at.isoformat() if c.created_at else None,
+                "reminder_dismissed": c.reminder_dismissed,
+                "ai_approach_json": c.ai_approach_json,
             } for c in p.conflict_logs],
             "instagram_posts": [{
                 "ig_post_id": ip.ig_post_id, "caption": ip.caption,
@@ -56,10 +72,14 @@ def export_json(db: Session = Depends(get_db), user=Depends(current_user)):
             } for ip in p.instagram_posts],
             "journal_entries": [{
                 "date": e.entry_date.isoformat(), "title": e.title, "body": e.body,
-                "event_type": e.event_type.value, "with": [pp.name for pp in e.people],
+                "event_type": e.event_type.value if e.event_type else None,
+                "energy_cost": e.energy_cost.value if e.energy_cost else None,
+                "location": e.location, "source": e.source,
+                "created_at": e.created_at.isoformat() if e.created_at else None,
+                "with": [pp.name for pp in e.people],
             } for e in p.journal_entries],
         })
-    payload = json.dumps({"exported_people": data}, indent=2, default=str)
+    payload = json.dumps(data, indent=2, default=str)
     return StreamingResponse(io.StringIO(payload), media_type="application/json",
                               headers={"Content-Disposition": "attachment; filename=kin_export.json"})
 

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Import — {{ app_name }}{% endblock %}
+{% block content %}
+<div class="container-narrow">
+  <h1>📥 Import people</h1>
+  <p class="text-muted text-sm mb-2">Bring people in from a Kin JSON export or a compatible CSV. This creates new people and never overwrites your existing data. People are matched by name, so re-importing updates rather than duplicates.</p>
+
+  {% if message %}<div class="notice notice-success">{{ message }}</div>{% endif %}
+  {% if error %}<div class="notice notice-danger">{{ error }}</div>{% endif %}
+
+  <div class="card">
+    <h3>Choose a file</h3>
+    <form method="post" action="/import" enctype="multipart/form-data">
+      <div class="field">
+        <input type="file" name="file" accept=".json,.csv" required>
+        <p class="help-text">JSON (from <a href="/export">Export</a>) or CSV with columns: name, nickname, relationship_label, birthday_month, birthday_day, birthday_year, how_we_met, met_date, location, phone, email, occupation, hobbies, notes, tags.</p>
+      </div>
+      <button class="btn btn-primary" type="submit">Import</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

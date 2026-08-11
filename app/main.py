@@ -131,6 +131,7 @@ from .routers import export as export_router  # noqa: E402
 from .routers import ai as ai_router  # noqa: E402
 from .routers import conflicts as conflicts_router  # noqa: E402
 from .routers import push as push_router  # noqa: E402
+from .routers import data_import as import_router  # noqa: E402
 
 app.include_router(auth_router.router)
 app.include_router(dashboard_router.router)
@@ -143,3 +144,39 @@ app.include_router(export_router.router)
 app.include_router(ai_router.router)
 app.include_router(conflicts_router.router)
 app.include_router(push_router.router)
+app.include_router(import_router.router)
+
+
+# Calm, on-brand error pages - never a bare stack trace, never more alarming than the moment
+# deserves. The 404 page adapts its frame to auth state via the same base template.
+@app.exception_handler(404)
+async def not_found(request: Request, exc):
+    db = SessionLocal()
+    any_user = None
+    try:
+        any_user = db.query(User).first()
+    finally:
+        db.close()
+    user = None
+    if any_user is not None:
+        user_id = request.session.get("user_id")
+        if user_id:
+            db2 = SessionLocal()
+            try:
+                user = db2.get(User, user_id)
+            finally:
+                db2.close()
+    return templates.TemplateResponse(
+        request, "404.html",
+        {"request": request, "user": user, "active": "", "app_name": settings.APP_NAME},
+        status_code=404,
+    )
+
+
+@app.exception_handler(500)
+async def server_error(request: Request, exc):
+    return templates.TemplateResponse(
+        request, "500.html",
+        {"request": request, "user": None, "active": "", "app_name": settings.APP_NAME},
+        status_code=500,
+    )

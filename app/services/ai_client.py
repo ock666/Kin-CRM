@@ -207,6 +207,39 @@ class AIClient:
         user = f"Person: {person_name}\n{context_block}Journal entries (most recent last):\n{joined}"
         return self._chat(system, user, max_tokens=350, temperature=0.5)
 
+    def bio_blurb(self, person_name: str, context: str = "") -> str:
+        """A single warm, human one-liner about who this person is - the 'headline' you'd see on
+        their profile. Short (1 sentence, under ~20 words), concrete, never generic. No markdown."""
+        system = (
+            "Write ONE short, warm sentence (under 20 words, no markdown, no quotes) that "
+            "captures who this person is for someone keeping a personal relationship journal. "
+            "Be concrete and specific from the context - tie in their relationship, interests, "
+            "or how you know them. Never generic filler like 'a wonderful person'; make it "
+            "recognizably ABOUT them."
+        )
+        context_block = f"Context:\n{context}" if context else "Context: (not much known yet - keep it general but warm)"
+        user = f"Person: {person_name}\n{context_block}"
+        return self._chat(system, user, max_tokens=60, temperature=0.7)
+
+    def conversation_gap_questions(self, person_name: str, context: str = "", gaps: list[str] | None = None) -> list[str]:
+        """Specific, low-effort, copy-paste questions to ask someone next time, shaped around the
+        gaps in what's known about them (from friend rank). Returns a JSON list of strings. These
+        help someone who finds it hard to know what to ask - the whole point is removing that load."""
+        system = (
+            "Help someone prepare 2-3 gentle, specific questions to ask a person they'll "
+            "talk to. Focus on the gaps labelled below - things about them it would be nice to "
+            "know - and phrase each as a natural, low-pressure question (not an interrogation). "
+            "Keep each question to one sentence. Respond ONLY as a JSON array of strings."
+        )
+        gap_line = ", ".join(gaps) if gaps else "no specific gaps known - keep questions warm and general"
+        context_block = f"Known context:\n{context}\n\n" if context else ""
+        user = f"Person: {person_name}\nWhat we'd like to know more about: {gap_line}\n\n{context_block}"
+        raw = self._chat(system, user, max_tokens=250, temperature=0.7)
+        data = _safe_json(raw)
+        if isinstance(data, list):
+            return [str(x) for x in data]
+        return []
+
     def conversation_starters(self, person_name: str, journal_snippets: list[str], context: str = "") -> list[str]:
         system = (
             "Suggest 3-5 short, specific conversation starters or follow-up questions to ask "

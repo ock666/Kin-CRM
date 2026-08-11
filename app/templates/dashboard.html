@@ -47,7 +47,7 @@
         <div class="avatar avatar-sm">{% if person.avatar_url %}<img src="{{ person.avatar_url }}" alt="">{% else %}{{ person.name|initials }}{% endif %}</div>
         <a href="/people/{{ person.id }}">{{ person.name }}</a>
       </div>
-      <span class="text-muted text-sm">{{ "Today!" if days == 0 else "in " ~ days ~ " day" ~ ("s" if days != 1 else "") }}</span>
+      <span class="text-muted text-sm">🎂 {{ "Today!" if days == 0 else "in " ~ days ~ " day" ~ ("s" if days != 1 else "") }}</span>
     </div>
   {% endfor %}
   <p class="text-sm text-muted mt-2">Draft birthday messages are generated automatically each morning and wait for your approval in the <a href="/reviews">review queue</a> — nothing is ever sent without you.</p>
@@ -73,20 +73,23 @@
   {% else %}
     <p class="text-sm text-muted">A gentle nudge, not a scoreboard — snooze anything that's not the right time.</p>
     {% for person, days_over in overdue %}
-      <div class="flex-between" style="padding:.5rem 0; border-top: 1px solid var(--border);">
-        <div class="flex-gap">
-          <div class="avatar avatar-sm">{% if person.avatar_url %}<img src="{{ person.avatar_url }}" alt="">{% else %}{{ person.name|initials }}{% endif %}</div>
-          <a href="/people/{{ person.id }}">{{ person.name }}</a>
+      <div style="padding:.5rem 0; border-top: 1px solid var(--border);">
+        <div class="flex-between">
+          <div class="flex-gap">
+            <div class="avatar avatar-sm">{% if person.avatar_url %}<img src="{{ person.avatar_url }}" alt="">{% else %}{{ person.name|initials }}{% endif %}</div>
+            <a href="/people/{{ person.id }}">{{ person.name }}</a>
+          </div>
+          <div class="flex-gap">
+            <form method="post" action="/checkin/{{ person.id }}/mark-contacted">
+              <button class="btn btn-sm" type="submit">✓ Caught up</button>
+            </form>
+            <form method="post" action="/checkin/{{ person.id }}/snooze">
+              <input type="hidden" name="days" value="14">
+              <button class="btn btn-sm" type="submit">😴 Snooze 2wk</button>
+            </form>
+          </div>
         </div>
-        <div class="flex-gap">
-          <form method="post" action="/checkin/{{ person.id }}/mark-contacted">
-            <button class="btn btn-sm" type="submit">✓ Caught up</button>
-          </form>
-          <form method="post" action="/checkin/{{ person.id }}/snooze">
-            <input type="hidden" name="days" value="14">
-            <button class="btn btn-sm" type="submit">😴 Snooze 2wk</button>
-          </form>
-        </div>
+        {% include "partials/micro_replies.html" %}
       </div>
     {% endfor %}
   {% endif %}
@@ -113,6 +116,32 @@
     <div style="background: var(--accent); height: 100%; width: {{ progress.progress_pct }}%;"></div>
   </div>
   <p class="help-text mt-1 mb-0">{{ progress.next_level_threshold - progress.stats.total_xp }} XP to level {{ progress.stats.current_level + 1 }}</p>
+</div>
+
+<div class="card" style="border-left:4px solid var(--success);">
+  <h2>🕊️ Read back when anxious</h2>
+  <p class="text-sm text-muted mt-0">A calm place to remind yourself of the good, especially on the hard days.</p>
+
+  <details class="mb-1">
+    <summary class="text-sm" style="cursor:pointer; font-weight:600; color:var(--success);">✍️ Write myself a note to read later</summary>
+    <form method="post" action="/reassurance" class="mt-1">
+      <textarea name="note" rows="3" placeholder="e.g. I'm a good friend, and taking space doesn't change that.">{{ reassurance_note }}</textarea>
+      <button class="btn btn-sm btn-primary mt-1" type="submit">Save note</button>
+    </form>
+  </details>
+
+  {% if reassurance_note %}
+  <p class="text-sm" style="font-style:italic; border-left:3px solid var(--success-soft); padding-left:.6rem;">{{ reassurance_note }}</p>
+  {% endif %}
+
+  {% if recent_badges %}
+  <div class="pill-row mt-1">
+    {% for b in recent_badges %}
+      <span class="tag" style="background:var(--success-soft); color:var(--success);">{{ b.emoji }} {{ b.label }}</span>
+    {% endfor %}
+  </div>
+  <p class="text-sm text-muted mb-0 mt-1">Recent moments you showed up for the people in your life — that's real, and it stays.</p>
+  {% endif %}
 </div>
 
 <div class="card">
