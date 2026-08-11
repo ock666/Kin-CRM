@@ -5,7 +5,9 @@
 
   <div class="mb-2">
     <button class="btn btn-sm btn-primary" type="button"
-            onclick="openKinChat({{ conflict.id }}, '{{ conflict.person.name|e if conflict.person else 'someone'|e }}')">💬 Talk it through</button>
+            data-conflict-id="{{ conflict.id }}"
+            data-person-name="{{ conflict.person.name if conflict.person else 'someone' }}"
+            onclick="openKinChat(this.dataset.conflictId, this.dataset.personName)">💬 Talk it through</button>
   </div>
 
   {% if approach and approach.reflection %}

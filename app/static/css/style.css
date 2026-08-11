@@ -461,6 +461,8 @@ label { display: block; font-weight: 600; font-size: .875rem; margin: 0 0 .3rem;
   .main { padding: 1rem; }
 }
 
+[x-cloak] { display: none !important; }
+
 /* ---------------------------------------------------------------------------
    Conflict Support Chat Panel
    --------------------------------------------------------------------------- */
