@@ -3,21 +3,30 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 
 from .config import settings
 
-connect_args = {}
-if settings.DATABASE_URL.startswith("sqlite"):
-    # check_same_thread=False lets FastAPI's threadpool share the SQLite connection.
-    # timeout ensures a blocked writer/reader eventually raises instead of wedging the
-    # whole pool; pool_pre_ping/keep-alive stop stale connections from leaking.
-    connect_args = {"check_same_thread": False, "timeout": 30}
+_IS_SQLITE = settings.DATABASE_URL.startswith("sqlite")
 
-engine = create_engine(
-    settings.DATABASE_URL,
-    connect_args=connect_args,
-    future=True,
-    pool_pre_ping=True,
-    pool_recycle=300,
-    pool_timeout=30,
-)
+
+def _configure_engine():
+    kwargs = {"future": True}
+    if _IS_SQLITE:
+        # A single uvicorn process serves SQLite. Sharing a handful of pooled,
+        # per-thread connections (QueuePool) is fragile: a connection checked in
+        # from a different thread than it was checked out on can leave the pool's
+        # accounting wedged (seen as 'Connections in pool: 0 / overflow: -5') with
+        # every request then blocking on a checkout. StaticPool reuses exactly one
+        # connection, serialized internally, which is the safe, standard pattern for
+        # in-process SQLite and never deadlocks under FastAPI's threadpool.
+        connect_args = {"check_same_thread": False, "timeout": 30}
+        from sqlalchemy.pool import StaticPool
+
+        kwargs.update(
+            connect_args=connect_args,
+            poolclass=StaticPool,
+        )
+    return create_engine(settings.DATABASE_URL, **kwargs)
+
+
+engine = _configure_engine()
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, future=True)
 Base = declarative_base()
 
@@ -27,7 +36,7 @@ def _sqlite_on_connect(dbapi_conn, _record):
     # WAL dramatically reduces reader/writer lock contention on the single SQLite file,
     # and busy_timeout makes concurrent access back off and retry instead of erroring
     # immediately. Both are the usual fixes for intermittent "database is locked" hangs.
-    if settings.DATABASE_URL.startswith("sqlite"):
+    if _IS_SQLITE:
         cursor = dbapi_conn.cursor()
         cursor.execute("PRAGMA journal_mode=WAL")
         cursor.execute("PRAGMA busy_timeout=15000")
