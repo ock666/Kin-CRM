@@ -19,6 +19,9 @@
   <a class="btn" href="/people?show_archived={{ 'false' if show_archived else 'true' }}">
     {{ "Hide archived" if show_archived else "Show archived" }}
   </a>
+  <a class="btn {{ 'btn-primary' if view == 'circles' else '' }}" href="/people?view={{ 'grid' if view == 'circles' else 'circles' }}">
+    {{ "Grid" if view == 'circles' else "Circles" }}
+  </a>
 </form>
 
 {% if not people %}
@@ -26,34 +29,32 @@
     <p>No one here yet.</p>
     <a class="btn btn-primary" href="/people/new">Add your first person</a>
   </div>
+{% elif view == 'circles' and circles %}
+<div class="circles-view">
+  {% for circle_name, circle_people in circles %}
+    <div class="circle-group mb-2">
+      {% set circle_tag = all_tags | selectattr('name', 'equalto', circle_name) | first %}
+      <h2 class="circle-header mb-1" style="{% if circle_tag and circle_tag.color %}border-left: 4px solid {{ circle_tag.color }}; padding-left: .5rem;{% endif %}">
+        {{ circle_name }}
+        {% if circle_tag %}
+          <span class="text-sm text-muted" style="font-weight:400;">({{ circle_people|length }})</span>
+          <form method="post" action="/tags/{{ circle_tag.id }}/color" class="inline-form" style="display:inline; margin-left:.5rem;">
+            <input type="color" name="color" value="{{ circle_tag.color or '#6366f1' }}" style="width:24px;height:24px;border:none;cursor:pointer;vertical-align:middle;" onchange="this.form.submit()">
+          </form>
+        {% endif %}
+      </h2>
+      <div class="grid grid-people">
+        {% for person in circle_people %}
+          {% include "partials/person_card.html" %}
+        {% endfor %}
+      </div>
+    </div>
+  {% endfor %}
+</div>
 {% else %}
 <div class="grid grid-people">
   {% for person in people %}
-    <a class="person-card" href="/people/{{ person.id }}">
-      <div class="avatar avatar-lg" style="position:relative;">
-        {% if person.avatar_url %}<img src="{{ person.avatar_url }}" alt="">{% else %}{{ person.name|initials }}{% endif %}
-      </div>
-      <div class="name">{{ person.nickname or person.name }} <span title="Friend rank">{{ ranks[person.id].emoji }}</span></div>
-      {% if watermeters[person.id].state != 'dormant' %}
-        <div class="watermeter" title="Check-in cadence: {{ watermeters[person.id].label }}">
-          <span class="watermeter-emoji">{{ watermeters[person.id].emoji }}</span>
-          <div class="watermeter-bar {{ 'state-' ~ watermeters[person.id].state }}">
-            <div class="watermeter-fill {{ 'state-' ~ watermeters[person.id].state }}" style="width:{{ watermeters[person.id].pct }}%"></div>
-          </div>
-          <span class="watermeter-label {{ 'state-' ~ watermeters[person.id].state }}">{{ watermeters[person.id].label }}</span>
-        </div>
-      {% else %}
-        <div class="watermeter dormant" title="No check-in cadence set — on hold">
-          <span class="watermeter-emoji">💤</span>
-        </div>
-      {% endif %}
-      {% if person.relationship_label %}<div class="sub">{{ person.relationship_label }}</div>{% endif %}
-      {% if person.tags %}
-      <div class="pill-row" style="justify-content:center;">
-        {% for t in person.tags[:3] %}<span class="tag">{{ t.name }}</span>{% endfor %}
-      </div>
-      {% endif %}
-    </a>
+    {% include "partials/person_card.html" %}
   {% endfor %}
 </div>
 {% endif %}

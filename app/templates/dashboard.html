@@ -103,6 +103,43 @@
   {% endif %}
 </div>
 
+{% if state_suggestions %}
+<div class="card" style="border-color: var(--info-soft);">
+  <h2>💡 Suggestions</h2>
+  <p class="text-sm text-muted mb-1">These are gentle observations — nothing is applied until you say so.</p>
+  {% for person, suggested, reason in state_suggestions %}
+    <div class="flex-between" style="padding:.5rem 0; border-top: 1px solid var(--border);">
+      <div>
+        <a href="/people/{{ person.id }}">{{ person.name }}</a>
+        <p class="text-sm text-muted mb-0">{{ reason }} — suggest marking as <strong>{{ suggested.value|replace('_', ' ') }}</strong></p>
+      </div>
+      <div class="flex-gap">
+        <form method="post" action="/people/{{ person.id }}/state-suggestion/apply">
+          <button class="btn btn-sm btn-primary" type="submit">✓ Apply</button>
+        </form>
+        <form method="post" action="/people/{{ person.id }}/state-suggestion/dismiss">
+          <button class="btn btn-sm" type="submit">Not now</button>
+        </form>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if drifted_people %}
+<div class="card" style="border-color: var(--accent-soft);">
+  <h2>🌊 People to revisit when you're ready</h2>
+  <p class="text-sm text-muted mb-1">No pressure — these are people you've marked as drifted. They won't show in your reach-out nudges, but they're still here when (and if) you want to reconnect.</p>
+  {% for person, days in drifted_people %}
+    <div class="flex-gap" style="padding:.3rem 0; border-top: 1px solid var(--border);">
+      <div class="avatar avatar-sm">{% if person.avatar_url %}<img src="{{ person.avatar_url }}" alt="">{% else %}{{ person.name|initials }}{% endif %}</div>
+      <a href="/people/{{ person.id }}">{{ person.name }}</a>
+      <span class="text-muted text-sm">last contact {{ days }} days ago</span>
+    </div>
+  {% endfor %}
+</div>
+{% endif %}
+
 <div class="card">
   <div class="flex-between mb-1">
     <h2 class="mb-0">🏆 Your progress</h2>

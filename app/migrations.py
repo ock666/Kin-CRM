@@ -46,3 +46,7 @@ def run_startup_migrations():
     # of this feature needs these two new columns added to their existing table.
     _ensure_column("conflict_logs", "ai_approach_json", "TEXT")
     _ensure_column("conflict_logs", "reminder_dismissed", "BOOLEAN", default_sql="0")
+
+    # v2.0: relationship state column on people (system-suggests, user-confirms,
+    # affects check-in nudges and push notifications).
+    _ensure_column("people", "relationship_state", "VARCHAR(20)", default_sql="'none'")

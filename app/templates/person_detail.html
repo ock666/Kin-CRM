@@ -40,6 +40,38 @@
         <input type="text" name="tag_name" placeholder="Add a tag..." style="max-width:180px;">
         <button class="btn btn-sm" type="submit">+ Tag</button>
       </form>
+
+      {% if person_state and person_state.value != 'none' %}
+      <div class="mt-1">
+        <span class="tag" style="background: var(--warn-soft); color: var(--warn);" title="Relationship state">{{ person_state.value|replace('_', ' ')|title }}</span>
+        {% if person_state.value != 'in_conflict' and person.relationship_state and person.relationship_state.value != 'none' %}
+        <form method="post" action="/people/{{ person.id }}/state" style="display:inline;">
+          <input type="hidden" name="state" value="none">
+          <button class="btn btn-sm" type="submit">Clear</button>
+        </form>
+        {% endif %}
+      </div>
+      {% else %}
+      <div class="mt-1">
+        <details>
+          <summary class="text-sm" style="cursor:pointer; color:var(--text-muted);">🕊️ Set relationship state</summary>
+          <form method="post" action="/people/{{ person.id }}/state" class="flex-gap mt-1">
+            <button class="btn btn-sm" type="submit" name="state" value="wants_space">I need space</button>
+            <button class="btn btn-sm" type="submit" name="state" value="drifted">We've drifted apart</button>
+          </form>
+        </details>
+      </div>
+      {% endif %}
+
+      {% if person_suggestion %}
+      <div class="notice notice-info mt-1 mb-0">
+        <span class="text-sm">💡 Kin noticed you haven't talked in a while — want to mark this as 'drifted' to soften reminders?</span>
+        <div class="flex-gap mt-1">
+          <form method="post" action="/people/{{ person.id }}/state-suggestion/apply"><button class="btn btn-sm btn-primary" type="submit">✓ Yes, mark as drifted</button></form>
+          <form method="post" action="/people/{{ person.id }}/state-suggestion/dismiss"><button class="btn btn-sm" type="submit">Not now</button></form>
+        </div>
+      </div>
+      {% endif %}
     </div>
     <div class="flex-gap">
       <a class="btn btn-sm" href="/journal/new?person_id={{ person.id }}">✏️ Log entry</a>

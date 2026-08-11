@@ -92,6 +92,8 @@ def _import_json(db: Session, data: dict, summary: dict):
                 "hobbies": raw.get("hobbies"),
                 "bio": raw.get("bio"),
                 "ai_summary": raw.get("ai_summary"),
+                "ai_starters_json": raw.get("ai_starters_json"),
+                "relationship_state": raw.get("relationship_state", "none"),
                 "archived": raw.get("archived"),
                 "checkin_cadence_days": raw.get("checkin_cadence_days"),
                 "last_contact_date": raw.get("last_contact_date"),

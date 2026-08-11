@@ -47,6 +47,7 @@ def export_json(db: Session = Depends(get_db), user=Depends(current_user)):
             "archived": p.archived,
             "checkin_cadence_days": p.checkin_cadence_days,
             "last_contact_date": p.last_contact_date.isoformat() if p.last_contact_date else None,
+            "relationship_state": p.relationship_state.value if p.relationship_state else "none",
             "instagram_username": p.instagram_username,
             "instagram_enabled": p.instagram_enabled,
             "tags": [t.name for t in p.tags],

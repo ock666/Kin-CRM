@@ -6,11 +6,11 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..deps import current_user
-from ..models import Person, NotableDate, ConflictLog, ConflictStatus, UnlockedAchievement
+from ..models import Person, NotableDate, ConflictLog, ConflictStatus, UnlockedAchievement, RelationshipState
 from ..render import render
 from ..services import birthdays as bday_service
 from ..services import checkins as checkin_service
-from ..services import gamification
+from ..services import gamification, states as state_service
 from ..services import grace as grace_service
 from ..services.gamification import ACHIEVEMENTS
 from ..services.immich_client import get_client_from_settings as immich_from_settings, ImmichError
@@ -67,16 +67,22 @@ def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(curr
     if grace_active:
         overdue = []
         unresolved_conflicts = []
+        drifted_people = []
+        state_suggestions = []
     else:
         overdue = checkin_service.overdue_people(db)
-        # Gentle, dismissible reminder about unresolved conflicts - not AI-detected, just "this
-        # is still open" - the user can view options and act whenever they feel ready, or dismiss.
         unresolved_conflicts = (
             db.query(ConflictLog)
             .filter(ConflictLog.status == ConflictStatus.unresolved)
             .filter(ConflictLog.reminder_dismissed.is_(False))
             .all()
         )
+        state_suggestions = state_service.suggest_states(db)
+        drifted_people = [
+            (p, (today - (p.last_contact_date or p.created_at.date())).days)
+            for p in db.query(Person).filter(Person.archived.is_(False)).all()
+            if state_service.effective_state(p, today) == RelationshipState.drifted
+        ]
 
     progress = gamification.get_stats_and_achievements(db)
 
@@ -120,6 +126,8 @@ def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(curr
         grace_remaining=grace_remaining,
         recent_badges=recent_badges,
         reassurance_note=reassurance_note,
+        state_suggestions=state_suggestions,
+        drifted_people=drifted_people,
     )
 
 

@@ -7,10 +7,10 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..deps import current_user
-from ..models import Person, Tag, NotableDate, ScratchpadItem, NotablePersonRef, ConflictStatus
+from ..models import Person, Tag, NotableDate, ScratchpadItem, NotablePersonRef, ConflictStatus, RelationshipState
 from ..render import render
 from ..services import birthdays as bday_service
-from ..services import checkins, friend_rank, gamification
+from ..services import checkins, friend_rank, gamification, states as state_service
 from ..settings_store import get_setting
 
 router = APIRouter()
@@ -26,7 +26,8 @@ def _month_names():
 
 @router.get("/people")
 def people_list(request: Request, db: Session = Depends(get_db), user=Depends(current_user),
-                 q: str = Query(""), tag: str = Query(""), show_archived: bool = Query(False)):
+                 q: str = Query(""), tag: str = Query(""), show_archived: bool = Query(False),
+                 view: str = Query("grid")):
     if not user:
         return RedirectResponse("/login")
     query = db.query(Person).filter(Person.archived.is_(show_archived))
@@ -39,9 +40,25 @@ def people_list(request: Request, db: Session = Depends(get_db), user=Depends(cu
     all_tags = db.query(Tag).order_by(Tag.name).all()
     ranks = {p.id: friend_rank.compute_friend_rank(p) for p in people}
     watermeters = {p.id: checkins.compute_cadence_watermeter(p) for p in people}
+
+    circles = None
+    if view == "circles":
+        circles_dict: dict[str, list[Person]] = {}
+        untagged = []
+        for p in people:
+            if not p.tags:
+                untagged.append(p)
+            else:
+                for t in p.tags:
+                    circles_dict.setdefault(t.name, []).append(p)
+        circles = [(tag_name, tag_people) for tag_name, tag_people in circles_dict.items()]
+        circles.sort(key=lambda t: t[0])
+        if untagged:
+            circles.append(("Uncircled", untagged))
+
     return render(request, "people_list.html", db=db, user=user, active="people",
                   people=people, all_tags=all_tags, q=q, active_tag=tag, show_archived=show_archived,
-                  ranks=ranks, watermeters=watermeters)
+                  ranks=ranks, watermeters=watermeters, view=view, circles=circles)
 
 
 @router.get("/people/new")
@@ -96,15 +113,21 @@ def person_detail(person_id: int, request: Request, db: Session = Depends(get_db
     rank = friend_rank.compute_friend_rank(person)
     watermeter = checkins.compute_cadence_watermeter(person)
     open_conflicts = [c for c in person.conflict_logs if c.status == ConflictStatus.unresolved]
+    today = dt.date.today()
     bday_days = bday_service.days_until_birthday(person)
     try:
         bday_lead = int(get_setting(db, "birthday_lead_days", "3") or 3)
     except ValueError:
         bday_lead = 3
+
+    person_state = state_service.effective_state(person, today)
+    suggestions = state_service.suggest_states(db, today=today)
+    person_suggestion = next((s for p, s, r in suggestions if p.id == person.id), None)
     return render(request, "person_detail.html", db=db, user=user, active="people",
-                  person=person, entries=entries, today=dt.date.today(), rank=rank,
+                  person=person, entries=entries, today=today, rank=rank,
                   watermeter=watermeter, open_conflicts=open_conflicts,
-                  bday_days=bday_days, bday_lead=bday_lead)
+                  bday_days=bday_days, bday_lead=bday_lead,
+                  person_state=person_state, person_suggestion=person_suggestion)
 
 
 @router.get("/people/{person_id}/edit")
@@ -292,4 +315,46 @@ def delete_notable_person(ref_id: int, db: Session = Depends(get_db), user=Depen
         db.delete(ref)
         db.commit()
         return RedirectResponse(f"/people/{person_id}", status_code=303)
+    return RedirectResponse("/people", status_code=303)
+
+
+@router.post("/people/{person_id}/state")
+def set_relationship_state(person_id: int, request: Request, db: Session = Depends(get_db),
+                            user=Depends(current_user), state: str = Form("")):
+    person = db.get(Person, person_id)
+    if person and state in ("none", "wants_space", "drifted"):
+        person.relationship_state = RelationshipState(state)
+        db.commit()
+        labels = {"none": "cleared", "wants_space": "set to 'wants space'", "drifted": "marked as drifted"}
+        request.session["notice_flash"] = f"Relationship state {labels[state]}. 🕊️"
+    return RedirectResponse(f"/people/{person_id}", status_code=303)
+
+
+@router.post("/people/{person_id}/state-suggestion/apply")
+def apply_state_suggestion(person_id: int, request: Request, db: Session = Depends(get_db),
+                            user=Depends(current_user)):
+    person = db.get(Person, person_id)
+    if person:
+        suggestions = state_service.suggest_states(db)
+        for p, suggested, reason in suggestions:
+            if p.id == person.id:
+                person.relationship_state = suggested
+                db.commit()
+                request.session["notice_flash"] = f"Marked as '{suggested.value.replace('_', ' ')}'. Gentle reminders softened. 🕊️"
+                break
+    return RedirectResponse(f"/people/{person_id}", status_code=303)
+
+
+@router.post("/people/{person_id}/state-suggestion/dismiss")
+def dismiss_state_suggestion(person_id: int, db: Session = Depends(get_db), user=Depends(current_user)):
+    return RedirectResponse(f"/people/{person_id}", status_code=303)
+
+
+@router.post("/tags/{tag_id}/color")
+def set_tag_color(tag_id: int, request: Request, db: Session = Depends(get_db), user=Depends(current_user),
+                   color: str = Form(...)):
+    tag = db.get(Tag, tag_id)
+    if tag and color:
+        tag.color = color
+        db.commit()
     return RedirectResponse("/people", status_code=303)

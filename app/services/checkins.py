@@ -2,18 +2,22 @@ import datetime as dt
 
 from sqlalchemy.orm import Session
 
-from ..models import Person
+from ..models import Person, RelationshipState
 
 
 def is_overdue(person: Person, today: dt.date | None = None) -> bool:
     """Single-person version of the same logic used by `overdue_people()` - used by the
     gamification hook to check "was this actually overdue?" before awarding bonus XP for
     clearing it (so casually clicking 'mark caught up' on someone who wasn't overdue doesn't
-    farm XP)."""
+    farm XP). Skips anyone with an active relationship-state that suppresses nudges."""
     if not person.checkin_cadence_days:
         return False
     today = today or dt.date.today()
     if person.checkin_snoozed_until and person.checkin_snoozed_until >= today:
+        return False
+    from .states import effective_state
+    state = effective_state(person, today)
+    if state in (RelationshipState.wants_space, RelationshipState.in_conflict, RelationshipState.drifted):
         return False
     baseline = person.last_contact_date
     if baseline is None:

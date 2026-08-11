@@ -1,0 +1,25 @@
+<a class="person-card" href="/people/{{ person.id }}">
+  <div class="avatar avatar-lg" style="position:relative;">
+    {% if person.avatar_url %}<img src="{{ person.avatar_url }}" alt="">{% else %}{{ person.name|initials }}{% endif %}
+  </div>
+  <div class="name">{{ person.nickname or person.name }} <span title="Friend rank">{{ ranks[person.id].emoji }}</span></div>
+  {% if watermeters[person.id].state != 'dormant' %}
+    <div class="watermeter" title="Check-in cadence: {{ watermeters[person.id].label }}">
+      <span class="watermeter-emoji">{{ watermeters[person.id].emoji }}</span>
+      <div class="watermeter-bar {{ 'state-' ~ watermeters[person.id].state }}">
+        <div class="watermeter-fill {{ 'state-' ~ watermeters[person.id].state }}" style="width:{{ watermeters[person.id].pct }}%"></div>
+      </div>
+      <span class="watermeter-label {{ 'state-' ~ watermeters[person.id].state }}">{{ watermeters[person.id].label }}</span>
+    </div>
+  {% else %}
+    <div class="watermeter dormant" title="No check-in cadence set — on hold">
+      <span class="watermeter-emoji">💤</span>
+    </div>
+  {% endif %}
+  {% if person.relationship_label %}<div class="sub">{{ person.relationship_label }}</div>{% endif %}
+  {% if person.tags %}
+  <div class="pill-row" style="justify-content:center;">
+    {% for t in person.tags[:3] %}<span class="tag" style="{% if t.color %}background:{{ t.color }}33; color:{{ t.color }}; border:1px solid {{ t.color }}44;{% endif %}">{{ t.name }}</span>{% endfor %}
+  </div>
+  {% endif %}
+</a>

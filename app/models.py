@@ -83,6 +83,13 @@ class EventType(str, enum.Enum):
     other = "other"
 
 
+class RelationshipState(str, enum.Enum):
+    none = "none"
+    wants_space = "wants_space"
+    in_conflict = "in_conflict"  # derived from unresolved ConflictLogs, never stored on Person
+    drifted = "drifted"
+
+
 class Person(Base):
     __tablename__ = "people"
 
@@ -91,6 +98,10 @@ class Person(Base):
     nickname = Column(String(255), nullable=True)
     pronouns = Column(String(50), nullable=True)
     relationship_label = Column(String(100), nullable=True)  # e.g. "close friend", "sibling"
+
+    relationship_state = Column(
+        Enum(RelationshipState), default=RelationshipState.none, nullable=False,
+    )
 
     birthday_month = Column(Integer, nullable=True)
     birthday_day = Column(Integer, nullable=True)
