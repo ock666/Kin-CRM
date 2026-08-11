@@ -5,7 +5,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from ..database import SessionLocal
 from ..settings_store import get_setting
-from . import birthdays, instagram_poll, push as push_service
+from . import birthdays, instagram_poll, push as push_service, resolution_plans
 
 logger = logging.getLogger(__name__)
 
@@ -31,12 +31,20 @@ def run_daily_jobs():
         except Exception:
             logger.exception("Instagram poll failed")
 
-        # Web Push: after generating drafts, notify opted-in devices about due birthdays and
-        # overdue cadences - aggregated and quiet, a no-op if push isn't configured.
         try:
             push_service.send_push_notifications(db)
         except Exception:
             logger.exception("Push notification send failed")
+    finally:
+        db.close()
+
+
+def run_plan_job():
+    db = SessionLocal()
+    try:
+        resolution_plans.generate_plans_for_idle(db)
+    except Exception:
+        logger.exception("Resolution plan generation failed")
     finally:
         db.close()
 
@@ -59,6 +67,13 @@ def start_scheduler():
         id="daily_jobs",
         replace_existing=True,
         misfire_grace_time=3600,
+    )
+    _scheduler.add_job(
+        run_plan_job,
+        trigger=CronTrigger(minute="*/15"),
+        id="plan_job",
+        replace_existing=True,
+        misfire_grace_time=900,
     )
     _scheduler.start()
     logger.info("Scheduler started - daily jobs run at %02d:00", hour)

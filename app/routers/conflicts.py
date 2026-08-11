@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..deps import current_user
-from ..models import ConflictLog, ConflictChatMessage, ConflictStatus, utcnow
+from ..models import ConflictLog, ConflictChatMessage, ConflictStatus, JournalEntry, EventType, utcnow
 from ..services import conflict_resolution, gamification
 from ..services.ai_client import (
     get_client_from_settings as ai_from_settings,
@@ -243,6 +243,66 @@ async def conflict_chat(conflict_id: int, request: Request, db: Session = Depend
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
     return StreamingResponse(generate(), media_type="text/event-stream")
+
+
+@router.post("/conflicts/{conflict_id}/chat/insight")
+async def chat_insight(conflict_id: int, request: Request, db: Session = Depends(get_db),
+                        user=Depends(current_user)):
+    conflict = db.get(ConflictLog, conflict_id)
+    if not conflict:
+        return JSONResponse({"error": "not found"}, status_code=404)
+    messages = (
+        db.query(ConflictChatMessage)
+        .filter_by(conflict_id=conflict_id)
+        .order_by(ConflictChatMessage.created_at)
+        .all()
+    )
+    if not messages:
+        return JSONResponse({"error": "no messages yet"}, status_code=400)
+    ai = support_ai_from_settings(db)
+    if not ai:
+        return JSONResponse({"error": "AI not configured"}, status_code=400)
+    try:
+        insight = ai.chat_insight([{"role": m.role, "content": m.content} for m in messages])
+        return JSONResponse({"insight": insight})
+    except AIError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+
+
+@router.post("/conflicts/{conflict_id}/chat/insight/save")
+async def save_chat_insight(conflict_id: int, request: Request, db: Session = Depends(get_db),
+                             user=Depends(current_user)):
+    conflict = db.get(ConflictLog, conflict_id)
+    if not conflict:
+        return JSONResponse({"error": "not found"}, status_code=404)
+    body = await request.json()
+    text = (body.get("insight") or "").strip()
+    if not text:
+        return JSONResponse({"error": "empty insight"}, status_code=400)
+    entry = JournalEntry(
+        author_user_id=user.id if user else None,
+        body=text,
+        event_type=EventType.note,
+        source="ai",
+    )
+    entry.people.append(conflict.person)
+    db.add(entry)
+    db.commit()
+    return JSONResponse({"ok": True})
+
+
+@router.post("/conflicts/{conflict_id}/plan/generate")
+def generate_plan(conflict_id: int, request: Request, db: Session = Depends(get_db),
+                   user=Depends(current_user)):
+    from ..services import resolution_plans as plan_service
+    ok = plan_service.generate_plan_for_conflict(db, conflict_id)
+    conflict = db.get(ConflictLog, conflict_id)
+    pid = conflict.person_id if conflict else None
+    if ok:
+        request.session["notice_flash"] = "Resolution plan ready. 📋"
+    else:
+        request.session["notice_flash"] = "Couldn't generate a plan yet — ensure AI is configured and the chat has been idle for a bit."
+    return RedirectResponse(f"/people/{pid}" if pid else "/", status_code=303)
 
 
 @router.post("/conflicts/{conflict_id}/chat/clear")

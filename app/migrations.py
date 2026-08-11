@@ -50,3 +50,5 @@ def run_startup_migrations():
     # v2.0: relationship state column on people (system-suggests, user-confirms,
     # affects check-in nudges and push notifications).
     _ensure_column("people", "relationship_state", "VARCHAR(20)", default_sql="'none'")
+    _ensure_column("conflict_logs", "resolution_plan_json", "TEXT")
+    _ensure_column("conflict_logs", "plan_generated_at", "DATETIME")

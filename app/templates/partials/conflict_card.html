@@ -1,4 +1,5 @@
 {% set approach = conflict.ai_approach_json|parse_json %}
+{% set plan = conflict.resolution_plan_json|parse_json %}
 <div class="card mt-1" style="border-color: var(--warn);">
   <p class="text-sm text-muted mb-1">Logged {{ conflict.created_at.strftime('%Y-%m-%d') }}</p>
   <p class="text-sm mb-2">{{ conflict.summary }}</p>
@@ -118,6 +119,54 @@
       <button class="btn btn-sm" type="submit">✨ {{ "Try different suggestions" if approach else "Get personalized suggestions" }}</button>
     </form>
   </div>
+
+  {% if plan and plan.steps %}
+  <details class="mt-2">
+    <summary class="text-sm" style="cursor:pointer; font-weight:600; color:var(--accent);">📋 Resolution plan</summary>
+    <div class="card mt-1 mb-1" style="background:var(--bg-alt); border-color:var(--accent-soft);">
+      {% if plan.summary %}<p class="text-sm mb-1"><strong>Summary:</strong> {{ plan.summary }}</p>{% endif %}
+      {% if plan.feelings %}<p class="text-sm mb-1" style="font-style:italic;">{{ plan.feelings }}</p>{% endif %}
+      {% if plan.goal %}<p class="text-sm mb-1"><strong>Your goal:</strong> {{ plan.goal }}</p>{% endif %}
+      {% if plan.steps %}
+        <p class="text-sm mb-1"><strong>Steps to try when ready:</strong></p>
+        <ol class="text-sm" style="padding-left:1.2rem; margin-top:0;">
+          {% for step in plan.steps %}<li>{{ step }}</li>{% endfor %}
+        </ol>
+      {% endif %}
+      {% if plan.approach_messages %}
+        <p class="text-sm mb-1 mt-1"><strong>Message options:</strong></p>
+        {% for msg in plan.approach_messages %}
+        <div class="flex-gap mb-1" style="align-items:flex-start;">
+          <p class="text-sm mb-0" style="flex:1; font-style:italic;">"{{ msg }}"</p>
+          <button class="btn btn-sm" type="button" data-script="{{ msg }}"
+            onclick="navigator.clipboard.writeText(this.dataset.script); this.textContent='Copied ✓'; setTimeout(() => this.textContent='📋 Copy', 2000)">📋 Copy</button>
+        </div>
+        {% endfor %}
+      {% endif %}
+      {% if plan.boundary_script %}
+        <div class="flex-gap mb-1 mt-1" style="align-items:flex-start;">
+          <p class="text-sm mb-0" style="font-weight:600;">Boundary:</p>
+          <p class="text-sm mb-0" style="flex:1; font-style:italic;">"{{ plan.boundary_script }}"</p>
+          <button class="btn btn-sm" type="button" data-script="{{ plan.boundary_script }}"
+            onclick="navigator.clipboard.writeText(this.dataset.script); this.textContent='Copied ✓'; setTimeout(() => this.textContent='📋 Copy', 2000)">📋 Copy</button>
+        </div>
+      {% endif %}
+      {% if plan.release_option %}
+        <p class="text-sm mt-1" style="font-weight:600; color:var(--success);">{{ plan.release_option }}</p>
+      {% endif %}
+      <p class="help-text mt-1 mb-0">Generated {{ conflict.plan_generated_at.strftime('%Y-%m-%d %H:%M') if conflict.plan_generated_at else '' }}</p>
+    </div>
+    <form method="post" action="/conflicts/{{ conflict.id }}/plan/generate">
+      <button class="btn btn-sm" type="submit">✨ Regenerate plan</button>
+    </form>
+  </details>
+  {% elif conflict.chat_messages and conflict.chat_messages|length > 0 %}
+  <div class="mt-2">
+    <form method="post" action="/conflicts/{{ conflict.id }}/plan/generate">
+      <button class="btn btn-sm" type="submit">📋 Generate resolution plan</button>
+    </form>
+  </div>
+  {% endif %}
 
   <details class="mt-2">
     <summary class="text-sm" style="cursor:pointer;">Or mark this resolved directly</summary>

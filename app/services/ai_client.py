@@ -41,6 +41,17 @@ class ConflictApproachSuggestions(BaseModel):
     defer_script: str  # a gentle "I need to step back for now" message for mid-conversation exits
 
 
+class ResolutionPlan(BaseModel):
+    """Structured resolution plan generated from a conflict support chat transcript."""
+    summary: str  # brief recap of the conflict from the chat
+    feelings: str  # validating acknowledgment of their emotional state
+    goal: str  # what they'd like to achieve or resolve
+    steps: list[str]  # ordered concrete actions to attempt when ready
+    approach_messages: list[str]  # copy-paste message options
+    boundary_script: str  # gentle boundary-setting option
+    release_option: str  # reminder that letting go is a valid path
+
+
 class AIClient:
     def __init__(self, base_url: str, api_key: str, model: str):
         if not api_key or not base_url or not model:
@@ -299,6 +310,52 @@ class AIClient:
             raise AIError(f"Chat request failed: {e}")
         except Exception as e:
             raise AIError(f"Chat request failed: {e}")
+
+    def chat_insight(self, messages: list[dict]) -> str:
+        """Extract a single key insight or takeaway from the support chat transcript,
+        written as a concise 1-2 sentence journal entry the user can save to their timeline."""
+        system = (
+            "Extract a single key insight or takeaway from this support chat transcript. "
+            "Write it as a concise, first-person journal entry (1-2 sentences) — warm, "
+            "specific to the situation, concrete. Never generic filler. The insight should "
+            "capture something the user learned about the situation, what they want, or how "
+            "they plan to approach it. Respond with ONLY the insight text, no markdown, no quotes."
+        )
+        return self._chat(system, json.dumps(messages, default=str), max_tokens=150, temperature=0.5)
+
+    def suggest_resolution_plan(self, conflict_summary: str, transcript: str,
+                                 person_name: str, context: str = "") -> ResolutionPlan:
+        """Generate a structured resolution plan from the conflict chat transcript, specific to
+        the person and what was discussed."""
+        system = (
+            "You help someone with AuDHD, RSD, and social anxiety build a gentle, concrete plan "
+            "for resolving an interpersonal conflict, based on what they discussed with a support "
+            "counsellor.\n\n"
+            "The user talked through their feelings during a support chat. Now, using that "
+            "transcript plus what's known about the conflict, produce a structured resolution plan "
+            "they can follow whenever they feel ready.\n\n"
+            "Guidelines:\n"
+            "- Be specific to this conflict and person, not generic.\n"
+            "- Validate their feelings first, then help them move toward resolution.\n"
+            "- Steps should be concrete and ordered (easiest/gentlest first).\n"
+            "- Approach messages should be copy-paste ready (1-2 sentences each, 2-3 options).\n"
+            "- Never pressure them to act; always include a boundary option and a release path.\n"
+            "- 'Letting it go' (release) is always a valid and legitimate choice — frame it as such.\n\n"
+            "Respond ONLY with valid JSON matching this schema:\n"
+            '{"summary": string, "feelings": string, "goal": string, "steps": [string], '
+            '"approach_messages": [string], "boundary_script": string, "release_option": string}'
+        )
+        ctx = f"\nRelationship context: {context}" if context else ""
+        user = (
+            f"Person: {person_name}\nConflict: {conflict_summary}{ctx}\n\n"
+            f"Support chat transcript:\n{transcript}"
+        )
+        raw = self._chat(system, user, max_tokens=600, temperature=0.5)
+        data = _safe_json(raw)
+        try:
+            return ResolutionPlan(**data)
+        except Exception as e:
+            raise AIError(f"AI returned an unexpected shape for resolution plan: {e}")
 
 
 def build_person_context(person) -> str:

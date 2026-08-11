@@ -20,6 +20,7 @@ DEFAULTS = {
     "push_cadence": "1",
     "grace_until": "",
     "reassurance_note": "",
+    "conflict_plan_idle_minutes": "15",
 }
 
 

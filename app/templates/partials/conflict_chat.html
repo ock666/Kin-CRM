@@ -30,4 +30,32 @@
               rows="2" :disabled="loading"></textarea>
     <button class="btn btn-primary btn-sm" type="submit" :disabled="loading || !input.trim()">Send</button>
   </form>
+  <div x-data="{ insight: '', editing: false, saving: false,
+      get conflictId() { return Alpine.$data(document.querySelector('#kin-chat-panel')).conflictId },
+      async fetchInsight() {
+        try {
+          const resp = await fetch(`/conflicts/${this.conflictId}/chat/insight`, { method: 'POST' });
+          if (resp.ok) { const data = await resp.json(); this.insight = data.insight || ''; }
+        } catch(e) { this.insight = ''; }
+      },
+      async saveInsight() {
+        if (!this.insight.trim()) return; this.saving = true;
+        try { await fetch(`/conflicts/${this.conflictId}/chat/insight/save`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({insight:this.insight.trim()}) }); this.editing = false; this.insight = ''; } catch(e) {}
+        this.saving = false;
+      }
+    }" class="chat-insight-bar" x-show="messages.length > 0" x-cloak>
+    <template x-if="!editing">
+      <button class="btn btn-sm" @click="editing = true; insight = ''; saving = false; fetchInsight()">💡 Save insight to journal</button>
+    </template>
+    <template x-if="editing">
+      <div style="flex:1;">
+        <textarea x-model="insight" rows="3" placeholder="Key insight…" :disabled="saving"
+                  style="width:100%; resize:vertical; font-size:.82rem; border:1px solid var(--border); border-radius:6px; padding:.35rem .5rem;"></textarea>
+        <div class="flex-gap mt-1">
+          <button class="btn btn-sm btn-primary" @click="saveInsight()" :disabled="saving || !insight.trim()">Save to journal</button>
+          <button class="btn btn-sm" @click="editing = false">Cancel</button>
+        </div>
+      </div>
+    </template>
+  </div>
 </div>

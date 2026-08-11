@@ -373,6 +373,8 @@ class ConflictLog(Base):
     # Lets the user quietly dismiss the gentle dashboard reminder for this conflict without
     # resolving/releasing it - it still shows on the person's own profile either way.
     reminder_dismissed = Column(Boolean, default=False)
+    resolution_plan_json = Column(Text, nullable=True)
+    plan_generated_at = Column(DateTime, nullable=True)
 
     person = relationship("Person", back_populates="conflict_logs")
     chat_messages = relationship(

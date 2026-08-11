@@ -536,3 +536,9 @@ label { display: block; font-weight: 600; font-size: .875rem; margin: 0 0 .3rem;
   font-family: inherit;
 }
 .chat-input textarea:focus { outline: none; border-color: var(--accent); }
+.chat-insight-bar {
+  padding: .4rem .75rem;
+  border-top: 1px solid var(--border);
+  background: var(--bg-main);
+  flex-shrink: 0;
+}
