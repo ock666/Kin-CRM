@@ -9,6 +9,7 @@ DEFAULTS = {
     "ai_base_url": "https://api.openai.com/v1",
     "ai_api_key": "",
     "ai_model": "gpt-4o-mini",
+    "support_chat_model": "gpt-4o",
     "instagram_username": "",
     "instagram_password": "",
     "birthday_lead_days": "3",

@@ -8,18 +8,55 @@ waiting period - every status change requires an explicit human click, and "doin
 from __future__ import annotations
 
 import datetime as dt
+import json
 
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, StreamingResponse, JSONResponse
 from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..deps import current_user
-from ..models import ConflictLog, ConflictStatus, utcnow
+from ..models import ConflictLog, ConflictChatMessage, ConflictStatus, utcnow
 from ..services import conflict_resolution, gamification
-from ..services.ai_client import get_client_from_settings as ai_from_settings, AIError
+from ..services.ai_client import (
+    get_client_from_settings as ai_from_settings,
+    get_support_client_from_settings as support_ai_from_settings,
+    AIError,
+)
 
 router = APIRouter()
+
+
+def _build_support_system_prompt(conflict_summary: str, person_name: str,
+                                  relationship_context: str = "") -> str:
+    return (
+        "You are a calm, warm, non-judgmental support worker / counsellor (support worker, "
+        "mental-health-nurse-adjacent, psychologist) for someone with AuDHD (Autism/ADHD), "
+        "Rejection Sensitive Dysphoria (RSD), and social anxiety.\n\n"
+        "Your role is to help the user work through the feelings about a specific interpersonal "
+        "conflict and arrive at a clear, logical understanding of the situation.\n\n"
+        "Guidelines:\n"
+        "- Validate first — acknowledge their feelings unconditionally.\n"
+        "- Never assign blame to either party unless the user clearly states who did what.\n"
+        "- Never pressure them to act; there is no urgency and no wrong answer.\n"
+        "- Never invalidate or minimize their emotional response.\n"
+        "- Gently challenge catastrophic or RSD-driven interpretations with curiosity rather "
+        "than correction — e.g. 'What would you tell a friend in this situation?' or 'Is "
+        "there another way to read what happened?'\n"
+        "- Help them separate observable facts from the story anxiety is telling them about "
+        "what it means.\n"
+        "- Help them reach their own conclusions about what, if anything, they want to do.\n"
+        "- Keep responses concise, grounded, and concrete — no long paragraphs or lectures.\n"
+        "- The tone is warm peer-support, not clinical or diagnostic.\n"
+        "- If the user seems to be in genuine crisis, gently encourage reaching out to a real "
+        "person or a crisis line — but never as the first or only response.\n\n"
+        "Important: You are not a licensed therapist or doctor. This is an AI support chat, "
+        f"not a substitute for professional mental health care.\n\n"
+        f"The specific situation:\n"
+        f"Person: {person_name}\n"
+        f"What happened (in the user's own words): {conflict_summary}\n"
+        f"Additional relationship context: {relationship_context or 'Not available'}"
+    )
 
 
 @router.post("/people/{person_id}/conflicts")
@@ -118,3 +155,101 @@ def delete_conflict(conflict_id: int, db: Session = Depends(get_db), user=Depend
         db.commit()
         return RedirectResponse(f"/people/{person_id}", status_code=303)
     return RedirectResponse("/", status_code=303)
+
+
+@router.get("/conflicts/{conflict_id}/chat")
+def get_chat_messages(conflict_id: int, db: Session = Depends(get_db), user=Depends(current_user)):
+    conflict = db.get(ConflictLog, conflict_id)
+    if not conflict:
+        return JSONResponse({"error": "not found"}, status_code=404)
+    msgs = (
+        db.query(ConflictChatMessage)
+        .filter_by(conflict_id=conflict_id)
+        .order_by(ConflictChatMessage.created_at)
+        .all()
+    )
+    return JSONResponse([{
+        "role": m.role,
+        "content": m.content,
+        "created_at": m.created_at.isoformat() if m.created_at else None,
+    } for m in msgs])
+
+
+@router.post("/conflicts/{conflict_id}/chat")
+async def conflict_chat(conflict_id: int, request: Request, db: Session = Depends(get_db),
+                         user=Depends(current_user)):
+    conflict = db.get(ConflictLog, conflict_id)
+    if not conflict:
+        return JSONResponse({"error": "not found"}, status_code=404)
+
+    body = await request.json()
+    message = (body.get("message") or "").strip()
+
+    person_name = conflict.person.name if conflict.person else "someone"
+    relation_ctx = conflict_resolution.build_relationship_context(conflict.person) if conflict.person else ""
+    system = _build_support_system_prompt(conflict.summary, person_name, relation_ctx)
+
+    prior = (
+        db.query(ConflictChatMessage)
+        .filter_by(conflict_id=conflict_id)
+        .order_by(ConflictChatMessage.created_at)
+        .all()
+    )
+
+    messages: list[dict] = [{"role": "system", "content": system}]
+    for m in prior:
+        messages.append({"role": m.role, "content": m.content})
+
+    if message and message != "__open__":
+        user_msg = ConflictChatMessage(conflict_id=conflict_id, role="user", content=message)
+        db.add(user_msg)
+        db.commit()
+        messages.append({"role": "user", "content": message})
+    elif not prior:
+        messages.append({
+            "role": "user",
+            "content": f"I'm here to talk about what happened with {person_name}.",
+        })
+
+    ai = support_ai_from_settings(db)
+    if not ai:
+        return JSONResponse(
+            {"error": "AI isn't configured yet. Add an API key and set a support chat model in Settings."},
+            status_code=400,
+        )
+
+    from ..database import SessionLocal
+
+    def generate():
+        full: list[str] = []
+        try:
+            for delta in ai.support_chat(messages):
+                full.append(delta)
+                yield f"data: {json.dumps({'delta': delta})}\n\n"
+
+            reply = "".join(full).strip()
+            if reply:
+                db2 = SessionLocal()
+                try:
+                    db2.add(ConflictChatMessage(
+                        conflict_id=conflict_id, role="assistant", content=reply,
+                    ))
+                    db2.commit()
+                finally:
+                    db2.close()
+
+            yield f"data: {json.dumps({'done': True})}\n\n"
+        except AIError as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
+
+
+@router.post("/conflicts/{conflict_id}/chat/clear")
+def clear_chat(conflict_id: int, db: Session = Depends(get_db), user=Depends(current_user)):
+    conflict = db.get(ConflictLog, conflict_id)
+    if conflict:
+        db.query(ConflictChatMessage).filter_by(conflict_id=conflict_id).delete()
+        db.commit()
+        return JSONResponse({"ok": True})
+    return JSONResponse({"error": "not found"}, status_code=404)

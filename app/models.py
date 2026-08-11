@@ -375,6 +375,22 @@ class ConflictLog(Base):
     reminder_dismissed = Column(Boolean, default=False)
 
     person = relationship("Person", back_populates="conflict_logs")
+    chat_messages = relationship(
+        "ConflictChatMessage", back_populates="conflict", cascade="all, delete-orphan",
+        order_by="ConflictChatMessage.created_at",
+    )
+
+
+class ConflictChatMessage(Base):
+    __tablename__ = "conflict_chat_messages"
+
+    id = Column(Integer, primary_key=True)
+    conflict_id = Column(Integer, ForeignKey("conflict_logs.id", ondelete="CASCADE"), nullable=False)
+    role = Column(String(20), nullable=False)
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=utcnow)
+
+    conflict = relationship("ConflictLog", back_populates="chat_messages")
 
 
 # ---------------------------------------------------------------------------

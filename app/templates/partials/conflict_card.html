@@ -3,6 +3,11 @@
   <p class="text-sm text-muted mb-1">Logged {{ conflict.created_at.strftime('%Y-%m-%d') }}</p>
   <p class="text-sm mb-2">{{ conflict.summary }}</p>
 
+  <div class="mb-2">
+    <button class="btn btn-sm btn-primary" type="button"
+            onclick="openKinChat({{ conflict.id }}, '{{ conflict.person.name|e if conflict.person else 'someone'|e }}')">💬 Talk it through</button>
+  </div>
+
   {% if approach and approach.reflection %}
   <p class="text-sm mb-2" style="font-style: italic;">💬 {{ approach.reflection }}</p>
   {% endif %}

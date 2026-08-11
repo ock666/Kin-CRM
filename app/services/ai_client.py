@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Optional
+from typing import Optional, Generator
 
 from openai import OpenAI, APIError, APIConnectionError
 from pydantic import BaseModel
@@ -280,6 +280,26 @@ class AIClient:
             return [str(x) for x in data]
         return []
 
+    def support_chat(self, messages: list[dict]) -> Generator[str, None, None]:
+        """Stream a support-chat response using a capable model (e.g. gpt-4o).
+        Takes a full messages list including the system prompt."""
+        try:
+            stream = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                stream=True,
+                max_tokens=800,
+                temperature=0.7,
+            )
+            for chunk in stream:
+                delta = getattr(chunk.choices[0].delta, "content", None)
+                if delta:
+                    yield delta
+        except (APIError, APIConnectionError) as e:
+            raise AIError(f"Chat request failed: {e}")
+        except Exception as e:
+            raise AIError(f"Chat request failed: {e}")
+
 
 def build_person_context(person) -> str:
     """Assemble a compact free-text context blurb about a person for AI prompts, combining
@@ -335,6 +355,16 @@ def get_client_from_settings(db) -> Optional["AIClient"]:
     base_url = get_setting(db, "ai_base_url")
     api_key = get_setting(db, "ai_api_key")
     model = get_setting(db, "ai_model")
+    if not api_key:
+        return None
+    return AIClient(base_url, api_key, model)
+
+
+def get_support_client_from_settings(db) -> Optional["AIClient"]:
+    from ..settings_store import get_setting
+    base_url = get_setting(db, "ai_base_url")
+    api_key = get_setting(db, "ai_api_key")
+    model = get_setting(db, "support_chat_model", "gpt-4o")
     if not api_key:
         return None
     return AIClient(base_url, api_key, model)

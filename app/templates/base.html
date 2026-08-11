@@ -59,9 +59,133 @@
     {% endif %}
     {% block content %}{% endblock %}
   </main>
+  {% include "partials/conflict_chat.html" %}
 </div>
 {% else %}
   {% block auth_content %}{% endblock %}
 {% endif %}
+
+<script>
+function openKinChat(conflictId, personName) {
+  const el = document.querySelector('#kin-chat-panel');
+  if (el && el.__x) {
+    el.__x.$data.openChat(conflictId, personName);
+  }
+}
+
+function kinChat() {
+  return {
+    open: false,
+    conflictId: null,
+    personName: '',
+    messages: [],
+    input: '',
+    loading: false,
+
+    openChat(id, name) {
+      this.conflictId = id;
+      this.personName = name;
+      this.open = true;
+      this.messages = [];
+      this.input = '';
+      this.loading = false;
+      this.loadHistory();
+      const self = this;
+      this.$nextTick(() => {
+        const area = self.$refs.messages;
+        if (area) area.scrollTop = area.scrollHeight;
+      });
+    },
+
+    close() {
+      this.open = false;
+      this.conflictId = null;
+    },
+
+    async loadHistory() {
+      try {
+        const resp = await fetch(`/conflicts/${this.conflictId}/chat`);
+        if (resp.ok) {
+          this.messages = await resp.json();
+        }
+      } catch (e) { /* silent */ }
+      if (this.messages.length === 0) {
+        this.loading = true;
+        await this.streamMessage('__open__');
+        this.loading = false;
+      }
+      this.scrollDown();
+    },
+
+    async send() {
+      if (!this.input.trim() || this.loading) return;
+      const msg = this.input.trim();
+      this.input = '';
+      this.messages.push({ role: 'user', content: msg });
+      this.scrollDown();
+      this.loading = true;
+      await this.streamMessage(msg);
+      this.loading = false;
+    },
+
+    async streamMessage(message) {
+      try {
+        const resp = await fetch(`/conflicts/${this.conflictId}/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message }),
+        });
+        if (!resp.ok) {
+          const data = await resp.json().catch(() => ({}));
+          this.messages.push({ role: 'assistant', content: data.error || 'Sorry, AI is not configured or an error occurred.' });
+          return;
+        }
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let aiContent = '';
+        const idx = this.messages.push({ role: 'assistant', content: '' }) - 1;
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const text = decoder.decode(value, { stream: true });
+          for (const line of text.split('\n')) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                if (data.error) { this.messages[idx].content = data.error; return; }
+                if (data.delta) {
+                  aiContent += data.delta;
+                  this.messages[idx].content = aiContent;
+                }
+                if (data.done) return;
+              } catch (e) { /* skip */ }
+            }
+          }
+        }
+      } catch (e) {
+        this.messages.push({ role: 'assistant', content: 'Connection lost. Please try again.' });
+      } finally {
+        this.scrollDown();
+      }
+    },
+
+    scrollDown() {
+      const self = this;
+      this.$nextTick(() => {
+        const area = self.$refs.messages;
+        if (area) area.scrollTop = area.scrollHeight;
+      });
+    },
+
+    async clearChat() {
+      if (!confirm('Clear this chat transcript?')) return;
+      try {
+        await fetch(`/conflicts/${this.conflictId}/chat/clear`, { method: 'POST' });
+        this.messages = [];
+      } catch (e) { /* silent */ }
+    }
+  };
+}
+</script>
 </body>
 </html>

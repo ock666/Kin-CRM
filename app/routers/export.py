@@ -64,6 +64,10 @@ def export_json(db: Session = Depends(get_db), user=Depends(current_user)):
                 "created_at": c.created_at.isoformat() if c.created_at else None,
                 "reminder_dismissed": c.reminder_dismissed,
                 "ai_approach_json": c.ai_approach_json,
+                "chat_messages": [{
+                    "role": cm.role, "content": cm.content,
+                    "created_at": cm.created_at.isoformat() if cm.created_at else None,
+                } for cm in (c.chat_messages or [])],
             } for c in p.conflict_logs],
             "instagram_posts": [{
                 "ig_post_id": ip.ig_post_id, "caption": ip.caption,

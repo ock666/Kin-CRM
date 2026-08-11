@@ -36,8 +36,13 @@
       <input type="password" id="ai_api_key" name="ai_api_key" value="{{ cfg.ai_api_key }}">
     </div>
     <div class="field">
-      <label for="ai_model">Model</label>
+      <label for="ai_model">Primary model (for summaries, extraction, drafts)</label>
       <input type="text" id="ai_model" name="ai_model" value="{{ cfg.ai_model }}" required>
+    </div>
+    <div class="field">
+      <label for="support_chat_model">Support chat model (for "Talk it through" conflict chat)</label>
+      <input type="text" id="support_chat_model" name="support_chat_model" value="{{ cfg.support_chat_model or 'gpt-4o' }}">
+      <p class="help-text">Uses a separate, more capable model for the caring support chat — gpt-4o recommended. Falls back to your primary model if blank.</p>
     </div>
     <button class="btn btn-primary btn-sm" type="submit">Save</button>
   </form>

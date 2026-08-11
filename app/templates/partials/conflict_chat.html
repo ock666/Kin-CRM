@@ -1,0 +1,32 @@
+<div id="kin-chat-panel" x-data="kinChat()" x-show="open"
+     x-cloak class="chat-panel" @keydown.escape="close()">
+  <div class="chat-header">
+    <div>
+      <strong class="text-sm">💬 Talk it through</strong>
+      <span class="text-sm text-muted" style="margin-left:.5rem;" x-text="personName"></span>
+    </div>
+    <div class="flex-gap">
+      <button class="btn btn-sm" type="button" @click="clearChat()" title="Clear chat transcript">🗑️</button>
+      <button class="btn btn-sm" type="button" @click="close()">✕</button>
+    </div>
+  </div>
+  <div class="chat-messages" id="chat-messages" x-ref="messages">
+    <template x-for="(msg, i) in messages" :key="i">
+      <div :class="msg.role === 'user' ? 'chat-bubble chat-bubble-user' : 'chat-bubble chat-bubble-ai'">
+        <div class="text-sm" x-text="msg.content"></div>
+      </div>
+    </template>
+    <div x-show="loading" class="text-sm text-muted" style="padding:.5rem;">
+      <em>Thinking…</em>
+    </div>
+    <div x-show="messages.length === 0 && !loading" class="text-sm text-muted" style="text-align:center; padding:2rem 1rem;">
+      Your counsellor is here. Take your time — share what's on your mind.
+    </div>
+  </div>
+  <form class="chat-input" @submit.prevent="send()">
+    <textarea x-model="input" @keydown.enter.prevent="if(!$event.shiftKey) send()"
+              placeholder="Type your message… (Enter to send, Shift+Enter for new line)"
+              rows="2" :disabled="loading"></textarea>
+    <button class="btn btn-primary btn-sm" type="submit" :disabled="loading || !input.trim()">Send</button>
+  </form>
+</div>

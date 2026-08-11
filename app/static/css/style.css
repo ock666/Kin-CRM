@@ -460,3 +460,75 @@ label { display: block; font-weight: 600; font-size: .875rem; margin: 0 0 .3rem;
   .nav-spacer { display: none; }
   .main { padding: 1rem; }
 }
+
+/* ---------------------------------------------------------------------------
+   Conflict Support Chat Panel
+   --------------------------------------------------------------------------- */
+.chat-panel {
+  position: fixed;
+  bottom: 0; right: 1rem;
+  width: 380px; max-width: 95vw;
+  height: 540px; max-height: 80vh;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 12px 12px 0 0;
+  box-shadow: 0 -2px 20px rgba(0,0,0,.15);
+  display: flex; flex-direction: column;
+  z-index: 1000;
+}
+.chat-header {
+  padding: .6rem .8rem;
+  background: var(--accent);
+  color: white;
+  border-radius: 10px 10px 0 0;
+  display: flex; justify-content: space-between; align-items: center;
+  flex-shrink: 0;
+}
+.chat-header .btn { background: rgba(255,255,255,.2); color: white; border: none; }
+.chat-header .btn:hover { background: rgba(255,255,255,.35); }
+.chat-header .text-muted { color: rgba(255,255,255,.75) !important; }
+
+.chat-messages {
+  flex: 1; overflow-y: auto;
+  padding: .75rem;
+  display: flex; flex-direction: column; gap: .5rem;
+  background: var(--bg-main);
+}
+.chat-bubble {
+  max-width: 85%;
+  padding: .5rem .75rem;
+  border-radius: 12px;
+  line-height: 1.45;
+  word-wrap: break-word;
+}
+.chat-bubble-user {
+  align-self: flex-end;
+  background: var(--accent);
+  color: white;
+  border-bottom-right-radius: 4px;
+}
+.chat-bubble-ai {
+  align-self: flex-start;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-bottom-left-radius: 4px;
+}
+.chat-input {
+  display: flex; gap: .4rem;
+  padding: .5rem .75rem;
+  border-top: 1px solid var(--border);
+  background: var(--bg-card);
+  flex-shrink: 0;
+}
+.chat-input textarea {
+  flex: 1;
+  resize: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: .4rem .5rem;
+  font-size: .85rem;
+  line-height: 1.4;
+  font-family: inherit;
+}
+.chat-input textarea:focus { outline: none; border-color: var(--accent); }

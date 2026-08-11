@@ -54,8 +54,14 @@ def test_immich(request: Request, db: Session = Depends(get_db), user=Depends(cu
 
 @router.post("/settings/ai")
 def save_ai(request: Request, db: Session = Depends(get_db), user=Depends(current_user),
-            ai_base_url: str = Form(...), ai_api_key: str = Form(""), ai_model: str = Form(...)):
-    set_many(db, {"ai_base_url": ai_base_url.strip(), "ai_api_key": ai_api_key.strip(), "ai_model": ai_model.strip()})
+            ai_base_url: str = Form(...), ai_api_key: str = Form(""), ai_model: str = Form(...),
+            support_chat_model: str = Form("gpt-4o")):
+    set_many(db, {
+        "ai_base_url": ai_base_url.strip(),
+        "ai_api_key": ai_api_key.strip(),
+        "ai_model": ai_model.strip(),
+        "support_chat_model": support_chat_model.strip() or "gpt-4o",
+    })
     return RedirectResponse("/settings", status_code=303)
 
 
