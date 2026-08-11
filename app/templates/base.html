@@ -59,8 +59,8 @@
     {% endif %}
     {% block content %}{% endblock %}
   </main>
-  {% include "partials/conflict_chat.html" %}
 </div>
+{% include "partials/conflict_chat.html" %}
 {% else %}
   {% block auth_content %}{% endblock %}
 {% endif %}
