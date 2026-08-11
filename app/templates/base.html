@@ -67,10 +67,9 @@
 
 <script>
 function openKinChat(conflictId, personName) {
-  const el = document.querySelector('#kin-chat-panel');
-  if (el) {
-    Alpine.$data(el).openChat(conflictId, personName);
-  }
+  window.dispatchEvent(new CustomEvent('kin-open-chat', {
+    detail: { conflictId, personName },
+  }));
 }
 
 function kinChat() {

@@ -1,5 +1,6 @@
 <div id="kin-chat-panel" x-data="kinChat()" x-show="open"
-     x-cloak class="chat-panel" @keydown.escape="close()">
+     x-cloak class="chat-panel" @keydown.escape="close()"
+     @kin-open-chat.window="openChat($event.detail.conflictId, $event.detail.personName)">
   <div class="chat-header">
     <div>
       <strong class="text-sm">💬 Talk it through</strong>
