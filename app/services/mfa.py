@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import secrets
+import time
 
 import pyotp
 from cryptography.fernet import Fernet
@@ -13,34 +14,62 @@ from ..config import settings
 bcrypt_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 _mfa_signer = URLSafeTimedSerializer(settings.SESSION_SECRET, salt="mfa-pending")
 
+# ── TOTP encryption key ──────────────────────────────────────────────────
+# PBKDF2-derived key from SESSION_SECRET so session signing and TOTP
+# encryption use cryptographically independent keys even though they share
+# the same root secret.
+_raw = hashlib.pbkdf2_hmac("sha256", settings.SESSION_SECRET.encode(), b"fernet-totp", 100_000, dklen=32)
+_fernet = Fernet(base64.urlsafe_b64encode(_raw))
 
-def _get_fernet() -> Fernet:
-    key = hashlib.sha256(settings.SESSION_SECRET.encode()).digest()
-    return Fernet(base64.urlsafe_b64encode(key))
+# ── MFA token single-use nonces ──────────────────────────────────────────
+_nonce_ttl = 300
+_used_nonces: dict[str, float] = {}
+
+
+def _consume_nonce(nonce: str) -> bool:
+    now = time.monotonic()
+    expired = [k for k, t in _used_nonces.items() if now - t > _nonce_ttl]
+    for k in expired:
+        _used_nonces.pop(k, None)
+    if nonce in _used_nonces:
+        return False
+    _used_nonces[nonce] = now
+    return True
 
 
 def encrypt_secret(plain: str) -> str:
-    return _get_fernet().encrypt(plain.encode()).decode()
+    return _fernet.encrypt(plain.encode()).decode()
 
 
 def decrypt_secret(encrypted: str | None) -> str | None:
     if not encrypted:
         return None
     try:
-        return _get_fernet().decrypt(encrypted.encode()).decode()
+        return _fernet.decrypt(encrypted.encode()).decode()
     except Exception:
         return None
 
 
+def validate_mfa_token(token: str) -> int | None:
+    try:
+        data = _mfa_signer.loads(token, max_age=300)
+        return data["user_id"]
+    except (BadSignature, SignatureExpired, KeyError):
+        return None
+
+
 def create_mfa_token(user_id: int) -> str:
-    return _mfa_signer.dumps({"user_id": user_id})
+    nonce = secrets.token_hex(16)
+    return _mfa_signer.dumps({"user_id": user_id, "nonce": nonce})
 
 
 def verify_mfa_token(token: str) -> int | None:
     try:
         data = _mfa_signer.loads(token, max_age=300)
+        if not _consume_nonce(data["nonce"]):
+            return None
         return data["user_id"]
-    except (BadSignature, SignatureExpired):
+    except (BadSignature, SignatureExpired, KeyError):
         return None
 
 

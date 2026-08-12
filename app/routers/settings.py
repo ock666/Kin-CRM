@@ -203,7 +203,8 @@ def mfa_setup_post(request: Request, db: Session = Depends(get_db), user=Depends
     user.mfa_recovery_codes = hashed_json
     db.commit()
     return render(request, "mfa_setup.html", db=db, user=user, active="settings",
-                  mfa_setup_done=True, recovery_codes=plain_codes)
+                  mfa_setup_done=True, recovery_codes=plain_codes,
+                  _headers={"Cache-Control": "no-store"})
 
 
 @router.post("/settings/mfa/disable")
@@ -231,4 +232,5 @@ def mfa_regenerate_codes(request: Request, db: Session = Depends(get_db), user=D
     cfg = get_all_settings(db)
     users = db.query(User).order_by(User.id).all()
     return render(request, "settings.html", db=db, user=user, active="settings",
-                  cfg=cfg, users=users, recovery_codes=plain_codes)
+                  cfg=cfg, users=users, recovery_codes=plain_codes,
+                  _headers={"Cache-Control": "no-store"})

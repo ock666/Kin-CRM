@@ -8,7 +8,7 @@ from ..database import get_db
 from ..models import User
 from ..auth import hash_password, verify_password, login_user, logout_user, _strong_enough
 from ..render import render
-from ..services.mfa import create_mfa_token, verify_mfa_token, verify_totp, verify_recovery_code
+from ..services.mfa import create_mfa_token, verify_mfa_token, validate_mfa_token, verify_totp, verify_recovery_code
 from ..config import settings
 
 router = APIRouter()
@@ -98,7 +98,7 @@ def login_post(
 @router.get("/mfa/verify")
 def mfa_verify_get(request: Request, db: Session = Depends(get_db)):
     token = request.cookies.get(MFA_TOKEN_COOKIE)
-    user_id = verify_mfa_token(token) if token else None
+    user_id = validate_mfa_token(token) if token else None
     user = db.get(User, user_id) if user_id else None
     if not user:
         response = RedirectResponse("/login", status_code=303)
@@ -124,7 +124,7 @@ def mfa_verify_post(request: Request, db: Session = Depends(get_db), totp_code: 
         response = RedirectResponse("/login", status_code=303)
         response.delete_cookie(MFA_TOKEN_COOKIE)
         return response
-    if not verify_totp(user.totp_secret, code):
+    if not verify_totp(user.totp_secret, totp_code.strip()):
         return render(request, "mfa_verify.html", db=db, error="Verification failed. Please try again.")
 
     login_user(request, user)
