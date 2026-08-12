@@ -114,7 +114,7 @@ def manifest():
 @app.middleware("http")
 async def auth_gate(request: Request, call_next):
     path = request.url.path
-    if path.startswith("/static") or path in OPEN_PATHS or path.startswith("/mfa/"):
+    if path.startswith("/static") or path.startswith("/api/") or path in OPEN_PATHS or path.startswith("/mfa/"):
         return await call_next(request)
 
     db = SessionLocal()
@@ -199,6 +199,11 @@ app.include_router(conflicts_router.router)
 app.include_router(push_router.router)
 app.include_router(import_router.router)
 app.include_router(regulation_router.router)
+
+# API v1
+from .routers.api import routers as api_routers  # noqa: E402
+for r in api_routers:
+    app.include_router(r)
 
 
 # Calm, on-brand error pages - never a bare stack trace, never more alarming than the moment
