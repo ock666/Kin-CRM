@@ -14,7 +14,12 @@ def _load_or_create_secret() -> str:
     if env_secret:
         return env_secret
     if _secret_path.exists():
-        return _secret_path.read_text().strip()
+        secret = _secret_path.read_text().strip()
+        try:
+            _secret_path.chmod(0o600)
+        except OSError:
+            pass
+        return secret
     secret = secrets.token_hex(32)
     try:
         _secret_path.write_text(secret)

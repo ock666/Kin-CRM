@@ -165,9 +165,9 @@ def journal_update(
         return RedirectResponse("/")
     entry.title = title or None
     entry.body = body
-    entry.entry_date = dt.date.fromisoformat(entry_date)
-    entry.event_type = EventType(event_type) if event_type else EventType.note
-    entry.energy_cost = EnergyCost(energy_cost) if energy_cost else None
+    entry.entry_date = _safe_date(entry_date) or dt.date.today()
+    entry.event_type = _safe_enum(EventType, event_type, EventType.note)
+    entry.energy_cost = _safe_enum(EnergyCost, energy_cost, None)
     entry.location = location or None
     entry.people = [p for pid in person_ids if (p := db.get(Person, pid))]
     db.commit()

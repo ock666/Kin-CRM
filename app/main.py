@@ -49,7 +49,7 @@ def _parse_json(raw):
 
 
 def _render_markdown(text: str) -> str:
-    html = markdown2.markdown(text or "", extras=["break-on-newline", "linkify"])
+    html = markdown2.markdown(text or "", extras=["break-on-newline", "linkify", "safe-mode"])
     html = re.sub(
         r'<a\s+href="(https?://[^"]+)"([^>]*)>',
         r'<a href="\1"\2 rel="nofollow noopener noreferrer">',
@@ -149,7 +149,7 @@ app.add_middleware(
 
 app.add_middleware(
     TrustedHostMiddleware,
-    allowed_hosts=os.environ.get("ALLOWED_HOSTS", "*").split(","),
+    allowed_hosts=os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(","),
 )
 
 app.add_middleware(RateLimitMiddleware)

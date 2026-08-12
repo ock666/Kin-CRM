@@ -1,4 +1,3 @@
-import re
 from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, Request, Form
@@ -7,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models import User
-from ..auth import hash_password, verify_password, login_user, logout_user
+from ..auth import hash_password, verify_password, login_user, logout_user, _strong_enough
 from ..render import render
 
 router = APIRouter()
@@ -27,15 +26,6 @@ def _is_safe_redirect(target: str) -> str:
     if not target.startswith("/"):
         return "/"
     return target
-
-
-def _strong_enough(password: str) -> bool:
-    if len(password) < 8:
-        return False
-    has_lower = bool(re.search(r"[a-z]", password))
-    has_upper = bool(re.search(r"[A-Z]", password))
-    has_digit = bool(re.search(r"\d", password))
-    return has_lower and has_upper and has_digit
 
 
 @router.get("/setup")

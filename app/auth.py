@@ -1,3 +1,5 @@
+import re
+
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 from starlette.requests import Request
@@ -5,6 +7,15 @@ from starlette.requests import Request
 from .models import User
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+def _strong_enough(password: str) -> bool:
+    if len(password) < 8:
+        return False
+    has_lower = bool(re.search(r"[a-z]", password))
+    has_upper = bool(re.search(r"[A-Z]", password))
+    has_digit = bool(re.search(r"\d", password))
+    return has_lower and has_upper and has_digit
 
 
 def hash_password(password: str) -> str:

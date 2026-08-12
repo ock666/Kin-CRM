@@ -54,7 +54,7 @@ def test_login_with_wrong_password_shows_error(client, admin_credentials):
             "password_confirm": admin_credentials["password"],
         },
     )
-    client.get("/logout")
+    client.post("/logout")
     resp = client.post(
         "/login", data={"email": admin_credentials["email"], "password": "wrong-password"}
     )
@@ -63,7 +63,7 @@ def test_login_with_wrong_password_shows_error(client, admin_credentials):
 
 
 def test_logout_requires_login_again(logged_in_client):
-    logged_in_client.get("/logout")
+    logged_in_client.post("/logout")
     resp = logged_in_client.get("/", follow_redirects=False)
     assert resp.status_code == 303
     assert resp.headers["location"].startswith("/login")

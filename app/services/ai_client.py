@@ -9,11 +9,14 @@ feature or shows a friendly note instead of crashing.
 from __future__ import annotations
 
 import json
+import logging
 import re
 from typing import Optional, Generator
 
 from openai import OpenAI, APIError, APIConnectionError
 from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
 
 
 class AIError(Exception):
@@ -309,9 +312,11 @@ class AIClient:
                 if delta:
                     yield delta
         except (APIError, APIConnectionError) as e:
-            raise AIError(f"Chat request failed: {e}")
+            logger.error("AI support-chat request failed: %s", e)
+            raise AIError("AI service is currently unavailable. Please try again later.")
         except Exception as e:
-            raise AIError(f"Chat request failed: {e}")
+            logger.error("AI support-chat request failed (unexpected): %s", e)
+            raise AIError("AI service is currently unavailable. Please try again later.")
 
     def chat_insight(self, messages: list[dict]) -> str:
         """Extract a single key insight or takeaway from the support chat transcript,

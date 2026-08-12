@@ -250,7 +250,7 @@ def add_notable_date(
     label: str = Form(...), month: int = Form(...), day: int = Form(...), year: str = Form(""),
 ):
     nd = NotableDate(person_id=person_id, label=label.strip(), month=month, day=day,
-                      year=int(year) if year else None)
+                      year=_safe_int(year))
     db.add(nd)
     db.commit()
     return RedirectResponse(f"/people/{person_id}", status_code=303)

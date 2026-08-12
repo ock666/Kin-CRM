@@ -7,11 +7,9 @@ from ..deps import current_user
 from ..models import User
 from ..render import render
 from ..settings_store import get_all_settings, set_many, get_setting_sensitive
-from ..auth import hash_password
+from ..auth import hash_password, _strong_enough
 from ..services.immich_client import ImmichClient, ImmichError
 from ..services.ai_client import AIClient, AIError
-
-import re
 
 router = APIRouter()
 
@@ -126,7 +124,7 @@ def save_push(request: Request, db: Session = Depends(get_db), user=Depends(curr
 @router.post("/settings/users/new")
 def add_user(request: Request, db: Session = Depends(get_db), user=Depends(current_user),
              name: str = Form(...), email: str = Form(...), password: str = Form(...)):
-    if len(password) < 8 or not re.search(r"[a-z]", password) or not re.search(r"[A-Z]", password) or not re.search(r"\d", password):
+    if not _strong_enough(password):
         return RedirectResponse("/settings", status_code=303)
     if db.query(User).filter(User.email == email.lower().strip()).first():
         return RedirectResponse("/settings", status_code=303)
