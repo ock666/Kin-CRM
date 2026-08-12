@@ -138,4 +138,30 @@
     <button class="btn btn-sm" type="submit">+ Add person</button>
   </form>
 </div>
+
+<div class="card mt-2">
+  <h2>🔐 Two-factor authentication</h2>
+  {% if user.totp_enabled %}
+    <p class="text-sm text-muted">MFA is <strong>enabled</strong>. You'll need a code from your authenticator app each time you log in.</p>
+    {% if recovery_codes %}
+    <div class="notice notice-success mt-1">
+      <strong>New recovery codes</strong> — save these somewhere safe. Each code can be used once.
+      <div style="background:var(--bg);font-family:monospace;padding:.5rem;margin:.5rem 0;white-space:pre-wrap;word-break:break-all;">{% for c in recovery_codes %}{{ c }}
+{% endfor %}</div>
+    </div>
+    {% endif %}
+    <div class="flex-gap mt-1">
+      <form method="post" action="/settings/mfa/recovery/regenerate" style="display:inline">
+        <button class="btn btn-sm" type="submit">Generate new recovery codes</button>
+      </form>
+      <form method="post" action="/settings/mfa/disable" style="display:inline">
+        <input type="password" name="password" placeholder="Your password" required style="max-width:16ch;">
+        <button class="btn btn-sm btn-danger" type="submit">Disable MFA</button>
+      </form>
+    </div>
+  {% else %}
+    <p class="text-sm text-muted">Add an extra layer of security with a time-based one-time password (TOTP) from any authenticator app.</p>
+    <a class="btn btn-primary btn-sm" href="/settings/mfa/setup">Set up two-factor authentication</a>
+  {% endif %}
+</div>
 {% endblock %}

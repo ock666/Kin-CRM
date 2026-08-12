@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Set Up Two-Factor Authentication — {{ app_name }}{% endblock %}
+{% block content %}
+<h1>Set up two-factor authentication</h1>
+<div class="container-narrow">
+
+  {% if not mfa_setup_done %}
+    <div class="card mb-2">
+      <h2>Step 1: Scan this QR code</h2>
+      <p class="text-sm text-muted">Scan with your authenticator app (Google Authenticator, Authy, 1Password, Bitwarden, etc.)</p>
+      <div style="background:white;display:inline-block;padding:8px;border-radius:4px;">
+        <img src="data:image/png;base64,{{ qr_b64 }}" alt="TOTP QR code" style="display:block;">
+      </div>
+      <p class="text-sm text-muted mt-1">Or enter this key manually: <code>{{ totp_key }}</code></p>
+    </div>
+
+    <div class="card">
+      <h2>Step 2: Verify the code</h2>
+      <p class="text-sm text-muted">Enter the 6-digit code your authenticator app shows to confirm setup.</p>
+      <form method="post" action="/settings/mfa/setup">
+        <div class="field-row">
+          <input type="text" name="totp_code" placeholder="6-digit code" required autofocus
+                 autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]*" maxlength="6"
+                 style="max-width:12ch;font-size:1.2rem;letter-spacing:.3em;">
+          <button class="btn btn-primary btn-sm" type="submit">Enable MFA</button>
+        </div>
+      </form>
+    </div>
+  {% else %}
+    <div class="card">
+      <h2>MFA is now enabled</h2>
+      <p class="text-sm text-muted">You'll need to enter a code from your authenticator each time you log in.</p>
+      {% if recovery_codes %}
+      <div class="notice notice-success">
+        <strong>Save these recovery codes</strong> — each can be used once if you lose access to your authenticator app. Store them somewhere safe (password manager, printed copy). You won't see these again.
+        <div style="background:var(--bg);font-family:monospace;padding:.5rem;margin:.5rem 0;white-space:pre-wrap;word-break:break-all;">{% for c in recovery_codes %}{{ c }}
+{% endfor %}</div>
+        <p class="text-sm text-muted">You have {{ recovery_codes|length }} recovery codes. You can generate new ones any time from Settings, which will invalidate these.</p>
+      </div>
+      {% endif %}
+      <a class="btn btn-primary" href="/settings">Back to Settings</a>
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}

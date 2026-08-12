@@ -27,6 +27,9 @@ class User(Base):
     hashed_password = Column(String(255), nullable=False)
     is_admin = Column(Boolean, default=False)
     created_at = Column(DateTime, default=utcnow)
+    totp_secret = Column(String(255), nullable=True)
+    totp_enabled = Column(Boolean, default=False)
+    mfa_recovery_codes = Column(Text, nullable=True)
 
     journal_entries = relationship("JournalEntry", back_populates="author")
 

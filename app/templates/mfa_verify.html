@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Two-Factor Authentication — {{ app_name }}{% endblock %}
+{% block auth_content %}
+<div class="auth-wrap">
+  <div class="card auth-card">
+    <h1>Two-factor authentication</h1>
+    <p class="text-muted text-sm mb-2">Enter the code from your authenticator app.</p>
+    {% if error %}<div class="notice notice-danger">{{ error }}</div>{% endif %}
+    <form method="post" action="/mfa/verify">
+      <div class="field">
+        <label for="totp_code">6-digit code</label>
+        <input type="text" id="totp_code" name="totp_code" required autofocus
+               autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]*" maxlength="6" style="max-width:12ch;font-size:1.2rem;letter-spacing:.3em;">
+      </div>
+      <button class="btn btn-primary btn-block" type="submit">Verify</button>
+    </form>
+    <details class="mt-2" style="font-size:.85rem;">
+      <summary style="cursor:pointer;color:var(--text-muted);">Use a recovery code instead</summary>
+      <form method="post" action="/mfa/verify/recovery" class="mt-1">
+        <div class="field">
+          <label for="recovery_code">Recovery code</label>
+          <input type="text" id="recovery_code" name="recovery_code" required style="max-width:18ch;">
+        </div>
+        <button class="btn btn-sm" type="submit">Sign in with recovery code</button>
+      </form>
+    </details>
+  </div>
+</div>
+{% endblock %}

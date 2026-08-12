@@ -62,7 +62,7 @@ templates.env.filters["markdown"] = _render_markdown
 templates.env.filters["initials"] = _initials
 templates.env.filters["parse_json"] = _parse_json
 
-OPEN_PATHS = {"/login", "/setup", "/health", "/sw.js", "/manifest.webmanifest", "/static/offline.html"}
+OPEN_PATHS = {"/login", "/setup", "/health", "/sw.js", "/manifest.webmanifest", "/static/offline.html", "/mfa/verify"}
 
 
 @app.middleware("http")

@@ -7,9 +7,11 @@ from ..deps import current_user
 from ..models import User
 from ..render import render
 from ..settings_store import get_all_settings, set_many, get_setting_sensitive
-from ..auth import hash_password, _strong_enough
+from ..auth import hash_password, _strong_enough, verify_password
 from ..services.immich_client import ImmichClient, ImmichError
 from ..services.ai_client import AIClient, AIError
+from ..services.mfa import generate_totp_secret, verify_totp, generate_recovery_codes, decrypt_secret
+from ..config import settings
 
 router = APIRouter()
 
@@ -27,7 +29,8 @@ def settings_page(request: Request, db: Session = Depends(get_db), user=Depends(
         return RedirectResponse("/login")
     cfg = get_all_settings(db)
     users = db.query(User).order_by(User.id).all()
-    return render(request, "settings.html", db=db, user=user, active="settings", cfg=cfg, users=users)
+    user_mfa = db.get(User, user.id)
+    return render(request, "settings.html", db=db, user=user_mfa, active="settings", cfg=cfg, users=users)
 
 
 @router.post("/settings/immich")
@@ -142,3 +145,82 @@ def delete_user(user_id: int, db: Session = Depends(get_db), user=Depends(curren
             db.delete(target)
             db.commit()
     return RedirectResponse("/settings", status_code=303)
+
+
+# ---------------------------------------------------------------------------
+# MFA (TOTP two-factor authentication)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/settings/mfa/setup")
+def mfa_setup_get(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
+    if not user:
+        return RedirectResponse("/login")
+    if user.totp_enabled:
+        return RedirectResponse("/settings", status_code=303)
+    encrypted, uri = generate_totp_secret(settings.APP_NAME)
+    user.totp_secret = encrypted
+    db.commit()
+    secret = decrypt_secret(encrypted)
+    import base64
+    import io
+    import qrcode
+    qr = qrcode.make(uri)
+    buf = io.BytesIO()
+    qr.save(buf, format="PNG")
+    qr_b64 = base64.b64encode(buf.getvalue()).decode()
+    return render(request, "mfa_setup.html", db=db, user=user, active="settings",
+                  qr_b64=qr_b64, totp_key=secret, mfa_setup_done=False)
+
+
+@router.post("/settings/mfa/setup")
+def mfa_setup_post(request: Request, db: Session = Depends(get_db), user=Depends(current_user),
+                   totp_code: str = Form(...)):
+    if not user:
+        return RedirectResponse("/login")
+    if user.totp_enabled:
+        return RedirectResponse("/settings", status_code=303)
+    if not verify_totp(user.totp_secret, totp_code.strip()):
+        secret = decrypt_secret(user.totp_secret) or "•••••"
+        import base64
+        import io
+        import qrcode
+        uri = f"otpauth://totp/Kin:kin-user?secret={secret}&issuer=Kin"
+        qr = qrcode.make(uri)
+        buf = io.BytesIO()
+        qr.save(buf, format="PNG")
+        qr_b64 = base64.b64encode(buf.getvalue()).decode()
+        return render(request, "mfa_setup.html", db=db, user=user, active="settings",
+                      qr_b64=qr_b64, totp_key=secret, mfa_setup_done=False,
+                      error="That code didn't work. Please try again.")
+    user.totp_enabled = True
+    plain_codes, hashed_json = generate_recovery_codes()
+    user.mfa_recovery_codes = hashed_json
+    db.commit()
+    return render(request, "mfa_setup.html", db=db, user=user, active="settings",
+                  mfa_setup_done=True, recovery_codes=plain_codes)
+
+
+@router.post("/settings/mfa/disable")
+def mfa_disable(request: Request, db: Session = Depends(get_db), user=Depends(current_user),
+                password: str = Form(...)):
+    if not user or not verify_password(password, user.hashed_password):
+        return RedirectResponse("/settings", status_code=303)
+    user.totp_enabled = False
+    user.totp_secret = None
+    user.mfa_recovery_codes = None
+    db.commit()
+    return RedirectResponse("/settings", status_code=303)
+
+
+@router.post("/settings/mfa/recovery/regenerate")
+def mfa_regenerate_codes(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
+    if not user or not user.totp_enabled:
+        return RedirectResponse("/settings", status_code=303)
+    plain_codes, hashed_json = generate_recovery_codes()
+    user.mfa_recovery_codes = hashed_json
+    db.commit()
+    cfg = get_all_settings(db)
+    users = db.query(User).order_by(User.id).all()
+    return render(request, "settings.html", db=db, user=user, active="settings",
+                  cfg=cfg, users=users, recovery_codes=plain_codes)

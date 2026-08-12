@@ -13,3 +13,6 @@ openai>=1.51.0,<2.0.0
 instagrapi>=2.0.0,<3.0.0
 markdown2==2.5.1
 pywebpush>=1.14.0,<2.0.0
+pyotp==2.9.0
+qrcode[pil]==7.4.2
+cryptography>=42.0.0

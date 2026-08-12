@@ -52,3 +52,8 @@ def run_startup_migrations():
     _ensure_column("people", "relationship_state", "VARCHAR(20)", default_sql="'none'")
     _ensure_column("conflict_logs", "resolution_plan_json", "TEXT")
     _ensure_column("conflict_logs", "plan_generated_at", "DATETIME")
+
+    # MFA (TOTP two-factor auth)
+    _ensure_column("users", "totp_secret", "VARCHAR(255)")
+    _ensure_column("users", "totp_enabled", "BOOLEAN", default_sql="0")
+    _ensure_column("users", "mfa_recovery_codes", "TEXT")
