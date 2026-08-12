@@ -144,7 +144,6 @@ app.add_middleware(
     same_site="lax",
     max_age=60 * 60 * 24 * 30,
     https_only=os.environ.get("HTTPS_ONLY", "0") == "1",
-    httponly=True,
 )
 
 app.add_middleware(
