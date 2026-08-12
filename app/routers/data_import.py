@@ -235,7 +235,7 @@ def _import_csv(db: Session, text: str, summary: dict):
 
 @router.post("/import")
 async def do_import(request: Request, db: Session = Depends(get_db), user=Depends(current_user),
-                    file: UploadFile = File(...)):
+                    file: UploadFile = File(..., max_size=50 * 1024 * 1024)):
     if not user:
         return RedirectResponse("/login")
     raw = (await file.read()).decode("utf-8", errors="replace")
@@ -246,9 +246,9 @@ async def do_import(request: Request, db: Session = Depends(get_db), user=Depend
             _import_csv(db, raw, summary)
         else:
             _import_json(db, json.loads(raw), summary)
-    except Exception as e:
+    except Exception:
         return render(request, "import.html", db=db, user=user, active="import",
-                      error=f"Couldn't read that file: {e}")
+                      error="Couldn't read that file. Check the format and try again.")
     return render(request, "import.html", db=db, user=user, active="import",
                   message=f"Imported {summary['created_people']} people" +
                           (f" ({summary['skipped']} rows skipped)" if summary["skipped"] else "") + ".")

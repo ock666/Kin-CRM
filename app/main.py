@@ -1,5 +1,7 @@
 import logging
 import json
+import os
+import re
 from pathlib import Path
 
 import markdown2
@@ -7,12 +9,14 @@ from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from .config import settings
 from .database import Base, engine, SessionLocal
 from .render import templates
 from .models import User
 from .migrations import run_startup_migrations
+from .rate_limiter import RateLimitMiddleware
 from .services.scheduler import start_scheduler, shutdown_scheduler
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -44,11 +48,47 @@ def _parse_json(raw):
         return None
 
 
-templates.env.filters["markdown"] = lambda text: markdown2.markdown(text or "", extras=["break-on-newline", "linkify"])
+def _render_markdown(text: str) -> str:
+    html = markdown2.markdown(text or "", extras=["break-on-newline", "linkify"])
+    html = re.sub(
+        r'<a\s+href="(https?://[^"]+)"([^>]*)>',
+        r'<a href="\1"\2 rel="nofollow noopener noreferrer">',
+        html,
+    )
+    return html
+
+
+templates.env.filters["markdown"] = _render_markdown
 templates.env.filters["initials"] = _initials
 templates.env.filters["parse_json"] = _parse_json
 
 OPEN_PATHS = {"/login", "/setup", "/health", "/sw.js", "/manifest.webmanifest", "/static/offline.html"}
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "same-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    return response
+
+
+@app.middleware("http")
+async def csrf_check(request: Request, call_next):
+    if request.method in ("POST", "PUT", "DELETE", "PATCH"):
+        origin = request.headers.get("origin")
+        referer = request.headers.get("referer")
+        host = request.headers.get("host") or ""
+        expected = f"{request.url.scheme}://{host}"
+        if origin and origin != expected:
+            logger.warning("CSRF check failed: origin=%s expected=%s", origin, expected)
+            return Response(content="Invalid origin", status_code=403)
+        if referer and not referer.startswith(expected):
+            logger.warning("CSRF check failed: referer=%s expected=%s", referer, expected)
+            return Response(content="Invalid referrer", status_code=403)
+    return await call_next(request)
 
 
 # PWA assets served from the root so the service worker can control the whole site scope,
@@ -98,7 +138,21 @@ async def auth_gate(request: Request, call_next):
 # outer layer (Starlette wraps middleware in reverse-registration order - the most recently
 # added middleware runs first). SessionMiddleware must run before auth_gate so that
 # `request.session` is actually available by the time auth_gate reads it.
-app.add_middleware(SessionMiddleware, secret_key=settings.SESSION_SECRET, same_site="lax", max_age=60 * 60 * 24 * 30)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.SESSION_SECRET,
+    same_site="lax",
+    max_age=60 * 60 * 24 * 30,
+    https_only=os.environ.get("HTTPS_ONLY", "0") == "1",
+    httponly=True,
+)
+
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=os.environ.get("ALLOWED_HOSTS", "*").split(","),
+)
+
+app.add_middleware(RateLimitMiddleware)
 
 
 @app.on_event("startup")

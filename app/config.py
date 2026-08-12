@@ -18,6 +18,7 @@ def _load_or_create_secret() -> str:
     secret = secrets.token_hex(32)
     try:
         _secret_path.write_text(secret)
+        _secret_path.chmod(0o600)
     except OSError:
         pass
     return secret

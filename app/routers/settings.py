@@ -6,10 +6,12 @@ from ..database import get_db
 from ..deps import current_user
 from ..models import User
 from ..render import render
-from ..settings_store import get_all_settings, set_many
+from ..settings_store import get_all_settings, set_many, get_setting_sensitive
 from ..auth import hash_password
 from ..services.immich_client import ImmichClient, ImmichError
 from ..services.ai_client import AIClient, AIError
+
+import re
 
 router = APIRouter()
 
@@ -42,11 +44,11 @@ def test_immich(request: Request, db: Session = Depends(get_db), user=Depends(cu
     cfg = get_all_settings(db)
     result = None
     try:
-        client = ImmichClient(cfg["immich_url"], cfg["immich_api_key"])
+        client = ImmichClient(cfg["immich_url"], get_setting_sensitive(db, "immich_api_key"))
         client.test_connection()
         result = ("success", "Connected to Immich successfully.")
     except ImmichError as e:
-        result = ("danger", str(e))
+        result = ("danger", "Could not connect to Immich. Check your URL and API key.")
     users = db.query(User).order_by(User.id).all()
     return render(request, "settings.html", db=db, user=user, active="settings", cfg=cfg, users=users,
                   immich_test=result)
@@ -70,11 +72,11 @@ def test_ai(request: Request, db: Session = Depends(get_db), user=Depends(curren
     cfg = get_all_settings(db)
     result = None
     try:
-        client = AIClient(cfg["ai_base_url"], cfg["ai_api_key"], cfg["ai_model"])
+        client = AIClient(cfg["ai_base_url"], get_setting_sensitive(db, "ai_api_key"), cfg["ai_model"])
         reply = client.test_connection()
         result = ("success", f"AI responded: {reply}")
     except AIError as e:
-        result = ("danger", str(e))
+        result = ("danger", "AI connection failed. Check your credentials and try again.")
     users = db.query(User).order_by(User.id).all()
     return render(request, "settings.html", db=db, user=user, active="settings", cfg=cfg, users=users,
                   ai_test=result)
@@ -124,6 +126,8 @@ def save_push(request: Request, db: Session = Depends(get_db), user=Depends(curr
 @router.post("/settings/users/new")
 def add_user(request: Request, db: Session = Depends(get_db), user=Depends(current_user),
              name: str = Form(...), email: str = Form(...), password: str = Form(...)):
+    if len(password) < 8 or not re.search(r"[a-z]", password) or not re.search(r"[A-Z]", password) or not re.search(r"\d", password):
+        return RedirectResponse("/settings", status_code=303)
     if db.query(User).filter(User.email == email.lower().strip()).first():
         return RedirectResponse("/settings", status_code=303)
     new_user = User(name=name, email=email.lower().strip(), hashed_password=hash_password(password))

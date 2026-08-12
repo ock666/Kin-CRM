@@ -35,7 +35,9 @@
     <div class="nav-spacer"></div>
     <a class="nav-link" id="install-app" href="#" style="display:none;" onclick="event.preventDefault(); installKin();">📲 Install Kin</a>
     <a class="nav-link" href="/export">⬇️ Export data</a>
-    <a class="nav-link" href="/logout">🚪 Log out</a>
+    <form method="post" action="/logout" style="display:inline">
+      <button type="submit" class="nav-link" style="background:none;border:none;color:inherit;cursor:pointer;width:100%;text-align:left;padding:0.4rem 0.8rem;font-size:inherit;font-family:inherit;">🚪 Log out</button>
+    </form>
   </nav>
   <main class="main">
     {% if notice_flash %}

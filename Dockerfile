@@ -1,6 +1,11 @@
 FROM python:3.11-slim
 
 # System deps: libmagic/jpeg libs help Pillow (a transitive dep of instagrapi) build/run smoothly.
+# Build deps are purged after pip install to keep the final image lean and reduce attack surface.
+WORKDIR /app
+
+COPY requirements.txt .
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libjpeg62-turbo-dev \
@@ -8,12 +13,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     gosu \
     tzdata \
+    && pip install --no-cache-dir -r requirements.txt \
+    && apt-get purge -y build-essential libjpeg62-turbo-dev zlib1g-dev \
+    && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app
-
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
 
@@ -30,4 +33,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
     CMD curl -fsS http://localhost:8000/health || exit 1
 
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]

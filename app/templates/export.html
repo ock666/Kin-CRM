@@ -7,17 +7,23 @@
   <div class="card">
     <h3>Full export (JSON)</h3>
     <p class="text-sm text-muted">Every person, journal entry, tag, and notable date.</p>
-    <a class="btn btn-primary" href="/export/json">Download JSON</a>
+    <form method="post" action="/export/json">
+      <button class="btn btn-primary" type="submit">Download JSON</button>
+    </form>
   </div>
   <div class="card mt-1">
     <h3>People (CSV)</h3>
     <p class="text-sm text-muted">A spreadsheet-friendly summary of your contacts.</p>
-    <a class="btn" href="/export/csv">Download CSV</a>
+    <form method="post" action="/export/csv">
+      <button class="btn" type="submit">Download CSV</button>
+    </form>
   </div>
   <div class="card mt-1">
     <h3>Journal entries (CSV)</h3>
     <p class="text-sm text-muted">All journal entries — date, type, people, energy cost, and more.</p>
-    <a class="btn" href="/export/csv/journal">Download CSV</a>
+    <form method="post" action="/export/csv/journal">
+      <button class="btn" type="submit">Download CSV</button>
+    </form>
   </div>
 </div>
 {% endblock %}

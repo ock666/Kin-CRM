@@ -16,6 +16,22 @@ from ..services.ai_client import get_client_from_settings as ai_from_settings, A
 router = APIRouter()
 
 
+def _safe_date(value: str) -> dt.date | None:
+    if not value:
+        return None
+    try:
+        return dt.date.fromisoformat(value)
+    except (ValueError, TypeError):
+        return None
+
+
+def _safe_enum(enum_cls, value, default):
+    try:
+        return enum_cls(value) if value else default
+    except ValueError:
+        return default
+
+
 def _process_ai_extraction(entry_id: int):
     from ..database import SessionLocal
     db = SessionLocal()
@@ -75,9 +91,9 @@ def journal_create(
         author_user_id=user.id,
         title=title or None,
         body=body,
-        entry_date=dt.date.fromisoformat(entry_date),
-        event_type=EventType(event_type) if event_type else EventType.note,
-        energy_cost=EnergyCost(energy_cost) if energy_cost else None,
+        entry_date=_safe_date(entry_date) or dt.date.today(),
+        event_type=_safe_enum(EventType, event_type, EventType.note),
+        energy_cost=_safe_enum(EnergyCost, energy_cost, None),
         location=location or None,
         source="manual",
     )

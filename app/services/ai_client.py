@@ -72,9 +72,11 @@ class AIClient:
             )
             return (resp.choices[0].message.content or "").strip()
         except (APIError, APIConnectionError) as e:
-            raise AIError(f"AI request failed: {e}")
+            logger.error("AI request failed: %s", e)
+            raise AIError("AI service is currently unavailable. Please try again later.")
         except Exception as e:
-            raise AIError(f"AI request failed: {e}")
+            logger.error("AI request failed (unexpected): %s", e)
+            raise AIError("AI service is currently unavailable. Please try again later.")
 
     def test_connection(self) -> str:
         return self._chat("You are a connection test.", "Reply with the single word: ok", max_tokens=5)

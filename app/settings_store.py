@@ -25,6 +25,19 @@ DEFAULTS = {
 }
 
 
+SENSITIVE_KEYS = {"immich_api_key", "ai_api_key", "instagram_password", "vapid_private_key"}
+
+
+def get_all_settings(db: Session) -> dict:
+    out = dict(DEFAULTS)
+    for row in db.query(Setting).all():
+        out[row.key] = row.value or ""
+    for key in SENSITIVE_KEYS:
+        if key in out and out[key]:
+            out[key] = "••••••••"
+    return out
+
+
 def get_setting(db: Session, key: str, default: str = "") -> str:
     row = db.get(Setting, key)
     if row is not None and row.value is not None:
@@ -32,11 +45,11 @@ def get_setting(db: Session, key: str, default: str = "") -> str:
     return DEFAULTS.get(key, default)
 
 
-def get_all_settings(db: Session) -> dict:
-    out = dict(DEFAULTS)
-    for row in db.query(Setting).all():
-        out[row.key] = row.value or ""
-    return out
+def get_setting_sensitive(db: Session, key: str) -> str:
+    row = db.get(Setting, key)
+    if row is not None and row.value is not None:
+        return row.value
+    return DEFAULTS.get(key, "")
 
 
 def set_setting(db: Session, key: str, value: str):

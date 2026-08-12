@@ -16,6 +16,22 @@ from ..settings_store import get_setting
 router = APIRouter()
 
 
+def _safe_int(value: str) -> int | None:
+    try:
+        return int(value) if value else None
+    except (ValueError, TypeError):
+        return None
+
+
+def _safe_date(value: str) -> dt.date | None:
+    if not value:
+        return None
+    try:
+        return dt.date.fromisoformat(value)
+    except (ValueError, TypeError):
+        return None
+
+
 def _month_names():
     return [
         (1, "January"), (2, "February"), (3, "March"), (4, "April"),
@@ -86,15 +102,15 @@ def people_create(
     person = Person(
         name=clean_name, nickname=(nickname.strip() or clean_name), pronouns=pronouns or None,
         relationship_label=relationship_label or None,
-        birthday_month=int(birthday_month) if birthday_month else None,
-        birthday_day=int(birthday_day) if birthday_day else None,
-        birthday_year=int(birthday_year) if birthday_year else None,
+        birthday_month=_safe_int(birthday_month),
+        birthday_day=_safe_int(birthday_day),
+        birthday_year=_safe_int(birthday_year),
         how_we_met=how_we_met or None,
-        met_date=dt.date.fromisoformat(met_date) if met_date else None,
+        met_date=_safe_date(met_date),
         location=location or None, phone=phone or None, email=email or None, notes=notes or None,
         occupation=occupation.strip() or None, hobbies=hobbies.strip() or None,
         bio=bio.strip() or None,
-        checkin_cadence_days=int(checkin_cadence_days) if checkin_cadence_days else None,
+        checkin_cadence_days=_safe_int(checkin_cadence_days),
     )
     db.add(person)
     db.commit()
@@ -162,11 +178,11 @@ def person_update(
     person.nickname = nickname.strip() or clean_name
     person.pronouns = pronouns or None
     person.relationship_label = relationship_label or None
-    person.birthday_month = int(birthday_month) if birthday_month else None
-    person.birthday_day = int(birthday_day) if birthday_day else None
-    person.birthday_year = int(birthday_year) if birthday_year else None
+    person.birthday_month = _safe_int(birthday_month)
+    person.birthday_day = _safe_int(birthday_day)
+    person.birthday_year = _safe_int(birthday_year)
     person.how_we_met = how_we_met or None
-    person.met_date = dt.date.fromisoformat(met_date) if met_date else None
+    person.met_date = _safe_date(met_date)
     person.location = location or None
     person.phone = phone or None
     person.email = email or None
@@ -174,7 +190,7 @@ def person_update(
     person.occupation = occupation.strip() or None
     person.hobbies = hobbies.strip() or None
     person.bio = bio.strip() or None
-    person.checkin_cadence_days = int(checkin_cadence_days) if checkin_cadence_days else None
+    person.checkin_cadence_days = _safe_int(checkin_cadence_days)
     person.instagram_username = instagram_username.strip().lstrip("@") or None
     person.instagram_enabled = bool(instagram_enabled)
     db.commit()

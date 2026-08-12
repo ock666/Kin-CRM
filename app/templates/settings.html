@@ -14,7 +14,7 @@
     </div>
     <div class="field">
       <label for="immich_api_key">API key</label>
-      <input type="password" id="immich_api_key" name="immich_api_key" value="{{ cfg.immich_api_key }}">
+      <input type="password" id="immich_api_key" name="immich_api_key" placeholder="{{ '•••••••• (unchanged)' if cfg.immich_api_key else '' }}">
       <p class="help-text">Create one in Immich under Account Settings → API Keys.</p>
     </div>
     <button class="btn btn-primary btn-sm" type="submit">Save</button>
@@ -33,7 +33,7 @@
     </div>
     <div class="field">
       <label for="ai_api_key">API key</label>
-      <input type="password" id="ai_api_key" name="ai_api_key" value="{{ cfg.ai_api_key }}">
+      <input type="password" id="ai_api_key" name="ai_api_key" placeholder="{{ '•••••••• (unchanged)' if cfg.ai_api_key else '' }}">
     </div>
     <div class="field">
       <label for="ai_model">Primary model (for summaries, extraction, drafts)</label>

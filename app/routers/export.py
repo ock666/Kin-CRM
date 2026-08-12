@@ -22,7 +22,7 @@ def export_page(request: Request, db: Session = Depends(get_db), user=Depends(cu
     return render(request, "export.html", db=db, user=user, active="export")
 
 
-@router.get("/export/json")
+@router.post("/export/json")
 def export_json(db: Session = Depends(get_db), user=Depends(current_user)):
     people = db.query(Person).order_by(Person.name).all()
     data = {
@@ -89,7 +89,7 @@ def export_json(db: Session = Depends(get_db), user=Depends(current_user)):
                               headers={"Content-Disposition": "attachment; filename=kin_export.json"})
 
 
-@router.get("/export/csv")
+@router.post("/export/csv")
 def export_csv(db: Session = Depends(get_db), user=Depends(current_user)):
     people = db.query(Person).all()
     buf = io.StringIO()
@@ -110,7 +110,7 @@ def export_csv(db: Session = Depends(get_db), user=Depends(current_user)):
                               headers={"Content-Disposition": "attachment; filename=kin_people.csv"})
 
 
-@router.get("/export/csv/journal")
+@router.post("/export/csv/journal")
 def export_csv_journal(db: Session = Depends(get_db), user=Depends(current_user)):
     entries = db.query(JournalEntry).order_by(JournalEntry.entry_date.desc()).all()
     buf = io.StringIO()
