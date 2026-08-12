@@ -31,7 +31,7 @@ def _load_or_create_secret() -> str:
 
 class Settings:
     APP_NAME = "Kin — Personal Relationship Manager"
-    DATABASE_URL: str = os.environ.get("DATABASE_URL", f"sqlite:///{DATA_DIR}/app.db")
+    DATABASE_URL: str = (os.environ.get("DATABASE_URL") or f"sqlite:///{DATA_DIR}/app.db")
     SESSION_SECRET: str = _load_or_create_secret()
     DATA_DIR: Path = DATA_DIR
     UPLOAD_DIR: Path = DATA_DIR / "uploads"
