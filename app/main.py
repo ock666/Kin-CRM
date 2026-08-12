@@ -81,12 +81,11 @@ async def csrf_check(request: Request, call_next):
         origin = request.headers.get("origin")
         referer = request.headers.get("referer")
         host = request.headers.get("host") or ""
-        expected = f"{request.url.scheme}://{host}"
-        if origin and origin != expected:
-            logger.warning("CSRF check failed: origin=%s expected=%s", origin, expected)
+        if origin and origin.split("://", 1)[-1] != host:
+            logger.warning("CSRF check failed: origin=%s host=%s", origin, host)
             return Response(content="Invalid origin", status_code=403)
-        if referer and not referer.startswith(expected):
-            logger.warning("CSRF check failed: referer=%s expected=%s", referer, expected)
+        if referer and referer.split("://", 1)[-1].split("/", 1)[0] != host:
+            logger.warning("CSRF check failed: referer=%s host=%s", referer, host)
             return Response(content="Invalid referrer", status_code=403)
     return await call_next(request)
 

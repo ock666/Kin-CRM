@@ -165,6 +165,14 @@ pytest
 | `DISABLE_SCHEDULER` | `0` | Set to `1` for testing |
 | `SESSION_SECRET` | auto-generated | Persisted to `/data/.session_secret` on first run |
 | `DATABASE_URL` | (SQLite) | Optional Postgres connection string |
+| `ALLOWED_HOSTS` | `localhost,127.0.0.1` | Comma-separated hostnames this server accepts. Set to `*` or your domain in production. |
+| `HTTPS_ONLY` | `0` | Set to `1` to restrict session cookies to HTTPS only (requires a TLS-terminating reverse proxy). |
+
+### Behind a reverse proxy
+
+Kin serves HTTP on port 8000 and is designed to sit behind a TLS-terminating reverse proxy (nginx, Caddy, Traefik, Cloudflare Tunnel). The container runs with `--proxy-headers` so it correctly reads `X-Forwarded-*` headers. CSRF protection compares origin/referer hosts only (scheme-agnostic) so it works whether TLS is terminated at the proxy or handled end-to-end.
+
+Push notifications require HTTPS in the browser, so a reverse proxy is mandatory if you want push to work.
 
 ### Connecting Immich
 
