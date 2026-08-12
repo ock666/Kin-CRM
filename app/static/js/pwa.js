@@ -53,14 +53,17 @@
     } catch (e) { return null; }
   }
 
-  async function enablePush() {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+  async function requestPermission() {
+    if (!('Notification' in window)) return false;
+    if (Notification.permission === 'granted') return true;
     if (Notification.permission === 'denied') return false;
-    // Ask permission only when there's a request from the user action path.
-    if (Notification.permission === 'default') {
-      const granted = await Notification.requestPermission();
-      if (granted !== 'granted') return false;
-    }
+    const granted = await Notification.requestPermission();
+    return granted === 'granted';
+  }
+
+  async function subscribePush() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+    if (Notification.permission !== 'granted') return false;
     const key = await getVapidKey();
     if (!key) return false;
     const registration = await navigator.serviceWorker.ready;
@@ -68,7 +71,7 @@
     if (!sub) {
       sub = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: ASYNC.urlBase64ToUint8Array(key)
+            applicationServerKey: ASYNC.urlBase64ToUint8Array(key)
       });
     }
     await fetch(API_BASE + '/subscribe', {
@@ -93,10 +96,17 @@
   }
 
   window.KinPush = {
-    enable: enablePush,
+    requestPermission,
+    subscribe: subscribePush,
     disable: disablePush,
     async sendTest() {
       try {
+        // Subscribe first (Firefox needs this to happen during a direct user gesture)
+        const ok = await subscribePush();
+        if (!ok) {
+          alert('Couldn\'t subscribe to push notifications. Try refreshing the page and clicking again.');
+          return;
+        }
         const resp = await fetch(API_BASE + '/test', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
         const data = await resp.json();
         if (resp.ok) { alert('Test notification sent! Check your device.'); }
@@ -105,14 +115,19 @@
     }
   };
 
-  // Wire the Settings "enable notifications" checkbox to subscribe/unsubscribe this browser.
+  // Wire the Settings "enable notifications" checkbox to request permission only.
+  // The actual push subscription happens when the user clicks "Send test notification"
+  // because Firefox requires subscribe() to be called during a direct user gesture.
   document.addEventListener('DOMContentLoaded', () => {
     const box = document.getElementById('push-enabled-check');
     if (!box) return;
     box.addEventListener('change', async () => {
       if (box.checked) {
-        const ok = await enablePush();
-        if (!ok) { box.checked = false; alert('Notifications couldn\'t be enabled on this device (permission denied or unsupported).'); }
+        const perm = await requestPermission();
+        if (!perm) {
+          box.checked = false;
+          alert('Notifications couldn\'t be enabled on this device (permission denied or unsupported).');
+        }
       } else {
         await disablePush();
       }
