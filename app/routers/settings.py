@@ -158,14 +158,19 @@ def mfa_setup_get(request: Request, db: Session = Depends(get_db), user=Depends(
         return RedirectResponse("/login")
     if user.totp_enabled:
         return RedirectResponse("/settings", status_code=303)
-    encrypted, uri = generate_totp_secret(settings.APP_NAME)
-    user.totp_secret = encrypted
-    db.commit()
+    if user.totp_secret is None:
+        encrypted, uri = generate_totp_secret(settings.APP_NAME)
+        user.totp_secret = encrypted
+        db.commit()
+    else:
+        encrypted = user.totp_secret
+        uri = None
     secret = decrypt_secret(encrypted)
     import base64
     import io
     import qrcode
-    qr = qrcode.make(uri)
+    uri_to_use = uri or f"otpauth://totp/{settings.APP_NAME}:kin-user?secret={secret}&issuer={settings.APP_NAME}"
+    qr = qrcode.make(uri_to_use)
     buf = io.BytesIO()
     qr.save(buf, format="PNG")
     qr_b64 = base64.b64encode(buf.getvalue()).decode()
@@ -214,8 +219,11 @@ def mfa_disable(request: Request, db: Session = Depends(get_db), user=Depends(cu
 
 
 @router.post("/settings/mfa/recovery/regenerate")
-def mfa_regenerate_codes(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
+def mfa_regenerate_codes(request: Request, db: Session = Depends(get_db), user=Depends(current_user),
+                          password: str = Form(...)):
     if not user or not user.totp_enabled:
+        return RedirectResponse("/settings", status_code=303)
+    if not verify_password(password, user.hashed_password):
         return RedirectResponse("/settings", status_code=303)
     plain_codes, hashed_json = generate_recovery_codes()
     user.mfa_recovery_codes = hashed_json

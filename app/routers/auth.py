@@ -85,27 +85,30 @@ def login_post(
         safe_next = _is_safe_redirect(next)
         return render(request, "login.html", db=db, error="Incorrect email or password.", next=safe_next)
 
-    if user.totp_enabled:
-        token = create_mfa_token(user.id)
-        response = RedirectResponse("/mfa/verify", status_code=303)
-        response.set_cookie(
-            MFA_TOKEN_COOKIE, token,
-            max_age=MFA_TOKEN_MAX_AGE, httponly=True, samesite="lax",
-            secure=request.url.scheme == "https",
-        )
-        return response
-
-    login_user(request, user)
-    safe_next = _is_safe_redirect(next)
-    return RedirectResponse(safe_next, status_code=303)
+    token = create_mfa_token(user.id)
+    response = RedirectResponse("/mfa/verify", status_code=303)
+    response.set_cookie(
+        MFA_TOKEN_COOKIE, token,
+        max_age=MFA_TOKEN_MAX_AGE, httponly=True, samesite="lax",
+        secure=request.url.scheme == "https",
+    )
+    return response
 
 
 @router.get("/mfa/verify")
 def mfa_verify_get(request: Request, db: Session = Depends(get_db)):
     token = request.cookies.get(MFA_TOKEN_COOKIE)
     user_id = verify_mfa_token(token) if token else None
-    if not user_id or not db.get(User, user_id):
-        return RedirectResponse("/login", status_code=303)
+    user = db.get(User, user_id) if user_id else None
+    if not user:
+        response = RedirectResponse("/login", status_code=303)
+        response.delete_cookie(MFA_TOKEN_COOKIE)
+        return response
+    if not user.totp_enabled:
+        login_user(request, user)
+        response = RedirectResponse("/", status_code=303)
+        response.delete_cookie(MFA_TOKEN_COOKIE)
+        return response
     return render(request, "mfa_verify.html", db=db, error=None)
 
 
@@ -116,13 +119,13 @@ def mfa_verify_post(request: Request, db: Session = Depends(get_db), totp_code: 
     if not user_id:
         return render(request, "mfa_verify.html", db=db, error="Your session expired. Please log in again.")
 
-    user = db.get(User, user_id)
+    user = db.get(User, user_id) if user_id else None
     if not user:
-        return render(request, "mfa_verify.html", db=db, error="Your session expired. Please log in again.")
-
-    code = totp_code.strip()
+        response = RedirectResponse("/login", status_code=303)
+        response.delete_cookie(MFA_TOKEN_COOKIE)
+        return response
     if not verify_totp(user.totp_secret, code):
-        return render(request, "mfa_verify.html", db=db, error="That code didn't work. Please try again.")
+        return render(request, "mfa_verify.html", db=db, error="Verification failed. Please try again.")
 
     login_user(request, user)
     response = RedirectResponse("/", status_code=303)
@@ -134,16 +137,15 @@ def mfa_verify_post(request: Request, db: Session = Depends(get_db), totp_code: 
 def mfa_recovery_post(request: Request, db: Session = Depends(get_db), recovery_code: str = Form(...)):
     token = request.cookies.get(MFA_TOKEN_COOKIE)
     user_id = verify_mfa_token(token) if token else None
-    if not user_id:
-        return render(request, "mfa_verify.html", db=db, error="Your session expired. Please log in again.")
-
-    user = db.get(User, user_id)
+    user = db.get(User, user_id) if user_id else None
     if not user:
-        return render(request, "mfa_verify.html", db=db, error="Your session expired. Please log in again.")
+        response = RedirectResponse("/login", status_code=303)
+        response.delete_cookie(MFA_TOKEN_COOKIE)
+        return response
 
     valid, updated = verify_recovery_code(user.mfa_recovery_codes, recovery_code.strip())
     if not valid or updated is None:
-        return render(request, "mfa_verify.html", db=db, error="Invalid recovery code. Please try again.")
+        return render(request, "mfa_verify.html", db=db, error="Verification failed. Please try again.")
 
     user.mfa_recovery_codes = updated
     db.commit()

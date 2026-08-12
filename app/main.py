@@ -115,7 +115,7 @@ def manifest():
 @app.middleware("http")
 async def auth_gate(request: Request, call_next):
     path = request.url.path
-    if path.startswith("/static") or path in OPEN_PATHS:
+    if path.startswith("/static") or path in OPEN_PATHS or path.startswith("/mfa/"):
         return await call_next(request)
 
     db = SessionLocal()

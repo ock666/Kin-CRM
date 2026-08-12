@@ -152,6 +152,7 @@
     {% endif %}
     <div class="flex-gap mt-1">
       <form method="post" action="/settings/mfa/recovery/regenerate" style="display:inline">
+        <input type="password" name="password" placeholder="Your password" required style="max-width:16ch;">
         <button class="btn btn-sm" type="submit">Generate new recovery codes</button>
       </form>
       <form method="post" action="/settings/mfa/disable" style="display:inline">

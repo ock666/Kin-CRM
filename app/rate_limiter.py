@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 WINDOW_SECONDS = 60
 MAX_REQUESTS = 5
 
-LIMITED_PATHS = {"/login", "/setup"}
+LIMITED_PATHS = {"/login", "/setup", "/mfa/verify", "/mfa/verify/recovery", "/settings/mfa/setup", "/settings/mfa/disable", "/settings/mfa/recovery/regenerate"}
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
