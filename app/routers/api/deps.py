@@ -13,9 +13,9 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from sqlalchemy.orm import Session
 
-from ..config import settings
-from ..database import get_db
-from ..models import User
+from ...config import settings
+from ...database import get_db
+from ...models import User
 
 _signer = URLSafeTimedSerializer(settings.SESSION_SECRET, salt="api-token")
 TOKEN_MAX_AGE = 60 * 60 * 24 * 30  # 30 days
