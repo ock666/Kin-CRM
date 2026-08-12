@@ -1,0 +1,17 @@
+<CommunityApplications>
+  <Profile>
+    **Kin -- Personal Relationship Manager**
+
+    A self-hosted personal CRM built for neurodivergent brains (AuDHD, RSD, social anxiety, overwhelm). Remember your people, not the pressure.
+
+    **Features:** People/relationship tracking with rich profiles, journaling with energy-cost tracking, conflict resolution with AI-assisted support chat, gentle check-in nudges, gamification with achievements, Immich photo integration, web push notifications, full JSON/CSV export and import, PWA support.
+
+    **Tech:** FastAPI + SQLite (default) or optional PostgreSQL. Runs as a single Docker container.
+
+    Built by Skye, a trans woman in Brisbane, Australia. MIT licensed.
+  </Profile>
+  <Icon>https://raw.githubusercontent.com/ock666/Kin-CRM/main/images/kin-logo.png</Icon>
+  <WebPage>https://github.com/ock666/Kin-CRM</WebPage>
+  <DonateLink>https://github.com/sponsors/ock666</DonateLink>
+  <DonateText>Support Kin development</DonateText>
+</CommunityApplications>

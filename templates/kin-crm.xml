@@ -1,0 +1,60 @@
+<Container version="2">
+  <Name>Kin-CRM</Name>
+  <Repository>ghcr.io/ock666/kin-crm:latest</Repository>
+  <Registry>https://ghcr.io/ock666/kin-crm</Registry>
+  <Network>bridge</Network>
+
+  <Shell>bash</Shell>
+  <Privileged>false</Privileged>
+
+  <Icon>https://raw.githubusercontent.com/ock666/Kin-CRM/main/images/kin-logo.png</Icon>
+
+  <WebUI>http://[IP]:[PORT:8000]</WebUI>
+
+  <Overview>
+    Kin is a self-hosted personal relationship manager built for neurodivergent brains (AuDHD, RSD, social anxiety). It helps you remember your people without the pressure.
+
+    **What Kin does:**
+    - Track people and relationships with rich profiles, tags, birthdays, and check-in cadences
+    - Journal interactions -- log what happened, how much energy it cost, and attach photos from Immich
+    - Resolve conflicts with an AI-assisted support chat and auto-generated resolution plans
+    - Get gentle, never-punitive reminders to stay in touch
+    - Gamification with achievements (including rest achievements like snoozing or grace mode)
+
+    **First run:** Kin auto-detects an empty database and walks you through a setup wizard to create your admin account. No environment variables needed beyond what is shown below.
+
+    **AI features (optional):** Set your OpenAI or Ollama API credentials in the Settings page after setup. Kin works perfectly without AI -- it falls back gracefully.
+
+    **Immich integration (optional):** Connect your Immich server in Settings to attach face-linked photos to journal entries.
+
+    **Database:** SQLite by default (stored in /data). Optionally connect to PostgreSQL via the DATABASE_URL variable.
+  </Overview>
+
+  <Support>https://github.com/ock666/Kin-CRM/issues</Support>
+  <Project>https://github.com/ock666/Kin-CRM</Project>
+
+  <TemplateURL>https://raw.githubusercontent.com/ock666/Kin-CRM/main/templates/kin-crm.xml</TemplateURL>
+
+  <ReadMe>https://raw.githubusercontent.com/ock666/Kin-CRM/main/README.md</ReadMe>
+
+  <Category>Productivity:</Category>
+
+  <ExtraSearchTerms>personal crm relationship manager neurodivergent audhd rsd journal conflict resolution</ExtraSearchTerms>
+
+  <Requires>No additional services required. AI features need OpenAI or Ollama credentials.</Requires>
+
+  <License>MIT</License>
+
+  <Date>2026-08-12</Date>
+
+  <MinVer>6.12</MinVer>
+
+  <Config Name="WebUI" Target="8000" Default="8000" Mode="tcp" Description="HTTP port for the Kin web interface." Type="Port" Display="always" Required="true" Mask="false"/>
+  <Config Name="Appdata" Target="/data" Default="/mnt/user/appdata/kin-crm" Mode="rw" Description="Persistent data directory (SQLite database, uploads, session secret)." Type="Path" Display="always" Required="true" Mask="false"/>
+  <Config Name="PUID" Target="PUID" Default="99" Description="User ID to run the container as. Ensures file ownership matches your Unraid users." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="PGID" Target="PGID" Default="100" Description="Group ID to run the container as." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="TZ" Target="TZ" Default="UTC" Description="Timezone for daily scheduled jobs (birthday reminders, Instagram polling)." Type="Variable" Display="always" Required="false" Mask="false"/>
+  <Config Name="Disable Scheduler" Target="DISABLE_SCHEDULER" Default="0" Description="Set to 1 to disable background scheduled jobs." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="Database URL" Target="DATABASE_URL" Default="" Description="Optional PostgreSQL connection string. Leave empty to use the built-in SQLite database." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="Session Secret" Target="SESSION_SECRET" Default="" Description="Optional fixed session secret. Auto-generated and persisted to /data if left empty." Type="Variable" Display="advanced" Required="false" Mask="true"/>
+</Container>
