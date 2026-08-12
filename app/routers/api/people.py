@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from ...database import get_db
-from ...models import Person, Tag
+from ...models import Person, Tag, JournalEntry, ConflictLog
 from ...schemas.people import PersonCreate, PersonUpdate, PersonResponse, TagResponse
 from ...services import friend_rank, checkins
 from .deps import get_current_api_user
@@ -147,3 +147,50 @@ def delete_person(person_id: int, db: Session = Depends(get_db), user=Depends(ge
 @router.get("/tags/all", response_model=list[TagResponse])
 def list_tags(db: Session = Depends(get_db), user=Depends(get_current_api_user)):
     return [TagResponse(name=t.name) for t in db.query(Tag).order_by(Tag.name).all()]
+
+
+@router.get("/{person_id}/journal")
+def get_person_journal(person_id: int, db: Session = Depends(get_db), user=Depends(get_current_api_user)):
+    p = db.get(Person, person_id)
+    if not p:
+        raise HTTPException(status_code=404, detail="Person not found")
+    entries = sorted(p.journal_entries, key=lambda e: e.entry_date or dt.date.min, reverse=True)
+    return [{
+        "id": e.id, "title": e.title, "body": e.body,
+        "entry_date": e.entry_date.isoformat() if e.entry_date else None,
+        "event_type": e.event_type.value if e.event_type else "note",
+        "energy_cost": e.energy_cost.value if e.energy_cost else None,
+        "location": e.location, "source": e.source,
+        "created_at": e.created_at.isoformat() if e.created_at else None,
+        "people": [pp.name for pp in e.people],
+    } for e in entries]
+
+
+@router.get("/{person_id}/conflicts")
+def get_person_conflicts(person_id: int, db: Session = Depends(get_db), user=Depends(get_current_api_user)):
+    p = db.get(Person, person_id)
+    if not p:
+        raise HTTPException(status_code=404, detail="Person not found")
+    return [{
+        "id": c.id, "summary": c.summary, "status": c.status.value,
+        "resolution_notes": c.resolution_notes,
+        "resolved_at": c.resolved_at.isoformat() if c.resolved_at else None,
+        "created_at": c.created_at.isoformat() if c.created_at else None,
+        "person_name": c.person.name if c.person else None,
+    } for c in p.conflict_logs]
+
+
+@router.get("/{person_id}/notable-dates")
+def get_person_notable_dates(person_id: int, db: Session = Depends(get_db), user=Depends(get_current_api_user)):
+    p = db.get(Person, person_id)
+    if not p:
+        raise HTTPException(status_code=404, detail="Person not found")
+    return {
+        "notable_dates": [{
+            "id": nd.id, "label": nd.label, "month": nd.month,
+            "day": nd.day, "year": nd.year, "recurring": nd.recurring,
+            "notes": nd.notes,
+        } for nd in p.notable_dates],
+        "scratchpad_items": [{"id": s.id, "text": s.text} for s in p.scratchpad_items],
+        "notable_people": [{"id": np.id, "name": np.name, "relation": np.relation} for np in p.notable_people_refs],
+    }
