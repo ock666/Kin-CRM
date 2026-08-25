@@ -182,6 +182,7 @@ from .routers import reviews as reviews_router  # noqa: E402
 from .routers import export as export_router  # noqa: E402
 from .routers import ai as ai_router  # noqa: E402
 from .routers import conflicts as conflicts_router  # noqa: E402
+from .routers import hangouts as hangouts_router  # noqa: E402
 from .routers import push as push_router  # noqa: E402
 from .routers import data_import as import_router  # noqa: E402
 from .routers import regulation as regulation_router  # noqa: E402
@@ -196,6 +197,7 @@ app.include_router(reviews_router.router)
 app.include_router(export_router.router)
 app.include_router(ai_router.router)
 app.include_router(conflicts_router.router)
+app.include_router(hangouts_router.router)
 app.include_router(push_router.router)
 app.include_router(import_router.router)
 app.include_router(regulation_router.router)

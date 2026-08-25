@@ -66,6 +66,50 @@
 </div>
 {% endif %}
 
+{% if hangouts %}
+<div class="card" style="border-left:4px solid var(--accent);">
+  <h2>🤝 Looks like you hung out</h2>
+  <p class="text-sm text-muted mb-1">Your photos caught these faces recently — we've counted it as keeping in touch.</p>
+  {% for h in hangouts %}
+    <div class="flex-between" style="padding:.5rem 0; border-top: 1px solid var(--border); flex-wrap: wrap; gap:.4rem;">
+      <div class="flex-gap">
+        <div class="avatar avatar-sm">{% if h.person.avatar_url %}<img src="{{ h.person.avatar_url }}" alt="">{% else %}{{ h.person.name|initials }}{% endif %}</div>
+        <a href="/people/{{ h.person.id }}">{{ h.person.name }}</a>
+        <span class="text-muted text-sm">{{ h.label }}</span>
+      </div>
+      <div class="flex-gap">
+        {% if h.thumbnails %}
+        <div class="hangout-thumbs">
+          {% for asset_id in h.thumbnails[:4] %}
+            <img src="/immich/asset/{{ asset_id }}/thumbnail" loading="lazy" alt="">
+          {% endfor %}
+        </div>
+        {% endif %}
+        {% if h.all_logged %}
+          <a class="btn btn-sm" href="/people/{{ h.person.id }}">✓ Already logged{% if h.existing_entry and h.existing_entry.title %} · {{ h.existing_entry.title }}{% endif %}</a>
+        {% else %}
+          <form method="post" action="/hangouts/log">
+            <input type="hidden" name="person_id" value="{{ h.person.id }}">
+            <input type="hidden" name="entry_date" value="{{ h.latest_date.isoformat() }}">
+            {% for asset_id in h.new_asset_ids %}<input type="hidden" name="asset_ids" value="{{ asset_id }}">{% endfor %}
+            <button class="btn btn-sm btn-primary" type="submit">⚡ Quick log</button>
+          </form>
+          <a class="btn btn-sm" href="/journal/new?person_id={{ h.person.id }}&event_type=hangout&entry_date={{ h.latest_date.isoformat() }}{% for asset_id in h.new_asset_ids %}&immich_asset_ids={{ asset_id }}{% endfor %}">✍️ Write about it</a>
+        {% endif %}
+        <form method="post" action="/hangouts/dismiss" title="Dismiss this hangout suggestion">
+          <input type="hidden" name="person_id" value="{{ h.person.id }}">
+          <input type="hidden" name="entry_date" value="{{ h.latest_date.isoformat() }}">
+          <button class="btn btn-sm" type="submit" aria-label="Dismiss">✕</button>
+        </form>
+      </div>
+    </div>
+  {% endfor %}
+  {% if hangouts_error %}
+    <p class="text-muted text-sm mt-1 mb-0">({{ hangouts_error }})</p>
+  {% endif %}
+</div>
+{% endif %}
+
 <div class="card">
   <h2>💬 Time to reach out</h2>
   {% if not overdue %}

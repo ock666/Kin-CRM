@@ -347,6 +347,18 @@ label { display: block; font-weight: 600; font-size: .875rem; margin: 0 0 .3rem;
   cursor: pointer;
 }
 
+.hangout-thumbs {
+  display: flex;
+  gap: .25rem;
+}
+.hangout-thumbs img {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 8px;
+  background: var(--accent-soft);
+}
+
 .carousel-wrap {
   display: flex;
   align-items: center;

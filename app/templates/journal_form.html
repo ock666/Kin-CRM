@@ -28,13 +28,13 @@
     <div class="field-row">
       <div class="field">
         <label for="entry_date">Date</label>
-        <input type="date" id="entry_date" name="entry_date" value="{{ entry.entry_date if entry else today }}">
+        <input type="date" id="entry_date" name="entry_date" value="{{ entry.entry_date if entry else (preselect_entry_date or today) }}">
       </div>
       <div class="field">
         <label for="event_type">Type</label>
         <select id="event_type" name="event_type">
           {% for et in ["note","hangout","call","message","gift","milestone","conflict","other"] %}
-            <option value="{{ et }}" {{ "selected" if entry and entry.event_type.value == et else "" }}>{{ et|capitalize }}</option>
+            <option value="{{ et }}" {{ "selected" if (entry and entry.event_type.value == et) or (not entry and preselect_event_type == et) else "" }}>{{ et|capitalize }}</option>
           {% endfor %}
         </select>
       </div>
@@ -82,7 +82,18 @@
         <button class="btn btn-sm" type="button"
           hx-get="/immich/browse" hx-target="#photo-browser" hx-include="#entry_date">📷 Browse photos from this date</button>
       </div>
+      {% if preselect_asset_ids %}
+      <div class="photo-grid" style="max-height: 340px; overflow-y:auto;">
+        {% for aid in preselect_asset_ids %}
+          <label style="position:relative; cursor:pointer;">
+            <input type="checkbox" name="immich_asset_ids" value="{{ aid }}" checked style="position:absolute; top:4px; left:4px; width:18px; height:18px;">
+            <img src="/immich/asset/{{ aid }}/thumbnail" loading="lazy" alt="">
+          </label>
+        {% endfor %}
+      </div>
+      {% else %}
       <div id="photo-browser" class="card" style="padding:.5rem;"></div>
+      {% endif %}
     </div>
     {% endif %}
 
