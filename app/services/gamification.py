@@ -13,11 +13,11 @@ Design goals (deliberately cost-conscious, per the architecture we agreed on):
 
 NOTE ON SCOPE: a handful of achievements from the original wishlist are NOT implemented here
 because they depend on Phase B features that haven't been built yet (no underlying data exists
-to check against): `screenshot_sleuth` (needs image_type categorization on attachments),
-`co_occurrence` (needs the Immich "auto-hangout" co-occurrence radar), and the relationship-graph
-achievements `graph_weaver`/`social_architect`/`bridge_builder`/`six_degrees` (need the
-relationship-network-graph feature). If those features get built later, add their achievements
-here at the same time.
+to check against): `screenshot_sleuth` (needs image_type categorization on attachments), and the
+relationship-graph achievements `graph_weaver`/`social_architect`/`bridge_builder`/`six_degrees`
+(need the relationship-network-graph feature). If those features get built later, add their
+achievements here at the same time. (`co_occurrence` was one of these - it landed with the Immich
+hangout-detection radar.)
 """
 from __future__ import annotations
 
@@ -84,6 +84,7 @@ ACHIEVEMENTS: dict[str, tuple[str, str, str, bool]] = {
     "memory_keeper": ("🖼️", "Memory Keeper", "Attached 5+ photos across your journal entries", False),
     "photo_album": ("📚", "Photo Album", "Attached 25+ photos across your journal entries", False),
     "on_this_day": ("🗓️", "On This Day", "Viewed an 'On This Day' Immich memory on the dashboard", False),
+    "co_occurrence": ("🤝", "Photo Proof", "A recent photo showed you hanging out with someone", False),
     "peace_maker": ("🕊️", "Peace Maker", "Resolved or mindfully released an interpersonal conflict", False),
     # --- Hidden easter eggs ---
     "night_owl": ("🦉", "Night Owl", "Logged an entry between 1am and 5am", True),
@@ -307,6 +308,8 @@ def check_achievements(db: Session, stats: UserStats, event_type: str | None = N
         _unlock("scratchpad_clearer")
     if context.get("viewed_on_this_day"):
         _unlock("on_this_day")
+    if context.get("hangout_detected"):
+        _unlock("co_occurrence")
 
     entry_hour = context.get("entry_hour")
     if entry_hour is not None and 1 <= entry_hour < 5:

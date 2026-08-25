@@ -163,6 +163,9 @@ class Person(Base):
         "ConflictLog", back_populates="person", cascade="all, delete-orphan",
         order_by="ConflictLog.created_at.desc()"
     )
+    hangout_dismissals = relationship(
+        "HangoutDismissal", back_populates="person", cascade="all, delete-orphan",
+    )
 
     journal_entries = relationship(
         "JournalEntry", secondary=journal_entry_people, back_populates="people",
@@ -403,6 +406,22 @@ class ConflictChatMessage(Base):
 # notifications on. On every daily job, due birthday/overdue-cadence notifications
 # are pushed to these endpoints. Subscriptions are opt-in and removable at any time.
 # ---------------------------------------------------------------------------
+
+class HangoutDismissal(Base):
+    """A hangout the user chose to dismiss on the dashboard. Keyed on (person, hangout date) so
+    a genuinely *new* hangout later can resurface the suggestion instead of silencing it forever."""
+    __tablename__ = "hangout_dismissals"
+    __table_args__ = (
+        UniqueConstraint("person_id", "dismissed_for_date", name="uq_hangout_dismissal"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    person_id = Column(Integer, ForeignKey("people.id", ondelete="CASCADE"), nullable=False, index=True)
+    dismissed_for_date = Column(Date, nullable=False)
+    created_at = Column(DateTime, default=utcnow)
+
+    person = relationship("Person", back_populates="hangout_dismissals")
+
 
 class PushSubscription(Base):
     __tablename__ = "push_subscriptions"

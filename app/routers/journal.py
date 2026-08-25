@@ -55,13 +55,16 @@ def _process_ai_extraction(entry_id: int):
 
 @router.get("/journal/new")
 def journal_new(request: Request, db: Session = Depends(get_db), user=Depends(current_user),
-                 person_id: int | None = Query(None)):
+                 person_id: int | None = Query(None), event_type: str | None = Query(None),
+                 entry_date: str | None = Query(None), immich_asset_ids: list[str] = Query([])):
     if not user:
         return RedirectResponse("/login")
     people = db.query(Person).filter(Person.archived.is_(False)).order_by(Person.name).all()
     scratchpad_person = db.get(Person, person_id) if person_id else None
     return render(request, "journal_form.html", db=db, user=user, active="journal",
-                  people=people, preselect_person_id=person_id, today=dt.date.today().isoformat(),
+                  people=people, preselect_person_id=person_id, preselect_event_type=event_type,
+                  preselect_entry_date=entry_date, preselect_asset_ids=immich_asset_ids,
+                  today=dt.date.today().isoformat(),
                   entry=None, scratchpad_person=scratchpad_person)
 
 

@@ -13,6 +13,7 @@ from ..services import checkins as checkin_service
 from ..services import gamification, states as state_service
 from ..services import grace as grace_service
 from ..services.gamification import ACHIEVEMENTS
+from ..services.hangouts import detect_recent_hangouts
 from ..services.immich_client import get_client_from_settings as immich_from_settings, ImmichError
 from ..settings_store import get_setting, set_setting
 
@@ -58,6 +59,44 @@ def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(curr
             upcoming_notable.append((nd, delta))
     upcoming_notable.sort(key=lambda t: t[1])
 
+    # Immich: "On this day" memories + hangout detection (a linked face seen in a photo within
+    # the last month). Ran before the nudge lists so a detected hangout can both credit the person
+    # (clear their check-in nudge) and visibly replace their "time to reach out" row.
+    memories = []
+    memories_error = None
+    hangouts = []
+    hangouts_error = None
+    try:
+        client = immich_from_settings(db)
+        memories = client.on_this_day_with_fallback()
+        hangouts, hangouts_error = detect_recent_hangouts(db, client)
+    except ImmichError as e:
+        memories_error = str(e)
+
+    if memories:
+        gamification.check_only(request, db, context={"viewed_on_this_day": True})
+
+    # Photo proof = they count as kept-in-touch: credit the actual day you were together (never a
+    # false "today"), clear any snooze, and silently refresh the achievement radar. Only ever
+    # bumps the date forwards, so repeated dashboard loads can't farm credit for the same hangout.
+    # Dismissed hangouts still get credited (the hangout happened) - dismissal only hides the row.
+    if hangouts:
+        changed = False
+        for h in hangouts:
+            person = h["person"]
+            if person.last_contact_date is None or h["latest_date"] > person.last_contact_date:
+                changed = True
+            checkin_service.touch_last_contact(db, person, h["latest_date"])
+            if person.checkin_snoozed_until is not None:
+                person.checkin_snoozed_until = None
+                changed = True
+        if changed:
+            db.commit()
+        gamification.check_only(request, db, context={"hangout_detected": True})
+
+    hangout_ids = {h["person"].id for h in hangouts}
+    hangouts = [h for h in hangouts if not h.get("dismissed")]
+
     # Grace mode ("stepping back for now"): when active, silence the demanding nudges so the
     # user gets a genuine break. Reaching out stays untouched and no data is lost - the cards
     # simply return when grace ends (the calm banner explains how long is left).
@@ -70,7 +109,9 @@ def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(curr
         drifted_people = []
         state_suggestions = []
     else:
-        overdue = checkin_service.overdue_people(db)
+        overdue = [
+            t for t in checkin_service.overdue_people(db) if t[0].id not in hangout_ids
+        ]
         unresolved_conflicts = (
             db.query(ConflictLog)
             .filter(ConflictLog.status == ConflictStatus.unresolved)
@@ -85,17 +126,6 @@ def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(curr
         ]
 
     progress = gamification.get_stats_and_achievements(db)
-
-    memories = []
-    memories_error = None
-    try:
-        client = immich_from_settings(db)
-        memories = client.on_this_day_with_fallback()
-    except ImmichError as e:
-        memories_error = str(e)
-
-    if memories:
-        gamification.check_only(request, db, context={"viewed_on_this_day": True})
 
     # "Read back when anxious": recent achievements + a personal pinned note, kept calm and
     # pressure-free. The note lives in settings so it's easy to edit without a schema change.
@@ -119,6 +149,8 @@ def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(curr
         overdue=overdue,
         memories=memories,
         memories_error=memories_error,
+        hangouts=hangouts,
+        hangouts_error=hangouts_error,
         today=today,
         progress=progress,
         unresolved_conflicts=unresolved_conflicts,

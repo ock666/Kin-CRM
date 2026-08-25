@@ -1,3 +1,4 @@
+import os
 import time
 import logging
 from collections import defaultdict
@@ -14,11 +15,13 @@ LIMITED_PATHS = {"/login", "/setup", "/mfa/verify", "/mfa/verify/recovery", "/se
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app, window_seconds: int = WINDOW_SECONDS,
-                 max_requests: int = MAX_REQUESTS, limited_paths: set = None):
+    def __init__(self, app, window_seconds: int | None = None,
+                 max_requests: int | None = None, limited_paths: set = None):
         super().__init__(app)
-        self.window_seconds = window_seconds
-        self.max_requests = max_requests
+        self.window_seconds = window_seconds if window_seconds is not None else \
+            int(os.environ.get("RATE_LIMIT_WINDOW_SECONDS", WINDOW_SECONDS))
+        self.max_requests = max_requests if max_requests is not None else \
+            int(os.environ.get("RATE_LIMIT_MAX_REQUESTS", MAX_REQUESTS))
         self.limited_paths = limited_paths or LIMITED_PATHS
         self._attempts: dict[str, list[float]] = defaultdict(list)
 

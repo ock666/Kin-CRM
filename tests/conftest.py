@@ -22,6 +22,9 @@ def test_data_dir():
     os.environ["DATA_DIR"] = d
     os.environ["DISABLE_SCHEDULER"] = "1"
     os.environ["SESSION_SECRET"] = "test-secret-key-not-for-production-use"
+    # The suite creates fresh admin users in many tests; the auth rate limiter would
+    # 429 the shared test IP well before the first file finishes. Raise the cap.
+    os.environ["RATE_LIMIT_MAX_REQUESTS"] = "10000"
     yield d
     shutil.rmtree(d, ignore_errors=True)
 
@@ -46,7 +49,7 @@ def client(app):
 
 @pytest.fixture()
 def admin_credentials():
-    return {"name": "Test Admin", "email": "admin@example.com", "password": "testpassword123"}
+    return {"name": "Test Admin", "email": "admin@example.com", "password": "Testpassword123"}
 
 
 @pytest.fixture()
