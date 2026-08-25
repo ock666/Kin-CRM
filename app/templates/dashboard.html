@@ -2,7 +2,10 @@
 {% block title %}Today — {{ app_name }}{% endblock %}
 {% block content %}
 <div class="topbar">
-  <h1 class="mb-0">Today</h1>
+  <div>
+    <h1 class="mb-0">{{ greeting }}</h1>
+    <p class="text-muted text-sm mb-0">{{ today_label }}</p>
+  </div>
   <div class="nav-spacer"></div>
   <a class="btn btn-primary" href="/journal/new">✏️ New entry</a>
 </div>
@@ -44,7 +47,7 @@
   {% for person, days in upcoming_birthdays %}
     <div class="flex-between" style="padding:.5rem 0; border-top: 1px solid var(--border);">
       <div class="flex-gap">
-        <div class="avatar avatar-sm">{% if person.avatar_url %}<img src="{{ person.avatar_url }}" alt="">{% else %}{{ person.name|initials }}{% endif %}</div>
+        <div class="avatar avatar-sm" style="--avatar-hue:{{ person.name|avatar_hue }}">{% if person.avatar_url %}<img src="{{ person.avatar_url }}" alt="">{% else %}{{ person.name|initials }}{% endif %}</div>
         <a href="/people/{{ person.id }}">{{ person.name }}</a>
       </div>
       <span class="text-muted text-sm">🎂 {{ "Today!" if days == 0 else "in " ~ days ~ " day" ~ ("s" if days != 1 else "") }}</span>
@@ -67,13 +70,13 @@
 {% endif %}
 
 {% if hangouts %}
-<div class="card" style="border-left:4px solid var(--accent);">
+<div class="card hangout-wash" style="border-left:4px solid var(--accent);">
   <h2>🤝 Looks like you hung out</h2>
   <p class="text-sm text-muted mb-1">Your photos caught these faces recently — we've counted it as keeping in touch.</p>
   {% for h in hangouts %}
     <div class="flex-between" style="padding:.5rem 0; border-top: 1px solid var(--border); flex-wrap: wrap; gap:.4rem;">
       <div class="flex-gap">
-        <div class="avatar avatar-sm">{% if h.person.avatar_url %}<img src="{{ h.person.avatar_url }}" alt="">{% else %}{{ h.person.name|initials }}{% endif %}</div>
+        <div class="avatar avatar-sm" style="--avatar-hue:{{ h.person.name|avatar_hue }}">{% if h.person.avatar_url %}<img src="{{ h.person.avatar_url }}" alt="">{% else %}{{ h.person.name|initials }}{% endif %}</div>
         <a href="/people/{{ h.person.id }}">{{ h.person.name }}</a>
         <span class="text-muted text-sm">{{ h.label }}</span>
       </div>
@@ -113,14 +116,14 @@
 <div class="card">
   <h2>💬 Time to reach out</h2>
   {% if not overdue %}
-    <p class="text-muted">{% if grace_active %}Paused while you're stepping back — nothing's due right now, no pressure at all.{% else %}Nothing overdue right now — nice work staying in touch!{% endif %}</p>
+    <p class="text-muted">{% if grace_active %}🕊️ Paused while you're stepping back — nothing's due right now, no pressure at all.{% else %}🌿 Nothing overdue right now — nice work staying in touch!{% endif %}</p>
   {% else %}
     <p class="text-sm text-muted">A gentle nudge, not a scoreboard — snooze anything that's not the right time.</p>
     {% for person, days_over in overdue %}
       <div style="padding:.5rem 0; border-top: 1px solid var(--border);">
         <div class="flex-between">
           <div class="flex-gap">
-            <div class="avatar avatar-sm">{% if person.avatar_url %}<img src="{{ person.avatar_url }}" alt="">{% else %}{{ person.name|initials }}{% endif %}</div>
+            <div class="avatar avatar-sm" style="--avatar-hue:{{ person.name|avatar_hue }}">{% if person.avatar_url %}<img src="{{ person.avatar_url }}" alt="">{% else %}{{ person.name|initials }}{% endif %}</div>
             <a href="/people/{{ person.id }}">{{ person.name }}</a>
           </div>
           <div class="flex-gap">
@@ -176,7 +179,7 @@
   <p class="text-sm text-muted mb-1">No pressure — these are people you've marked as drifted. They won't show in your reach-out nudges, but they're still here when (and if) you want to reconnect.</p>
   {% for person, days in drifted_people %}
     <div class="flex-gap" style="padding:.3rem 0; border-top: 1px solid var(--border);">
-      <div class="avatar avatar-sm">{% if person.avatar_url %}<img src="{{ person.avatar_url }}" alt="">{% else %}{{ person.name|initials }}{% endif %}</div>
+      <div class="avatar avatar-sm" style="--avatar-hue:{{ person.name|avatar_hue }}">{% if person.avatar_url %}<img src="{{ person.avatar_url }}" alt="">{% else %}{{ person.name|initials }}{% endif %}</div>
       <a href="/people/{{ person.id }}">{{ person.name }}</a>
       <span class="text-muted text-sm">last contact {{ days }} days ago</span>
     </div>
@@ -194,7 +197,7 @@
     <span class="text-sm text-muted">{{ progress.stats.streak_days }} day streak 🔥</span>
   </div>
   <div style="background: var(--accent-soft); border-radius: 999px; height: 10px; overflow: hidden; margin-top:.4rem;">
-    <div style="background: var(--accent); height: 100%; width: {{ progress.progress_pct }}%;"></div>
+    <div class="progress-fill" style="height: 100%; width: {{ progress.progress_pct }}%;"></div>
   </div>
   <p class="help-text mt-1 mb-0">{{ progress.next_level_threshold - progress.stats.total_xp }} XP to level {{ progress.stats.current_level + 1 }}</p>
 </div>
@@ -230,7 +233,10 @@
   {% if memories_error %}
     <p class="text-muted text-sm">Connect Immich in <a href="/settings">Settings</a> to see photo memories here. ({{ memories_error }})</p>
   {% elif not memories %}
-    <p class="text-muted">No Immich memories for today.</p>
+    <div class="empty-state">
+      <span class="empty-emoji">📸</span>
+      <p class="mb-0">No Immich memories for today — some days are quiet, and that's okay.</p>
+    </div>
   {% else %}
     {% for memory in memories %}
       <p class="text-sm text-muted mt-2 mb-1">{{ memory.data.year if memory.data else '' }}</p>

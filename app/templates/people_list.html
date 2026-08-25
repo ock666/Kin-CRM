@@ -26,7 +26,8 @@
 
 {% if not people %}
   <div class="empty-state">
-    <p>No one here yet.</p>
+    <span class="empty-emoji">🌱</span>
+    <p class="mb-0">No one here yet — everyone starts somewhere.</p>
     <a class="btn btn-primary" href="/people/new">Add your first person</a>
   </div>
 {% elif view == 'circles' and circles %}

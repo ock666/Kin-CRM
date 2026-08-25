@@ -1,5 +1,5 @@
 <a class="person-card" href="/people/{{ person.id }}">
-  <div class="avatar avatar-lg" style="position:relative;">
+  <div class="avatar avatar-lg" style="position:relative; --avatar-hue:{{ person.name|avatar_hue }}">
     {% if person.avatar_url %}<img src="{{ person.avatar_url }}" alt="">{% else %}{{ person.name|initials }}{% endif %}
   </div>
   <div class="name">{{ person.nickname or person.name }} <span title="Friend rank">{{ ranks[person.id].emoji }}</span></div>
