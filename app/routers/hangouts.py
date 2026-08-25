@@ -48,24 +48,22 @@ def _clamped_today(value: str) -> dt.date:
 
 def _person_face_assets(db, person: Person) -> set[str]:
     """The asset ids Immich actually tags with this person's face in the recent window.
-    Used to reject crafted `asset_ids` (e.g. photos of anyone else on the server). Falls back to
-    an empty set if Immich is unreachable - callers treat empty as 'no verification available'."""
+    Used to reject crafted `asset_ids` (e.g. photos of anyone else on the server). Raises
+    `ImmichError` when Immich is unreachable/misconfigured so callers can fail CLOSED instead of
+    accepting asset ids that were never verified against this person's face."""
     if not person.immich_person_id:
         return set()
-    try:
-        client = get_client_from_settings(db)
-        cutoff = dt.date.today() - dt.timedelta(days=31)
-        window_start = dt.datetime.combine(cutoff, dt.time.min) - dt.timedelta(hours=24)
-        window_end = dt.datetime.now(dt.timezone.utc) + dt.timedelta(hours=24)
-        assets = client.search_by_person(
-            person.immich_person_id,
-            taken_after=window_start.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
-            taken_before=window_end.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
-            size=100,
-        )
-        return {a["id"] for a in assets}
-    except ImmichError:
-        return set()
+    client = get_client_from_settings(db)
+    cutoff = dt.date.today() - dt.timedelta(days=31)
+    window_start = dt.datetime.combine(cutoff, dt.time.min) - dt.timedelta(hours=24)
+    window_end = dt.datetime.now(dt.timezone.utc) + dt.timedelta(hours=24)
+    assets = client.search_by_person(
+        person.immich_person_id,
+        taken_after=window_start.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+        taken_before=window_end.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+        size=100,
+    )
+    return {a["id"] for a in assets}
 
 
 @router.post("/hangouts/log")
@@ -82,12 +80,16 @@ def log_hangout(
 
     # Never accept an arbitrary date or asset list: clamp future dates (a future last-contact
     # would silence nudges forever), cap the asset list, and drop any asset that isn't actually
-    # tagged with this person's face in Immich (when Immich is reachable to verify).
+    # tagged with this person's face in Immich. Fail closed: if Immich can't be reached to
+    # verify, we refuse to log rather than trusting a client-supplied list.
     hangout_date = _clamped_today(entry_date)
     asset_ids = asset_ids[:MAX_ATTACHED_ASSETS]
-    verified = _person_face_assets(db, person)
-    if verified:
-        asset_ids = [a for a in asset_ids if a in verified]
+    try:
+        verified = _person_face_assets(db, person)
+    except ImmichError:
+        request.session["notice_flash"] = "Couldn't verify that photo with Immich right now — try again in a moment."
+        return RedirectResponse("/", status_code=303)
+    asset_ids = [a for a in asset_ids if a in verified]
 
     new_asset_ids = unattached_asset_ids(db, person, asset_ids)
     entry = JournalEntry(

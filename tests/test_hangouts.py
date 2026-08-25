@@ -21,6 +21,18 @@ class FakeImmichClient:
         return self.by_person.get(person_id, [])
 
 
+class _FaceClient:
+    """Fake for the log route's face-verification: treats the given ids as this person's recent
+    face assets in Immich, so verified filtering passes them through."""
+
+    def __init__(self, asset_ids):
+        self.asset_ids = asset_ids
+
+    def search_by_person(self, person_id, taken_after=None, taken_before=None, size=100):
+        now = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+        return [{"id": a, "localDateTime": now} for a in self.asset_ids]
+
+
 def _asset(asset_id, local_dt, year=None):
     # year mirrors what Immich returns; only localDateTime is used for filtering
     return {"id": asset_id, "localDateTime": local_dt, "year": year}
@@ -351,11 +363,14 @@ def test_unattached_asset_ids_helper(app):
 
 # --- Log-a-hangout route -------------------------------------------------------
 
-def test_log_hangout_creates_entry(app, logged_in_client):
+def test_log_hangout_creates_entry(app, logged_in_client, monkeypatch):
+    from app.routers import hangouts as hangouts_router
     from app.database import SessionLocal
     db = SessionLocal()
     try:
         p = _person(db, "Alex", "face-1")
+        monkeypatch.setattr(hangouts_router, "get_client_from_settings",
+                           lambda db_: _FaceClient(["photo-a", "photo-b"]))
         resp = logged_in_client.post("/hangouts/log", data={
             "person_id": str(p.id),
             "entry_date": "2026-08-07",
@@ -377,12 +392,15 @@ def test_log_hangout_creates_entry(app, logged_in_client):
         db.close()
 
 
-def test_log_hangout_skips_duplicate_assets(app, logged_in_client):
+def test_log_hangout_skips_duplicate_assets(app, logged_in_client, monkeypatch):
+    from app.routers import hangouts as hangouts_router
     from app.database import SessionLocal
     db = SessionLocal()
     try:
         p = _person(db, "Alex", "face-1")
         _attach(db, p, dt.date.today() - dt.timedelta(days=3), ["already-there"], title="Old entry")
+        monkeypatch.setattr(hangouts_router, "get_client_from_settings",
+                           lambda db_: _FaceClient(["already-there", "brand-new"]))
 
         logged_in_client.post("/hangouts/log", data={
             "person_id": str(p.id),
@@ -596,12 +614,15 @@ def test_cached_detection_reuses_immich_calls(app):
         db.close()
 
 
-def test_log_hangout_clamps_future_date(app, logged_in_client):
+def test_log_hangout_clamps_future_date(app, logged_in_client, monkeypatch):
+    from app.routers import hangouts as hangouts_router
     from app.database import SessionLocal
     from app.models import JournalEntry
     db = SessionLocal()
     try:
         p = _person(db, "Alex", "face-1")
+        monkeypatch.setattr(hangouts_router, "get_client_from_settings",
+                           lambda db_: _FaceClient(["photo-a"]))
         tomorrow = (dt.date.today() + dt.timedelta(days=1)).isoformat()
         logged_in_client.post("/hangouts/log", data={
             "person_id": str(p.id),
@@ -630,6 +651,53 @@ def test_log_hangout_requires_face_link(app, logged_in_client):
         assert resp.status_code == 303
         assert resp.headers["location"] == "/"
         assert db.query(JournalEntry).count() == 0
+    finally:
+        db.close()
+
+
+def test_log_hangout_fails_closed_when_immich_unreachable(app, logged_in_client, monkeypatch):
+    from app.routers import hangouts as hangouts_router
+    from app.database import SessionLocal
+    from app.models import JournalEntry
+    from app.services.immich_client import ImmichError
+    db = SessionLocal()
+    try:
+        p = _person(db, "Alex", "face-1")
+
+        def _boom(db_):
+            raise ImmichError("immich down")
+
+        monkeypatch.setattr(hangouts_router, "get_client_from_settings", _boom)
+        resp = logged_in_client.post("/hangouts/log", data={
+            "person_id": str(p.id),
+            "entry_date": "2026-08-07",
+            "asset_ids": ["photo-a"],
+        }, follow_redirects=False)
+        assert resp.status_code == 303
+        assert resp.headers["location"] == "/"
+        assert db.query(JournalEntry).count() == 0, "must fail closed, not trust the asset list"
+    finally:
+        db.close()
+
+
+def test_log_hangout_rejects_non_face_assets(app, logged_in_client, monkeypatch):
+    from app.routers import hangouts as hangouts_router
+    from app.database import SessionLocal
+    from app.models import JournalEntry, JournalImage
+    db = SessionLocal()
+    try:
+        p = _person(db, "Alex", "face-1")
+        # Immich says only face-a belongs to Alex; face-b is someone else's photo.
+        monkeypatch.setattr(hangouts_router, "get_client_from_settings",
+                           lambda db_: _FaceClient(["face-a"]))
+        logged_in_client.post("/hangouts/log", data={
+            "person_id": str(p.id),
+            "entry_date": "2026-08-07",
+            "asset_ids": ["face-a", "face-b"],
+        }, follow_redirects=False)
+        entry = db.query(JournalEntry).one()
+        assert [img.immich_asset_id for img in entry.images] == ["face-a"]
+        assert db.query(JournalImage).filter_by(immich_asset_id="face-b").count() == 0
     finally:
         db.close()
 
