@@ -611,6 +611,7 @@ def test_cached_detection_reuses_immich_calls(app):
         assert client.calls == 2, "invalidate should force a re-fetch"
         assert len(h3) == 1
     finally:
+        invalidate_hangout_cache()  # don't leak the global cache into other tests
         db.close()
 
 
@@ -699,6 +700,64 @@ def test_log_hangout_rejects_non_face_assets(app, logged_in_client, monkeypatch)
         assert [img.immich_asset_id for img in entry.images] == ["face-a"]
         assert db.query(JournalImage).filter_by(immich_asset_id="face-b").count() == 0
     finally:
+        db.close()
+
+
+def test_quick_log_skips_when_all_photos_already_logged(app, logged_in_client, monkeypatch):
+    from app.routers import hangouts as hangouts_router
+    from app.database import SessionLocal
+    from app.models import JournalEntry
+    db = SessionLocal()
+    try:
+        p = _person(db, "Alex", "face-1")
+        _attach(db, p, dt.date.today() - dt.timedelta(days=3), ["photo-a"], title="Already logged")
+        monkeypatch.setattr(hangouts_router, "get_client_from_settings",
+                           lambda db_: _FaceClient(["photo-a"]))
+        resp = logged_in_client.post("/hangouts/log", data={
+            "person_id": str(p.id),
+            "entry_date": "2026-08-07",
+            "asset_ids": ["photo-a"],
+        }, follow_redirects=False)
+        assert resp.status_code == 303
+        assert resp.headers["location"] == f"/people/{p.id}"
+        assert db.query(JournalEntry).count() == 1, "no empty duplicate entry should be created"
+    finally:
+        db.close()
+
+
+def test_journal_create_invalidates_hangout_cache(app, logged_in_client):
+    from app.database import SessionLocal
+    from app.services.hangouts import get_recent_hangouts_cached, invalidate_hangout_cache
+    db = SessionLocal()
+    try:
+        invalidate_hangout_cache()
+        _person(db, "Alex", "face-1")
+        now = dt.date.today().strftime("%Y-%m-%dT12:00:00")
+
+        class CountingClient(FakeImmichClient):
+            def __init__(self):
+                super().__init__({"face-1": [_asset("a1", now)]})
+                self.calls = 0
+
+            def search_by_person(self, *a, **kw):
+                self.calls += 1
+                return super().search_by_person(*a, **kw)
+
+        client = CountingClient()
+        get_recent_hangouts_cached(db, client)
+        assert client.calls == 1
+
+        resp = logged_in_client.post("/journal/new", data={
+            "body": "hung out",
+            "entry_date": "2026-08-07",
+            "immich_asset_ids": ["a1"],
+        }, follow_redirects=False)
+        assert resp.status_code == 303
+
+        get_recent_hangouts_cached(db, client)
+        assert client.calls == 2, "journal create with a photo should invalidate the hangout cache"
+    finally:
+        invalidate_hangout_cache()
         db.close()
 
 

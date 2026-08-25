@@ -12,6 +12,7 @@ from ..render import render
 from ..services import checkins as checkin_service
 from ..services import gamification
 from ..services.ai_client import get_client_from_settings as ai_from_settings, AIError
+from ..services.hangouts import invalidate_hangout_cache
 
 router = APIRouter()
 
@@ -119,6 +120,9 @@ def journal_create(
     events = ["NOTE_ADDED"]
     if immich_asset_ids:
         events.append("PHOTO_ATTACHED")
+        # The hangout card caches detection for up to 15 min; a photo attached via the normal
+        # form should stop it offering "Quick log" for the same photo immediately.
+        invalidate_hangout_cache()
 
     entry_created_at = entry.created_at or dt.datetime.utcnow()
     years_back = entry_created_at.date().year - entry.entry_date.year

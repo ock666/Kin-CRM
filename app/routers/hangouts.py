@@ -92,6 +92,12 @@ def log_hangout(
     asset_ids = [a for a in asset_ids if a in verified]
 
     new_asset_ids = unattached_asset_ids(db, person, asset_ids)
+    if not new_asset_ids:
+        # Every photo we'd log is already on the person's timeline (e.g. the card was stale and
+        # the hangout was already logged) - don't create an empty duplicate entry.
+        request.session["notice_flash"] = "Those photos are already logged — nothing new to add."
+        return RedirectResponse(f"/people/{person.id}", status_code=303)
+
     entry = JournalEntry(
         author_user_id=user.id,
         title=None,
