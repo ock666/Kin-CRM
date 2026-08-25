@@ -16,6 +16,7 @@ Design notes:
 from __future__ import annotations
 
 import datetime as dt
+import time
 
 from sqlalchemy.orm import Session
 
@@ -113,6 +114,7 @@ def detect_recent_hangouts(db: Session, client, window_days: int = 31,
         db.query(Person)
         .filter(Person.archived.is_(False))
         .filter(Person.immich_person_id.isnot(None))
+        .order_by(Person.id)
         .limit(max_people)
         .all()
     )
@@ -171,3 +173,67 @@ def detect_recent_hangouts(db: Session, client, window_days: int = 31,
 
     hangouts.sort(key=lambda h: h["latest_date"], reverse=True)
     return hangouts, None
+
+
+# --- Detection cache -----------------------------------------------------------
+# Each dashboard load runs up to `max_people` sequential Immich searches. That's fine once, but
+# not on every page view, so we cache the raw detection and rehydrate fresh Person objects per
+# request. Invalidated whenever the user logs or dismisses a hangout so those actions show up
+# immediately; otherwise the card can be up to CACHE_TTL seconds stale (Immich photos change far
+# less often than the dashboard is opened).
+
+CACHE_TTL_SECONDS = 15 * 60
+_detection_cache: dict = {"ts": None, "items": None, "error": None}
+
+
+def invalidate_hangout_cache():
+    _detection_cache["ts"] = None
+    _detection_cache["items"] = None
+    _detection_cache["error"] = None
+
+
+def _serialize_hangouts(hangouts: list[dict], error: str | None) -> tuple[list[dict], str | None]:
+    items = [{
+        "person_id": h["person"].id,
+        "latest_date": h["latest_date"].isoformat(),
+        "label": h["label"],
+        "thumbnails": h["thumbnails"],
+        "new_asset_ids": h["new_asset_ids"],
+        "all_logged": h["all_logged"],
+        "existing_entry": h["existing_entry"],
+        "dismissed": h["dismissed"],
+    } for h in hangouts]
+    return items, error
+
+
+def _rehydrate_hangouts(db: Session, items: list[dict]) -> list[dict]:
+    hangouts = []
+    for it in items:
+        person = db.get(Person, it["person_id"])
+        if person is None:
+            continue
+        hangouts.append({
+            "person": person,
+            "latest_date": dt.date.fromisoformat(it["latest_date"]),
+            "label": it["label"],
+            "thumbnails": it["thumbnails"],
+            "new_asset_ids": it["new_asset_ids"],
+            "all_logged": it["all_logged"],
+            "existing_entry": it["existing_entry"],
+            "dismissed": it["dismissed"],
+        })
+    return hangouts
+
+
+def get_recent_hangouts_cached(db: Session, client, window_days: int = 31,
+                                max_people: int = 20) -> tuple[list[dict], str | None]:
+    """`detect_recent_hangouts` with a short TTL cache so the dashboard doesn't hammer Immich on
+    every load. On a cache hit, Person rows are re-fetched so they belong to the current request
+    session; logging or dismissing a hangout calls `invalidate_hangout_cache()` first."""
+    now = time.time()
+    if _detection_cache["ts"] is not None and now - _detection_cache["ts"] < CACHE_TTL_SECONDS:
+        return _rehydrate_hangouts(db, _detection_cache["items"]), _detection_cache["error"]
+    hangouts, error = detect_recent_hangouts(db, client, window_days=window_days, max_people=max_people)
+    _detection_cache["ts"] = now
+    _detection_cache["items"], _detection_cache["error"] = _serialize_hangouts(hangouts, error)
+    return hangouts, error

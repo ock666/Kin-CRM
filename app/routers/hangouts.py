@@ -20,9 +20,12 @@ from ..deps import current_user
 from ..models import HangoutDismissal, JournalEntry, JournalImage, Person, EventType
 from ..services import checkins as checkin_service
 from ..services import gamification
-from ..services.hangouts import unattached_asset_ids
+from ..services.hangouts import invalidate_hangout_cache, unattached_asset_ids
+from ..services.immich_client import get_client_from_settings, ImmichError
 
 router = APIRouter()
+
+MAX_ATTACHED_ASSETS = 6
 
 
 def _safe_date(value: str) -> dt.date | None:
@@ -34,6 +37,37 @@ def _safe_date(value: str) -> dt.date | None:
         return None
 
 
+def _clamped_today(value: str) -> dt.date:
+    """Parsed date, clamped so it's never in the future (a future last-contact date would
+    permanently silence the person's nudges)."""
+    d = _safe_date(value) or dt.date.today()
+    if d > dt.date.today():
+        return dt.date.today()
+    return d
+
+
+def _person_face_assets(db, person: Person) -> set[str]:
+    """The asset ids Immich actually tags with this person's face in the recent window.
+    Used to reject crafted `asset_ids` (e.g. photos of anyone else on the server). Falls back to
+    an empty set if Immich is unreachable - callers treat empty as 'no verification available'."""
+    if not person.immich_person_id:
+        return set()
+    try:
+        client = get_client_from_settings(db)
+        cutoff = dt.date.today() - dt.timedelta(days=31)
+        window_start = dt.datetime.combine(cutoff, dt.time.min) - dt.timedelta(hours=24)
+        window_end = dt.datetime.now(dt.timezone.utc) + dt.timedelta(hours=24)
+        assets = client.search_by_person(
+            person.immich_person_id,
+            taken_after=window_start.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+            taken_before=window_end.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+            size=100,
+        )
+        return {a["id"] for a in assets}
+    except ImmichError:
+        return set()
+
+
 @router.post("/hangouts/log")
 def log_hangout(
     request: Request, db: Session = Depends(get_db), user=Depends(current_user),
@@ -43,15 +77,24 @@ def log_hangout(
     if not user:
         return RedirectResponse("/login")
     person = db.get(Person, person_id)
-    if not person:
+    if not person or not person.immich_person_id:
         return RedirectResponse("/", status_code=303)
+
+    # Never accept an arbitrary date or asset list: clamp future dates (a future last-contact
+    # would silence nudges forever), cap the asset list, and drop any asset that isn't actually
+    # tagged with this person's face in Immich (when Immich is reachable to verify).
+    hangout_date = _clamped_today(entry_date)
+    asset_ids = asset_ids[:MAX_ATTACHED_ASSETS]
+    verified = _person_face_assets(db, person)
+    if verified:
+        asset_ids = [a for a in asset_ids if a in verified]
 
     new_asset_ids = unattached_asset_ids(db, person, asset_ids)
     entry = JournalEntry(
         author_user_id=user.id,
         title=None,
         body=f"Hung out with {person.name}.",
-        entry_date=_safe_date(entry_date) or dt.date.today(),
+        entry_date=hangout_date,
         event_type=EventType.hangout,
         source="manual",
     )
@@ -74,6 +117,7 @@ def log_hangout(
         "entry_hour": (entry.created_at or dt.datetime.utcnow()).hour,
     })
 
+    invalidate_hangout_cache()
     return RedirectResponse(f"/people/{person.id}", status_code=303)
 
 
@@ -91,7 +135,7 @@ def dismiss_hangout(
     if not person:
         return RedirectResponse("/", status_code=303)
 
-    d = _safe_date(entry_date) or dt.date.today()
+    d = _clamped_today(entry_date)
     exists = (
         db.query(HangoutDismissal)
         .filter_by(person_id=person.id, dismissed_for_date=d)
@@ -100,4 +144,5 @@ def dismiss_hangout(
     if not exists:
         db.add(HangoutDismissal(person_id=person.id, dismissed_for_date=d))
         db.commit()
+    invalidate_hangout_cache()
     return RedirectResponse("/", status_code=303)

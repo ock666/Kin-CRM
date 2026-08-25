@@ -13,7 +13,7 @@ from ..services import checkins as checkin_service
 from ..services import gamification, states as state_service
 from ..services import grace as grace_service
 from ..services.gamification import ACHIEVEMENTS
-from ..services.hangouts import detect_recent_hangouts
+from ..services.hangouts import get_recent_hangouts_cached
 from ..services.immich_client import get_client_from_settings as immich_from_settings, ImmichError
 from ..settings_store import get_setting, set_setting
 
@@ -69,7 +69,7 @@ def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(curr
     try:
         client = immich_from_settings(db)
         memories = client.on_this_day_with_fallback()
-        hangouts, hangouts_error = detect_recent_hangouts(db, client)
+        hangouts, hangouts_error = get_recent_hangouts_cached(db, client)
     except ImmichError as e:
         memories_error = str(e)
 
@@ -77,16 +77,20 @@ def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(curr
         gamification.check_only(request, db, context={"viewed_on_this_day": True})
 
     # Photo proof = they count as kept-in-touch: credit the actual day you were together (never a
-    # false "today"), clear any snooze, and silently refresh the achievement radar. Only ever
-    # bumps the date forwards, so repeated dashboard loads can't farm credit for the same hangout.
-    # Dismissed hangouts still get credited (the hangout happened) - dismissal only hides the row.
+    # false "today"), and silently refresh the achievement radar. Only ever bumps the date
+    # forwards, so repeated dashboard loads can't farm credit for the same hangout. Dismissed
+    # hangouts still get credited (the hangout happened) - dismissal only hides the row. Snoozes
+    # are respected: an explicit snooze is only lifted for a hangout that's actually being shown.
     if hangouts:
         changed = False
+        visible = [h for h in hangouts if not h.get("dismissed")]
         for h in hangouts:
             person = h["person"]
             if person.last_contact_date is None or h["latest_date"] > person.last_contact_date:
                 changed = True
             checkin_service.touch_last_contact(db, person, h["latest_date"])
+        for h in visible:
+            person = h["person"]
             if person.checkin_snoozed_until is not None:
                 person.checkin_snoozed_until = None
                 changed = True
@@ -94,7 +98,9 @@ def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(curr
             db.commit()
         gamification.check_only(request, db, context={"hangout_detected": True})
 
-    hangout_ids = {h["person"].id for h in hangouts}
+    # Only *shown* hangouts replace the reach-out row - a dismissed hangout must never silently
+    # suppress a genuinely overdue nudge (the person would vanish from the dashboard entirely).
+    hangout_ids = {h["person"].id for h in hangouts if not h.get("dismissed")}
     hangouts = [h for h in hangouts if not h.get("dismissed")]
 
     # Grace mode ("stepping back for now"): when active, silence the demanding nudges so the

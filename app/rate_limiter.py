@@ -14,14 +14,25 @@ MAX_REQUESTS = 5
 LIMITED_PATHS = {"/login", "/setup", "/mfa/verify", "/mfa/verify/recovery", "/settings/mfa/setup", "/settings/mfa/disable", "/settings/mfa/recovery/regenerate"}
 
 
+def _env_int(name: str, default: int) -> int:
+    """Read a positive-int env override, ignoring bad values rather than crashing at startup."""
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        return max(1, int(raw))
+    except ValueError:
+        return default
+
+
 class RateLimitMiddleware(BaseHTTPMiddleware):
     def __init__(self, app, window_seconds: int | None = None,
                  max_requests: int | None = None, limited_paths: set = None):
         super().__init__(app)
         self.window_seconds = window_seconds if window_seconds is not None else \
-            int(os.environ.get("RATE_LIMIT_WINDOW_SECONDS", WINDOW_SECONDS))
+            _env_int("RATE_LIMIT_WINDOW_SECONDS", WINDOW_SECONDS)
         self.max_requests = max_requests if max_requests is not None else \
-            int(os.environ.get("RATE_LIMIT_MAX_REQUESTS", MAX_REQUESTS))
+            _env_int("RATE_LIMIT_MAX_REQUESTS", MAX_REQUESTS)
         self.limited_paths = limited_paths or LIMITED_PATHS
         self._attempts: dict[str, list[float]] = defaultdict(list)
 

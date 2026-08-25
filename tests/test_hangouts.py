@@ -193,7 +193,7 @@ def test_dashboard_renders_hangout_card_and_credits(app, logged_in_client, fake_
     try:
         p = _make_overdue_person(db)
         hangout_date = dt.date.today() - dt.timedelta(days=3)
-        fake_dashboard.setattr(dashboard, "detect_recent_hangouts",
+        fake_dashboard.setattr(dashboard, "get_recent_hangouts_cached",
                                lambda db_, client: ([{
                                    "person": db_.get(Person, p.id),
                                    "latest_date": hangout_date,
@@ -225,7 +225,7 @@ def test_dashboard_replaces_overdue_row(app, logged_in_client, fake_dashboard):
         p = _make_overdue_person(db)
         # Hangout older than the person's cadence: still removes them from the nudge list
         hangout_date = dt.date.today() - dt.timedelta(days=20)
-        fake_dashboard.setattr(dashboard, "detect_recent_hangouts",
+        fake_dashboard.setattr(dashboard, "get_recent_hangouts_cached",
                                lambda db_, client: ([{
                                    "person": db_.get(Person, p.id),
                                    "latest_date": hangout_date,
@@ -257,7 +257,7 @@ def test_dashboard_does_not_regress_last_contact(app, logged_in_client, fake_das
         p.last_contact_date = dt.date.today() - dt.timedelta(days=1)
         db.commit()
         hangout_date = dt.date.today() - dt.timedelta(days=3)
-        fake_dashboard.setattr(dashboard, "detect_recent_hangouts",
+        fake_dashboard.setattr(dashboard, "get_recent_hangouts_cached",
                                lambda db_, client: ([{
                                    "person": db_.get(Person, p.id),
                                    "latest_date": hangout_date,
@@ -414,7 +414,7 @@ def test_dashboard_shows_already_logged_instead_of_buttons(app, logged_in_client
     try:
         p = _make_overdue_person(db)
         hangout_date = dt.date.today() - dt.timedelta(days=7)
-        fake_dashboard.setattr(dashboard, "detect_recent_hangouts",
+        fake_dashboard.setattr(dashboard, "get_recent_hangouts_cached",
                                lambda db_, client: ([{
                                    "person": db_.get(Person, p.id),
                                    "latest_date": hangout_date,
@@ -442,7 +442,7 @@ def test_dashboard_shows_quick_log_and_write_buttons(app, logged_in_client, fake
     try:
         p = _make_overdue_person(db)
         hangout_date = dt.date.today() - dt.timedelta(days=3)
-        fake_dashboard.setattr(dashboard, "detect_recent_hangouts",
+        fake_dashboard.setattr(dashboard, "get_recent_hangouts_cached",
                                lambda db_, client: ([{
                                    "person": db_.get(Person, p.id),
                                    "latest_date": hangout_date,
@@ -512,7 +512,7 @@ def test_dashboard_hides_dismissed_hangout(app, logged_in_client, fake_dashboard
     try:
         p = _make_overdue_person(db)
         hangout_date = dt.date.today() - dt.timedelta(days=3)
-        fake_dashboard.setattr(dashboard, "detect_recent_hangouts",
+        fake_dashboard.setattr(dashboard, "get_recent_hangouts_cached",
                                lambda db_, client: ([{
                                    "person": db_.get(Person, p.id),
                                    "latest_date": hangout_date,
@@ -559,5 +559,106 @@ def test_dismiss_is_idempotent(app, logged_in_client):
         logged_in_client.post("/hangouts/dismiss", data={"person_id": str(p.id), "entry_date": "2026-08-07"})
         logged_in_client.post("/hangouts/dismiss", data={"person_id": str(p.id), "entry_date": "2026-08-07"})
         assert db.query(HangoutDismissal).count() == 1
+    finally:
+        db.close()
+
+
+# --- Review fixes: caching, nudge interplay, input validation ------------------
+
+def test_cached_detection_reuses_immich_calls(app):
+    from app.database import SessionLocal
+    from app.services.hangouts import get_recent_hangouts_cached, invalidate_hangout_cache
+    db = SessionLocal()
+    try:
+        invalidate_hangout_cache()
+        _person(db, "Alex", "face-1")
+        now = dt.date.today().strftime("%Y-%m-%dT12:00:00")
+
+        class CountingClient(FakeImmichClient):
+            def __init__(self):
+                super().__init__({"face-1": [_asset("a1", now)]})
+                self.calls = 0
+
+            def search_by_person(self, *a, **kw):
+                self.calls += 1
+                return super().search_by_person(*a, **kw)
+
+        client = CountingClient()
+        h1, _ = get_recent_hangouts_cached(db, client)
+        h2, _ = get_recent_hangouts_cached(db, client)
+        assert client.calls == 1, "second call should hit the cache"
+        assert len(h1) == 1 and len(h2) == 1
+        invalidate_hangout_cache()
+        h3, _ = get_recent_hangouts_cached(db, client)
+        assert client.calls == 2, "invalidate should force a re-fetch"
+        assert len(h3) == 1
+    finally:
+        db.close()
+
+
+def test_log_hangout_clamps_future_date(app, logged_in_client):
+    from app.database import SessionLocal
+    from app.models import JournalEntry
+    db = SessionLocal()
+    try:
+        p = _person(db, "Alex", "face-1")
+        tomorrow = (dt.date.today() + dt.timedelta(days=1)).isoformat()
+        logged_in_client.post("/hangouts/log", data={
+            "person_id": str(p.id),
+            "entry_date": tomorrow,
+            "asset_ids": ["photo-a"],
+        }, follow_redirects=False)
+        entry = db.query(JournalEntry).one()
+        assert entry.entry_date == dt.date.today()
+        db.refresh(p)
+        assert p.last_contact_date == dt.date.today()
+    finally:
+        db.close()
+
+
+def test_log_hangout_requires_face_link(app, logged_in_client):
+    from app.database import SessionLocal
+    from app.models import JournalEntry
+    db = SessionLocal()
+    try:
+        p = _person(db, "No Face", immich_id=None)
+        resp = logged_in_client.post("/hangouts/log", data={
+            "person_id": str(p.id),
+            "entry_date": "2026-08-07",
+            "asset_ids": ["photo-a"],
+        }, follow_redirects=False)
+        assert resp.status_code == 303
+        assert resp.headers["location"] == "/"
+        assert db.query(JournalEntry).count() == 0
+    finally:
+        db.close()
+
+
+def test_dismissed_hangout_does_not_suppress_overdue_nudge(app, logged_in_client, fake_dashboard):
+    from app.routers import dashboard
+    from app.database import SessionLocal
+    db = SessionLocal()
+    try:
+        p = _make_overdue_person(db, name="Alex")
+        p.checkin_cadence_days = 14
+        p.checkin_snoozed_until = None
+        db.commit()
+        hangout_date = dt.date.today() - dt.timedelta(days=20)
+        fake_dashboard.setattr(dashboard, "get_recent_hangouts_cached",
+                               lambda db_, client: ([{
+                                   "person": db_.get(Person, p.id),
+                                   "latest_date": hangout_date,
+                                   "label": "2 weeks ago",
+                                   "thumbnails": [],
+                                   "new_asset_ids": [],
+                                   "all_logged": False,
+                                   "existing_entry": None,
+                                   "dismissed": True,
+                               }], None))
+
+        page = logged_in_client.get("/").text
+        assert "Looks like you hung out" not in page
+        assert "Time to reach out" in page
+        assert "Caught up" in page  # dismissed hangout must not hide the overdue nudge
     finally:
         db.close()
