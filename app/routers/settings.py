@@ -88,13 +88,17 @@ def test_ai(request: Request, db: Session = Depends(get_db), user=Depends(curren
 def save_whisper(request: Request, db: Session = Depends(get_db), user=Depends(current_user),
                  whisper_provider: str = Form("openai"), whisper_base_url: str = Form(""),
                  whisper_api_key: str = Form(""), whisper_model: str = Form("whisper-1")):
+    provider = (whisper_provider or "openai").strip() or "openai"
     values = {
-        "whisper_provider": whisper_provider.strip() or "openai",
+        "whisper_provider": provider,
         "whisper_base_url": whisper_base_url.strip(),
-        "whisper_model": whisper_model.strip() or "whisper-1",
     }
-    if whisper_api_key:
-        values["whisper_api_key"] = whisper_api_key
+    # Only persist model/key for OpenAI-compatible provider; ignore for ASR to avoid
+    # accidentally overwriting or storing irrelevant fields.
+    if provider != "asr-webservice":
+        values["whisper_model"] = (whisper_model or "whisper-1").strip() or "whisper-1"
+        if whisper_api_key:
+            values["whisper_api_key"] = whisper_api_key
     set_many(db, values)
     return RedirectResponse("/settings", status_code=303)
 
