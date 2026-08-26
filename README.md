@@ -238,6 +238,7 @@ Setup steps:
 
 Notes
 - MediaRecorder is required for in-browser recording; if unavailable, use Upload.
+- Browsers require a secure context for microphone access: use HTTPS or access via http://localhost (SSH tunnel works). If you see no permission prompt, check this first.
 - The ASR webservice runs CPU-only and is a good default for Unraid. Set `ASR_MODEL=small|medium|large-v3` depending on accuracy vs speed.
 - If you use LiteLLM, ensure its routing includes an `audio.transcriptions`-capable backend.
 
