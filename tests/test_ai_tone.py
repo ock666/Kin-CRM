@@ -7,7 +7,12 @@ are written so they land at the right level of warmth/familiarity.
 
 import datetime as dt
 
-from app.services.ai_client import familiarity_register, build_person_context, _REGISTER_BY_TIER
+from app.services.ai_client import (
+    AIClient,
+    familiarity_register,
+    build_person_context,
+    _REGISTER_BY_TIER,
+)
 
 
 class _Person:
@@ -59,3 +64,28 @@ def test_familiarity_register_never_errors_on_partial_stub():
 def test_build_person_context_includes_register():
     ctx = build_person_context(_Person(occupation="teacher", hobbies="gardening"))
     assert "Relationship register" in ctx
+
+
+def test_register_values_avoid_cheesy_language():
+    for tier, reg in _REGISTER_BY_TIER.items():
+        assert "playful" not in reg, tier
+        assert "intimate" not in reg, tier
+        assert "understated" in reg or "low-key" in reg or "plain" in reg, tier
+
+
+def test_conversation_starters_prompt_is_understated():
+    captured = {}
+
+    ai = AIClient("http://example.com/v1", "sk-test", "gpt-4o-mini")
+
+    def fake_chat(system, user, max_tokens=700, temperature=0.7):
+        captured["system"] = system
+        captured["user"] = user
+        return '["a", "b"]'
+
+    ai._chat = fake_chat
+    items = ai.conversation_starters("Sam", ["tried the new bakery"], "Occupation: nurse")
+    assert items == ["a", "b"]
+    assert "understated" in captured["system"]
+    assert "no greeting-card phrasing" in captured["system"]
+    assert "partner in crime" in captured["system"]  # explicitly named as a cliché to avoid
