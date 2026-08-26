@@ -93,6 +93,24 @@ def test_meter_snoozed_is_dormant(app):
         db.close()
 
 
+def test_reminders_dismissed_is_not_overdue(app):
+    from app.database import SessionLocal
+    db = SessionLocal()
+    try:
+        p = make_person(
+            db, name="Dismissed", checkin_cadence_days=30,
+            last_contact_date=dt.date.today() - dt.timedelta(days=40),
+            reminders_dismissed=True,
+        )
+        assert is_overdue(p) is False
+        m = compute_cadence_watermeter(p)
+        assert m["state"] == "dormant"
+        assert m["label"] == "Paused"
+        assert m["overdue"] is False
+    finally:
+        db.close()
+
+
 def test_meter_consistent_with_is_overdue(app):
     from app.database import SessionLocal
     db = SessionLocal()

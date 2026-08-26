@@ -63,6 +63,15 @@
       </div>
       {% endif %}
 
+      {% if person.reminders_dismissed %}
+      <div class="notice notice-info mt-1 mb-0">
+        <span class="text-sm">🕊️ Gentle reminders are paused for {{ person.name }} — they won't show on your dashboard.</span>
+        <form method="post" action="/checkin/{{ person.id }}/resume" style="display:inline; margin-left:.5rem;">
+          <button class="btn btn-sm btn-primary" type="submit">Resume reminders</button>
+        </form>
+      </div>
+      {% endif %}
+
       {% if person_suggestion %}
       <div class="notice notice-info mt-1 mb-0">
         <span class="text-sm">💡 Kin noticed you haven't talked in a while — want to mark this as 'drifted' to soften reminders?</span>

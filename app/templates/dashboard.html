@@ -134,6 +134,9 @@
               <input type="hidden" name="days" value="14">
               <button class="btn btn-sm" type="submit">😴 Snooze 2wk</button>
             </form>
+            <form method="post" action="/checkin/{{ person.id }}/dismiss" title="Hide this reminder — revisit when you're ready">
+              <button class="btn btn-sm" type="submit" aria-label="Dismiss">✕</button>
+            </form>
           </div>
         </div>
         {% include "partials/micro_replies.html" %}
@@ -164,8 +167,8 @@
         <form method="post" action="/people/{{ person.id }}/state-suggestion/apply">
           <button class="btn btn-sm btn-primary" type="submit">✓ Apply</button>
         </form>
-        <form method="post" action="/people/{{ person.id }}/state-suggestion/dismiss">
-          <button class="btn btn-sm" type="submit">Not now</button>
+        <form method="post" action="/checkin/{{ person.id }}/dismiss" title="Hide this suggestion — revisit when you're ready">
+          <button class="btn btn-sm" type="submit" aria-label="Dismiss">✕</button>
         </form>
       </div>
     </div>
@@ -178,10 +181,13 @@
   <h2>🌊 People to revisit when you're ready</h2>
   <p class="text-sm text-muted mb-1">No pressure — these are people you've marked as drifted. They won't show in your reach-out nudges, but they're still here when (and if) you want to reconnect.</p>
   {% for person, days in drifted_people %}
-    <div class="flex-gap" style="padding:.3rem 0; border-top: 1px solid var(--border);">
+    <div class="flex-gap" style="padding:.3rem 0; border-top: 1px solid var(--border); align-items:center;">
       <div class="avatar avatar-sm" style="--avatar-hue:{{ person.name|avatar_hue }}">{% if person.avatar_url %}<img src="{{ person.avatar_url }}" alt="">{% else %}{{ person.name|initials }}{% endif %}</div>
       <a href="/people/{{ person.id }}">{{ person.name }}</a>
       <span class="text-muted text-sm">last contact {{ days }} days ago</span>
+      <form method="post" action="/checkin/{{ person.id }}/dismiss" title="Hide this — they'll stop appearing here" style="margin-left:auto;">
+        <button class="btn btn-sm" type="submit" aria-label="Dismiss">✕</button>
+      </form>
     </div>
   {% endfor %}
 </div>

@@ -138,7 +138,10 @@ def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(curr
         state_suggestions = state_service.suggest_states(db)
         drifted_people = [
             (p, (today - (p.last_contact_date or p.created_at.date())).days)
-            for p in db.query(Person).filter(Person.archived.is_(False)).all()
+            for p in db.query(Person)
+            .filter(Person.archived.is_(False))
+            .filter(Person.reminders_dismissed.is_(False))
+            .all()
             if state_service.effective_state(p, today) == RelationshipState.drifted
         ]
 
@@ -249,3 +252,27 @@ def mark_contacted(person_id: int, request: Request, db: Session = Depends(get_d
         if events:
             gamification.award_and_flash(request, db, *events, context=context)
     return RedirectResponse("/", status_code=303)
+
+
+@router.post("/checkin/{person_id}/dismiss")
+def dismiss_reminders(person_id: int, request: Request, db: Session = Depends(get_db),
+                      user=Depends(current_user)):
+    """Quiet this person's gentle reminders so they stop appearing on the dashboard - a calm
+    'revisit when you're ready' rather than a deletion. They stay in the People list and can be
+    resumed from their profile."""
+    person = db.get(Person, person_id)
+    if person:
+        person.reminders_dismissed = True
+        person.checkin_snoozed_until = None
+        db.commit()
+    return RedirectResponse("/", status_code=303)
+
+
+@router.post("/checkin/{person_id}/resume")
+def resume_reminders(person_id: int, request: Request, db: Session = Depends(get_db),
+                     user=Depends(current_user)):
+    person = db.get(Person, person_id)
+    if person:
+        person.reminders_dismissed = False
+        db.commit()
+    return RedirectResponse(f"/people/{person_id}", status_code=303)

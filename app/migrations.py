@@ -58,6 +58,9 @@ def run_startup_migrations():
     _ensure_column("users", "totp_enabled", "BOOLEAN", default_sql="0")
     _ensure_column("users", "mfa_recovery_codes", "TEXT")
 
+    # v2.x: quiet a person's gentle reminders ("revisit when ready") without archiving them
+    _ensure_column("people", "reminders_dismissed", "BOOLEAN", default_sql="0")
+
     # v2.1: voice chat support (store audio URL + transcript on conflict chat messages)
     _ensure_column("conflict_chat_messages", "audio_url", "TEXT")
     _ensure_column("conflict_chat_messages", "transcript", "TEXT")
