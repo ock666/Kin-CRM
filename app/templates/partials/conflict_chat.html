@@ -119,6 +119,15 @@
 
   function bestMime(){ const c=['audio/webm;codecs=opus','audio/ogg;codecs=opus','audio/webm']; for(const mt of c){ if(window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(mt)) return mt;} return ''; }
 
+  // Pre-warn if permissions are blocked (helps users fix site-level blocks)
+  if (navigator.permissions && navigator.permissions.query) {
+    try {
+      navigator.permissions.query({ name: 'microphone' }).then((res) => {
+        if (res.state === 'denied') setStatus('Microphone permission is blocked. Click the site lock icon to allow.');
+      }).catch(() => {});
+    } catch {}
+  }
+
   if(recordBtn){ recordBtn.addEventListener('click', async ()=>{
     try{
       if(!recording){ const stream=await navigator.mediaDevices.getUserMedia({audio:true}); chunks=[]; const mt=bestMime(); rec= mt? new MediaRecorder(stream,{mimeType:mt}) : new MediaRecorder(stream);
@@ -126,7 +135,13 @@
         rec.onstop=()=>{ const t=rec.mimeType||'audio/webm'; blob=new Blob(chunks,{type:t}); url=URL.createObjectURL(blob); audioEl.src=url; audioEl.load && audioEl.load(); pb.style.display=''; stopInd(); uploadBtn.disabled=false; stream.getTracks().forEach(t=>t.stop()); };
         rec.start(); recording=true; recordBtn.textContent='⏹️ Stop'; uploadBtn.disabled=true; startInd(); setStatus('Recording…'); }
       else{ rec && rec.stop(); recording=false; recordBtn.textContent='🎙️ Voice (record)'; setStatus('Stopped'); }
-    }catch(e){ uploadBtn.disabled=false; setStatus('Microphone unavailable'); stopInd(); }
+    }catch(e){
+      uploadBtn.disabled=false;
+      if (e && e.name === 'NotAllowedError') setStatus('Microphone permission denied. Enable it in the browser and try again.');
+      else if (e && e.name === 'NotFoundError') setStatus('No microphone found. Check input devices.');
+      else setStatus('Microphone unavailable');
+      stopInd();
+    }
   }); }
 
   if(uploadBtn){ uploadBtn.addEventListener('click', ()=> fileInput.click()); }

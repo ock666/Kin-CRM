@@ -257,13 +257,20 @@ async def conflict_chat(conflict_id: int, request: Request, db: Session = Depend
                     msg = ConflictChatMessage(conflict_id=conflict_id, role="assistant", content=reply)
                     db2.add(msg)
                     db2.commit()
-                    # Attempt voice synth if enabled; ignore failures silently
+                    # Attempt voice synth if enabled; log failures for triage
                     try:
                         from ..services.tts_client import synthesize_from_settings, should_reply_with_voice
+                        import logging
+                        _tts_log = logging.getLogger(__name__)
                         _, mirror_mode = should_reply_with_voice(db2)
                         do_voice = False
-                        if mirror_mode and prior:
-                            do_voice = any((pm.audio_url for pm in prior if pm.role == 'user'))
+                        if mirror_mode:
+                            # Mirror: only reply with voice when the most recent user turn was a voice note.
+                            do_voice = bool(prior and prior[-1].role == 'user' and prior[-1].audio_url)
+                        _tts_log.info(
+                            "Chat TTS check: mirror=%s do_voice=%s prior_user_voice=%d",
+                            mirror_mode, do_voice, sum(1 for pm in prior if pm.role == 'user' and pm.audio_url),
+                        )
                         if do_voice:
                             audio_bytes = synthesize_from_settings(db2, reply)
                             from ..config import settings as app_settings
@@ -276,9 +283,11 @@ async def conflict_chat(conflict_id: int, request: Request, db: Session = Depend
                             msg.audio_url = f"/uploads/voice/{fname}"
                             msg.transcript = reply
                             db2.commit()
+                            _tts_log.info("Chat TTS saved audio_url=%s", msg.audio_url)
                             yield f"data: {json.dumps({'audio_url': msg.audio_url})}\n\n"
-                    except Exception:
-                        pass
+                    except Exception as _tts_exc:
+                        import logging
+                        logging.getLogger(__name__).warning("Chat TTS failed: %s", _tts_exc)
                 finally:
                     db2.close()
 

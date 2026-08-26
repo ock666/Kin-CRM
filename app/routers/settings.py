@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Request, Form
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, JSONResponse
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -12,7 +12,6 @@ from ..services.immich_client import ImmichClient, ImmichError
 from ..services.ai_client import AIClient, AIError
 from ..services.mfa import generate_totp_secret, verify_totp, generate_recovery_codes, decrypt_secret
 from ..config import settings
-from ..settings_store import set_many, get_all_settings, get_setting_sensitive
 
 router = APIRouter()
 
@@ -234,6 +233,21 @@ def list_tts_voices(request: Request, db: Session = Depends(get_db), user=Depend
         return JSONResponse({"voices": voices})
     except Exception as e:
         return JSONResponse({"voices": [], "error": "Failed to fetch voices."}, status_code=400)
+
+
+@router.post("/settings/tts/sample")
+def tts_sample(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
+    """Return a short MP3 sample for the currently selected TTS settings/voice."""
+    try:
+        from ..services.tts_client import synthesize_from_settings
+        audio = synthesize_from_settings(db, "This is a short sample from Kin.")
+        from fastapi.responses import Response
+        return Response(content=audio, media_type="audio/mpeg",
+                        headers={"Cache-Control": "no-store"})
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("TTS sample failed: %s", e)
+        return JSONResponse({"error": "Sample failed"}, status_code=400)
 
 
 @router.post("/settings/instagram")

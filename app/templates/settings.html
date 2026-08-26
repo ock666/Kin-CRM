@@ -185,13 +185,12 @@
     const voiceInput = document.getElementById('tts_voice_select');
     playBtn && playBtn.addEventListener('click', async () => {
       try {
-        // For now attempt OpenAI via server-side synth; Piper sample to be added with Wyoming adapter
-        const provVal = prov && prov.value;
-        if (provVal === 'piper') { alert('Sample playback for Piper will be available once the Wyoming adapter lands.'); return; }
-        const resp = await fetch('/settings/tts/test', { method:'POST' });
-        // Test connection already runs; for real sample, a separate endpoint will be added if desired
-        alert('Connection tested. For actual sample playback, I can add a small /settings/tts/sample endpoint.');
-      } catch (e) { /* ignore */ }
+        const r = await fetch('/settings/tts/sample', { method: 'POST' });
+        if (!r.ok) { alert('Sample failed.'); return; }
+        const blob = await r.blob();
+        const url = URL.createObjectURL(blob);
+        audio.src = url; audio.style.display=''; audio.load && audio.load(); audio.play && audio.play();
+      } catch (e) { alert('Sample failed.'); }
     });
   })();
 </script>
