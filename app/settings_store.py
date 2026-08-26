@@ -10,6 +10,11 @@ DEFAULTS = {
     "ai_api_key": "",
     "ai_model": "gpt-4o-mini",
     "support_chat_model": "gpt-4o",
+    # Whisper (voice transcription) — if unset, falls back to AI settings (OpenAI-compatible)
+    "whisper_base_url": "",
+    "whisper_api_key": "",
+    "whisper_model": "whisper-1",
+    "whisper_provider": "openai",  # 'openai' or 'asr-webservice'
     "instagram_username": "",
     "instagram_password": "",
     "birthday_lead_days": "3",
@@ -25,7 +30,7 @@ DEFAULTS = {
 }
 
 
-SENSITIVE_KEYS = {"immich_api_key", "ai_api_key", "instagram_password", "vapid_private_key"}
+SENSITIVE_KEYS = {"immich_api_key", "ai_api_key", "instagram_password", "vapid_private_key", "whisper_api_key"}
 
 
 def get_all_settings(db: Session) -> dict:
