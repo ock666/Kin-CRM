@@ -1,7 +1,7 @@
 {% if error %}
   <div class="notice notice-warn">{{ error }}</div>
 {% elif not immich_people %}
-  <p class="text-muted text-sm">No faces found in Immich yet.</p>
+  <p class="text-muted text-sm">🌿 No faces found in Immich yet.</p>
 {% else %}
   <form method="post" action="/people/{{ person_id }}/link-immich" x-data="{ faceQuery: '' }">
     <input type="text" x-model="faceQuery" placeholder="🔎 Search faces by name..." class="mb-1">

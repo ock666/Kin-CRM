@@ -4,7 +4,7 @@
 
 <div class="card">
   <div class="flex-gap" style="align-items:flex-start;">
-    <div class="avatar avatar-lg">
+    <div class="avatar avatar-lg" style="--avatar-hue:{{ person.name|avatar_hue }}">
       {% if person.avatar_url %}<img src="{{ person.avatar_url }}" alt="">{% else %}{{ person.name|initials }}{% endif %}
     </div>
     <div style="flex:1;">
@@ -265,10 +265,13 @@
     <a class="btn btn-sm btn-primary" href="/journal/new?person_id={{ person.id }}">+ New entry</a>
   </div>
   {% if not entries %}
-    <p class="empty-state">No journal entries yet — log a memory, call, or hangout to get started.</p>
+    <div class="empty-state">
+      <span class="empty-emoji">🌱</span>
+      <p class="mb-0">No journal entries yet — log a memory, call, or hangout to get started.</p>
+    </div>
   {% endif %}
   {% for entry in entries %}
-    <div class="timeline-item mt-2">
+    <div class="timeline-item mt-2 dot-{{ entry.event_type.value }}">
       <div class="timeline-meta">
         {{ entry.entry_date }} · {{ entry.event_type.value|capitalize }}
         {% if entry.energy_cost %} · <span class="energy-{{ entry.energy_cost.value }}">{{ entry.energy_cost.value }} energy</span>{% endif %}

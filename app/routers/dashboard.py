@@ -42,6 +42,17 @@ def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(curr
         return RedirectResponse("/login")
 
     today = dt.date.today()
+    hour = dt.datetime.now().hour
+    if hour < 5:
+        greeting = "Resting well"
+    elif hour < 12:
+        greeting = "Good morning"
+    elif hour < 17:
+        greeting = "Good afternoon"
+    else:
+        greeting = "Good evening"
+    greeting_name = (user.name.split()[0] if user and user.name else "") or "friend"
+    today_label = today.strftime("%A, %d %B")
     lead_days = _safe_int(get_setting(db, "birthday_lead_days", "3"), 3)
     upcoming_birthdays = bday_service.people_with_upcoming_birthdays(db, lead_days)
 
@@ -158,6 +169,9 @@ def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(curr
         hangouts=hangouts,
         hangouts_error=hangouts_error,
         today=today,
+        greeting=greeting,
+        greeting_name=greeting_name,
+        today_label=today_label,
         progress=progress,
         unresolved_conflicts=unresolved_conflicts,
         grace_active=grace_active,

@@ -48,6 +48,20 @@ def _parse_json(raw):
         return None
 
 
+# Muted, stable hues used for the per-person avatar tint. Chosen for calm variety, not vibrancy.
+AVATAR_HUES = ["255", "210", "320", "30", "150", "45", "185", "280"]
+
+
+def _avatar_hue(name: str) -> str:
+    """A stable hue (CSS hsl degrees) derived from the person's name, so each person's initials
+    avatar gets a soft, personal wash. Returns a hue *number*; the CSS picks the actual pastel
+    lightness per light/dark mode."""
+    if not name:
+        return AVATAR_HUES[0]
+    h = sum(ord(c) for c in name) % len(AVATAR_HUES)
+    return AVATAR_HUES[h]
+
+
 def _render_markdown(text: str) -> str:
     html = markdown2.markdown(text or "", extras=["break-on-newline", "linkify", "safe-mode"])
     html = re.sub(
@@ -61,6 +75,7 @@ def _render_markdown(text: str) -> str:
 templates.env.filters["markdown"] = _render_markdown
 templates.env.filters["initials"] = _initials
 templates.env.filters["parse_json"] = _parse_json
+templates.env.filters["avatar_hue"] = _avatar_hue
 
 OPEN_PATHS = {"/login", "/setup", "/health", "/sw.js", "/manifest.webmanifest", "/static/offline.html", "/mfa/verify"}
 

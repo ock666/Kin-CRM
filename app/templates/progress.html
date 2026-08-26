@@ -10,7 +10,7 @@
     <span class="text-muted">{{ progress.stats.streak_days }} day streak 🔥</span>
   </div>
   <div style="background: var(--accent-soft); border-radius: 999px; height: 12px; overflow: hidden; margin-top:.5rem;">
-    <div style="background: var(--accent); height: 100%; width: {{ progress.progress_pct }}%;"></div>
+    <div class="progress-fill" style="height: 100%; width: {{ progress.progress_pct }}%;"></div>
   </div>
   <p class="help-text mt-1 mb-0">{{ progress.next_level_threshold - progress.stats.total_xp }} XP to level {{ progress.stats.current_level + 1 }}</p>
 </div>
@@ -19,9 +19,9 @@
   <h2 class="mb-1">Achievements <span class="text-muted text-sm">({{ progress.unlocked_count }} / {{ progress.total_count }} unlocked)</span></h2>
   <div class="grid grid-cols-2">
     {% for a in progress.achievements %}
-      <div class="card" style="{{ '' if a.unlocked else 'opacity:.45;' }}">
+      <div class="ach-tile {{ 'unlocked' if a.unlocked else 'locked' }}">
         <div class="flex-gap">
-          <span style="font-size:1.6rem;">{{ a.emoji }}</span>
+          <span class="ach-emoji">{{ a.emoji }}</span>
           <div>
             <strong>{{ a.label }}</strong>
             <p class="text-sm text-muted mb-0">{{ a.description }}</p>
