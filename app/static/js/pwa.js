@@ -76,7 +76,7 @@
       if (!sub) {
         sub = await registration.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: ASYNC.urlBase64ToUint8Array(key)
+          applicationServerKey: await ASYNC.urlBase64ToUint8Array(key)
         });
       }
       const resp = await fetch(API_BASE + '/subscribe', {
