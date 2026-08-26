@@ -17,6 +17,29 @@ def test_create_person_minimal(logged_in_client):
     assert "Ada Lovelace" in detail.text
 
 
+def test_dismiss_and_resume_reminders(logged_in_client):
+    from app.database import SessionLocal
+    from app.models import Person
+
+    resp = logged_in_client.post("/people/new", data={"name": "Dismissable Person"}, follow_redirects=False)
+    person_id = _extract_person_id_from_redirect(resp.headers["location"])
+
+    logged_in_client.post(f"/checkin/{person_id}/dismiss", follow_redirects=False)
+    db = SessionLocal()
+    try:
+        assert db.get(Person, person_id).reminders_dismissed is True
+    finally:
+        db.close()
+
+    detail = logged_in_client.get(f"/people/{person_id}")
+    assert "Resume reminders" in detail.text
+
+    logged_in_client.post(f"/checkin/{person_id}/resume", follow_redirects=False)
+    db = SessionLocal()
+    try:
+        assert db.get(Person, person_id).reminders_dismissed is False
+    finally:
+        db.close()
 def test_people_list_shows_created_person(logged_in_client):
     logged_in_client.post("/people/new", data={"name": "Grace Hopper"})
     resp = logged_in_client.get("/people")

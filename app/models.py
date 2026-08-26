@@ -138,6 +138,7 @@ class Person(Base):
     checkin_cadence_days = Column(Integer, nullable=True)  # None = no reminder
     checkin_snoozed_until = Column(Date, nullable=True)
     last_contact_date = Column(Date, nullable=True)
+    reminders_dismissed = Column(Boolean, default=False)  # quiet the gentle nudges; revisit when ready
 
     archived = Column(Boolean, default=False)
 

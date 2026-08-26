@@ -12,6 +12,8 @@ def is_overdue(person: Person, today: dt.date | None = None) -> bool:
     farm XP). Skips anyone with an active relationship-state that suppresses nudges."""
     if not person.checkin_cadence_days:
         return False
+    if person.reminders_dismissed:
+        return False
     today = today or dt.date.today()
     if person.checkin_snoozed_until and person.checkin_snoozed_until >= today:
         return False
@@ -34,6 +36,7 @@ def overdue_people(db: Session) -> list[tuple[Person, int]]:
     people = (
         db.query(Person)
         .filter(Person.archived.is_(False))
+        .filter(Person.reminders_dismissed.is_(False))
         .filter(Person.checkin_cadence_days.isnot(None))
         .all()
     )
@@ -74,6 +77,9 @@ def compute_cadence_watermeter(person: Person, today: dt.date | None = None) -> 
 
     if not person.checkin_cadence_days:
         return {"state": "dormant", "label": "On hold", "emoji": "💤", "pct": 0, "overdue": False}
+
+    if person.reminders_dismissed:
+        return {"state": "dormant", "label": "Paused", "emoji": "🕊️", "pct": 0, "overdue": False}
 
     if person.checkin_snoozed_until and person.checkin_snoozed_until >= today:
         return {"state": "dormant", "label": "Snoozed", "emoji": "💤", "pct": 0, "overdue": False}

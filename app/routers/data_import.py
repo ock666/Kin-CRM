@@ -97,6 +97,7 @@ def _import_json(db: Session, data: dict, summary: dict):
                 "archived": raw.get("archived"),
                 "checkin_cadence_days": raw.get("checkin_cadence_days"),
                 "last_contact_date": raw.get("last_contact_date"),
+                "reminders_dismissed": bool(raw.get("reminders_dismissed", False)),
             }
             # Normalize birthday "M/D/Y" into month/day/year.
             bday = raw.get("birthday")

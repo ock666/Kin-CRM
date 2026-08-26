@@ -39,6 +39,7 @@ def suggest_states(db: Session, today: dt.date | None = None) -> list[tuple[Pers
     people = (
         db.query(Person)
         .filter(Person.archived.is_(False))
+        .filter(Person.reminders_dismissed.is_(False))
         .filter(Person.relationship_state == RelationshipState.none)
         .filter(Person.checkin_cadence_days.isnot(None))
         .all()
