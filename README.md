@@ -11,7 +11,7 @@
 <br />
 <div align="center">
   <a href="https://github.com/ock666/Kin-CRM">
-    <img src="images/kin-logo.png" alt="Logo" width="280" height="153">
+    <img src="images/kin-logo-512.png" alt="Logo" width="280" height="280">
   </a>
 
   <h3 align="center">Kin</h3>

@@ -7,7 +7,7 @@
   <Shell>bash</Shell>
   <Privileged>false</Privileged>
 
-  <Icon>https://raw.githubusercontent.com/ock666/Kin-CRM/main/images/kin-logo.png</Icon>
+  <Icon>https://raw.githubusercontent.com/ock666/Kin-CRM/main/images/kin-logo-512.png</Icon>
 
   <WebUI>http://[IP]:[PORT:8000]</WebUI>
 
