@@ -695,15 +695,17 @@ label { display: block; font-weight: 600; font-size: .875rem; margin: 0 0 .3rem;
 #soft-fall { max-width: 480px; margin: 0 auto; }
 .soft-fall-board { display: flex; gap: .75rem; justify-content: center; align-items: flex-start; }
 #sf-canvas {
-  width: 190px;
-  height: 380px;
+  width: 210px;
+  height: 420px;
+  display: block;
   background: var(--bg-alt);
   border: 1px solid var(--border);
   border-radius: 8px;
 }
 #sf-upcoming {
-  width: 72px;
-  height: 72px;
+  width: 105px;
+  height: 105px;
+  display: block;
   background: var(--bg-alt);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -726,4 +728,5 @@ label { display: block; font-weight: 600; font-size: .875rem; margin: 0 0 .3rem;
 .soft-fall-controls button:active { background: var(--accent-soft); }
 @media (max-width: 420px) {
   #sf-canvas { width: 150px; height: 300px; }
+  #sf-upcoming { width: 75px; height: 75px; }
 }

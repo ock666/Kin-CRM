@@ -290,12 +290,24 @@
   function invalidateLines() { invalid.lines = true; }
 
   function resize() {
-    canvas.width = canvas.clientWidth;
-    canvas.height = canvas.clientHeight;
-    ucanvas.width = ucanvas.clientWidth;
-    ucanvas.height = ucanvas.clientHeight;
-    dx = canvas.width / NX;
-    dy = canvas.height / NY;
+    var w = canvas.clientWidth || 210;
+    var cell = Math.floor(w / NX);
+    if (cell < 1) cell = 1;
+
+    // Main court: NX x NY cells, always square blocks (width drives height).
+    canvas.width = cell * NX;
+    canvas.height = cell * NY;
+    canvas.style.width = (cell * NX) + "px";
+    canvas.style.height = (cell * NY) + "px";
+
+    // Upcoming preview: NU x NU cells, same square cell size.
+    ucanvas.width = cell * NU;
+    ucanvas.height = cell * NU;
+    ucanvas.style.width = (cell * NU) + "px";
+    ucanvas.style.height = (cell * NU) + "px";
+
+    dx = cell;
+    dy = cell;
     invalidate();
     invalidateNext();
   }
