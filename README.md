@@ -101,6 +101,8 @@ I hope it can help others too.
 * [Jinja2](https://jinja.palletsprojects.com/)
 * [Immich](https://immich.app)
 * [OpenAI / Ollama](https://ollama.com)
+* [Whisper](https://github.com/openai/whisper) (optional, voice transcription)
+* [Piper](https://github.com/rhasspy/piper) (optional, local text-to-speech)
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
@@ -116,6 +118,8 @@ Kin runs as a single Docker container with a local SQLite database. No external 
 * Docker and Docker Compose
 * (Optional) An Immich server for photo integration
 * (Optional) An OpenAI API key or a local Ollama server for AI features
+* (Optional) A Whisper service for voice transcription
+* (Optional) A Piper server for local voice replies
 
 ### Installation
 
@@ -158,7 +162,7 @@ pip install -r requirements.txt -r requirements-dev.txt
 pytest
 ```
 
-152 tests covering auth, people, journal, export, reviews, settings, push, gamification, conflict resolution, chat, birthdays, quick replies, resolution plans, achievements, retention, grace mode, and more.
+185 tests covering auth, people, journal, export, reviews, settings, push, gamification, conflict resolution, chat, birthdays, quick replies, resolution plans, achievements, retention, grace mode, and more.
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
@@ -202,7 +206,7 @@ All AI output is a suggestion you explicitly approve or dismiss — nothing is w
 
 ### Voice transcription (Whisper)
 
-Kin can transcribe voice notes directly into a journal entry. You can use either:
+Kin can transcribe voice notes into journal entries and in the conflict support chat. Whisper is optional — voice notes still save and play without it, they just won't have a transcript. You can use either:
 
 - An OpenAI-compatible endpoint that supports `audio.transcriptions` (e.g. OpenAI, LiteLLM routing to Whisper), or
 - A local Whisper webservice container (CPU-friendly) on your Unraid host.
@@ -242,6 +246,35 @@ Notes
 - The ASR webservice runs CPU-only and is a good default for Unraid. Set `ASR_MODEL=small|medium|large-v3` depending on accuracy vs speed.
 - If you use LiteLLM, ensure its routing includes an `audio.transcriptions`-capable backend.
 
+### Voice replies (TTS)
+
+Kin can have the conflict support chat reply with a natural-sounding voice. Two providers:
+
+- **Piper** — local, offline speech synthesis via the Wyoming TCP protocol, or
+- **OpenAI TTS** — `tts-1` with your OpenAI key.
+
+TTS is fully optional — without a configured provider the bot always replies with text.
+
+Setup (Piper):
+
+1. Deploy a Piper server and download a voice (use the container's web UI at `http://<host>:5500` to list/download voices):
+   ```bash
+   docker run -d --name piper --restart unless-stopped \
+     -p 10200:10200 -p 5500:5500 \
+     -v /path/to/piper-data:/data \
+     rhasspy/wyoming-piper \
+     --voice en_GB-alba-medium
+   ```
+2. In Kin: Settings → Voice Replies (TTS):
+   - Provider: Piper
+   - Piper host: your Docker host (e.g. `192.168.0.51`)
+   - Piper port: `10200` (Wyoming TCP)
+   - Click *Fetch voices*, pick one, then *Test connection* and *Play sample* to confirm audio.
+
+For OpenAI TTS, set Provider to OpenAI and add your API key.
+
+**Mirror my mode** is the single global toggle that controls voice replies. When on, if you send a voice note the bot replies with a voice bubble (plus the text transcript for accessibility). When off, replies are always text. Emoji are stripped from the spoken audio automatically (they stay in the on-screen transcript).
+
 ### Instagram integration (use with caution)
 
 Kin includes an optional, unofficial Instagram reader using [instagrapi](https://github.com/subzeroid/instagrapi). It's against Instagram's Terms of Service. Use a throwaway/secondary account only — never your primary account. Nothing is ever posted or messaged. Posts land in the Review Queue for your approval. Leave it disabled if you'd rather not risk it; everything else works fine without it.
@@ -270,17 +303,21 @@ Kin includes an optional, unofficial Instagram reader using [instagrapi](https:/
 - **Scratchpad**: fleeting "bring up next time" reminders pinned on the person's profile
 - **Notable people**: lightweight references to people in their life without full CRM profiles
 - **Notable dates**: anniversaries, kids' birthdays, recurring dates
+- **In-page photo viewer**: click any photo thumbnail (memories, timeline, gallery, Instagram) to dim the page and view the full-size image — dismiss with ✕, Esc, or a click on the backdrop
 
 ### Journal: quick-capture logging
 - One text box. Optional title, date, location, energy cost (low/medium/high), event type
 - Energy cost tracking for planning social bandwidth over time
 - Cross-tag people in one entry — appears on all their timelines
 - Attach Immich photos via inline browser
+- Record or upload voice notes and transcribe them straight into the entry (Whisper)
 - AI auto-extracts tags, notable dates, and follow-up reminders — you review and apply
 
 ### Conflict resolution (RSD-aware)
 - Log something that felt off — no urgency, no pressure to act
 - **"Talk it through"**: persistent, streaming support chat with an AI counsellor (gpt-4o). Preloaded with conflict summary and relationship context. Validates first, helps you work through feelings and arrive at a logical understanding
+- **Voice notes**: record or upload audio in the chat — it's transcribed and can be replayed inline
+- **Voice replies**: the bot can reply with a voice bubble (Piper or OpenAI TTS) when you've spoken ("Mirror my mode"), with the transcript always available
 - **Resolution plan**: auto-generated structured guide (summary, feelings, goal, ordered steps, copy-paste messages, boundary scripts, release option) after chat idle
 - **RSD grounding check**: "what are the facts vs. what's the story anxiety is telling me?"
 - Release path: "Letting this go" is a first-class, equally valid outcome — not a fallback
@@ -333,8 +370,10 @@ Kin includes an optional, unofficial Instagram reader using [instagrapi](https:/
 - [x] PWA: installable, offline, gentle push notifications
 - [x] JSON/CSV export + import
 - [x] Chat transcript retention (14-day archive), resolution plan auto-generation
+- [x] Voice-to-text capture (Whisper) in the journal and support chat
+- [x] Voice notes + voice replies (Piper / OpenAI TTS) in the support chat
+- [x] In-page photo lightbox (full-size viewer)
 - [ ] ICS calendar feed for birthdays and notable dates
-- [ ] Voice-to-text journal capture (Web Speech API / Whisper)
 - [ ] Emotional battery tracker (energy/overwhelm check-ins over time)
 - [ ] RSD reality-check journal (predict → revisit → recalibrate)
 - [ ] Initiative tracker (who contacts whom — gentle awareness)
