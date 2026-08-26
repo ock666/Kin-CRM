@@ -69,14 +69,14 @@
   {% block auth_content %}{% endblock %}
 {% endif %}
 
-<div id="lightbox" class="lightbox" role="dialog" aria-modal="true" aria-label="Image viewer">
+<div id="lightbox" class="lightbox-overlay" role="dialog" aria-modal="true" aria-label="Image viewer">
   <button class="lightbox-close" type="button" aria-label="Close" title="Close">✕</button>
   <img id="lightbox-img" class="lightbox-img" alt="">
 </div>
 
 <style>
   img.lightbox { cursor: zoom-in; }
-  .lightbox {
+  .lightbox-overlay {
     position: fixed;
     top: 0; right: 0; bottom: 0; left: 0;
     z-index: 2000;
@@ -86,7 +86,7 @@
     background: rgba(10, 8, 6, .92);
     cursor: zoom-out;
   }
-  .lightbox.is-open { display: flex; }
+  .lightbox-overlay.is-open { display: flex; }
   .lightbox-img {
     max-width: 92vw;
     max-height: 88vh;
