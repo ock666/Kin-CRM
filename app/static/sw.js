@@ -4,7 +4,7 @@
    - Offline fallback to a calm "you're offline" page instead of a hard error.
    - Web Push event handling: show a gentle notification when the app is closed/background.
    The user is ALWAYS in control: notifications are opt-in and never intrusive. */
-const CACHE = 'kin-shell-v6';
+const CACHE = 'kin-shell-v7';
 const SHELL = [
   '/static/css/style.css',
   '/static/js/htmx.min.js',
