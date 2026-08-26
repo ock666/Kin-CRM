@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Request, Form
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, JSONResponse
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -12,7 +12,6 @@ from ..services.immich_client import ImmichClient, ImmichError
 from ..services.ai_client import AIClient, AIError
 from ..services.mfa import generate_totp_secret, verify_totp, generate_recovery_codes, decrypt_secret
 from ..config import settings
-from ..settings_store import set_many, get_all_settings, get_setting_sensitive
 
 router = APIRouter()
 
@@ -137,6 +136,120 @@ def test_whisper(request: Request, db: Session = Depends(get_db), user=Depends(c
         result = ("danger", "Whisper endpoint not reachable. Check URL and container.")
     return render(request, "settings.html", db=db, user=user, active="settings", cfg=cfg, users=users,
                   whisper_test=result)
+
+
+@router.post("/settings/tts")
+def save_tts(request: Request, db: Session = Depends(get_db), user=Depends(current_user),
+             tts_provider: str = Form("piper"), tts_base_url: str = Form(""), tts_api_key: str = Form(""),
+             tts_voice: str = Form("en_GB-alba-medium"), tts_lang: str = Form("en-GB"),
+             tts_format: str = Form("mp3"), tts_piper_host: str = Form(""), tts_piper_port: str = Form("10200"),
+             tts_piper_web_port: str = Form("5500"), tts_mirror_mode: str = Form("1")):
+    values = {
+        "tts_provider": (tts_provider or "piper").strip(),
+        "tts_base_url": tts_base_url.strip(),
+        "tts_voice": tts_voice.strip() or "en_GB-alba-medium",
+        "tts_lang": tts_lang.strip() or "en-GB",
+        "tts_format": tts_format.strip() or "mp3",
+        "tts_piper_host": tts_piper_host.strip(),
+        "tts_piper_port": tts_piper_port.strip() or "10200",
+        "tts_piper_web_port": tts_piper_web_port.strip() or "5500",
+        "tts_mirror_mode": "1" if tts_mirror_mode == "1" else "0",
+    }
+    if tts_api_key:
+        values["tts_api_key"] = tts_api_key
+    set_many(db, values)
+    return RedirectResponse("/settings", status_code=303)
+
+
+@router.post("/settings/tts/test")
+def test_tts(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
+    cfg = get_all_settings(db)
+    users = db.query(User).order_by(User.id).all()
+    result = None
+    try:
+        # Connection test only: for OpenAI, try a base URL GET; for Piper, try Wyoming TCP or web UI status
+        import httpx, socket
+        prov = (cfg.get("tts_provider") or "piper").lower()
+        if prov == "openai":
+            base = (cfg.get("tts_base_url") or "https://api.openai.com/v1").strip()
+            with httpx.Client(timeout=5.0) as client:
+                r = client.get(base)
+                if r.status_code < 400:
+                    result = ("success", "OpenAI-compatible endpoint reachable.")
+                else:
+                    raise RuntimeError("Endpoint returned error")
+        else:
+            # Piper: prefer Wyoming TCP if host given, else fall back to web UI /api/status
+            host = (cfg.get("tts_piper_host") or "").strip()
+            port = int((cfg.get("tts_piper_port") or "10200").strip() or 10200)
+            ok = False
+            if host:
+                s = socket.socket()
+                s.settimeout(3.0)
+                try:
+                    s.connect((host, port))
+                    ok = True
+                finally:
+                    try: s.close()
+                    except Exception: pass
+            if not ok:
+                base = (cfg.get("tts_base_url") or "").strip()
+                if not base:
+                    raise RuntimeError("No Piper host or base URL configured")
+                with httpx.Client(timeout=5.0) as client:
+                    r = client.get(base.rstrip("/") + "/api/status")
+                    ok = (r.status_code < 400)
+            result = ("success", "Piper reachable.") if ok else ("danger", "Piper not reachable.")
+    except Exception:
+        result = ("danger", "Connection test failed. Check provider settings.")
+    return render(request, "settings.html", db=db, user=user, active="settings", cfg=cfg, users=users,
+                  tts_test=result)
+
+
+@router.get("/settings/tts/voices")
+def list_tts_voices(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
+    cfg = get_all_settings(db)
+    prov = (cfg.get("tts_provider") or "piper").lower()
+    voices: list[str] = []
+    try:
+        import httpx
+        if prov == "piper":
+            base = (cfg.get("tts_base_url") or "").strip()
+            if not base:
+                # Fall back to Piper web UI on host:web_port if host provided
+                host = (cfg.get("tts_piper_host") or "").strip()
+                if host:
+                    web_port = (cfg.get("tts_piper_web_port") or "5500").strip() or "5500"
+                    base = f"http://{host}:{web_port}"
+            if not base:
+                return JSONResponse({"voices": [], "error": "Provide Piper Base URL or Piper host to fetch voices."}, status_code=400)
+            with httpx.Client(timeout=5.0) as client:
+                r = client.get(base.rstrip("/") + "/api/piper/voices")
+                if r.status_code >= 400:
+                    return JSONResponse({"voices": [], "error": f"HTTP {r.status_code}"}, status_code=400)
+                data = r.json()
+                voices = [v.get("name") for v in data.get("voices", []) if v.get("name")]
+        else:
+            # OpenAI: suggest a small set; cannot enumerate via API
+            voices = ["alloy", "verse", "aria", "sage"]
+        return JSONResponse({"voices": voices})
+    except Exception as e:
+        return JSONResponse({"voices": [], "error": "Failed to fetch voices."}, status_code=400)
+
+
+@router.post("/settings/tts/sample")
+def tts_sample(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
+    """Return a short MP3 sample for the currently selected TTS settings/voice."""
+    try:
+        from ..services.tts_client import synthesize_from_settings
+        audio = synthesize_from_settings(db, "This is a short sample from Kin.")
+        from fastapi.responses import Response
+        return Response(content=audio, media_type="audio/mpeg",
+                        headers={"Cache-Control": "no-store"})
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("TTS sample failed: %s", e)
+        return JSONResponse({"error": "Sample failed"}, status_code=400)
 
 
 @router.post("/settings/instagram")

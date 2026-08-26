@@ -7,14 +7,24 @@
       <span class="text-sm text-muted" style="margin-left:.5rem;" x-text="personName"></span>
     </div>
     <div class="flex-gap">
-      <button class="btn btn-sm" type="button" @click="clearChat()" title="Clear chat transcript">🗑️</button>
-      <button class="btn btn-sm" type="button" @click="close()">✕</button>
+      <button class="btn btn-sm" type="button" @click="openInsight()" title="Save insight to journal" aria-label="Save insight to journal" x-show="messages.length > 0 && !retentionExpired">💡</button>
+      <button class="btn btn-sm" type="button" @click="clearChat()" title="Clear chat transcript" aria-label="Clear chat transcript">🗑️</button>
+      <button class="btn btn-sm" type="button" @click="close()" title="Close" aria-label="Close">✕</button>
     </div>
   </div>
   <div class="chat-messages" id="chat-messages" x-ref="messages">
     <template x-for="(msg, i) in messages" :key="i">
       <div :class="msg.role === 'user' ? 'chat-bubble chat-bubble-user' : 'chat-bubble chat-bubble-ai'">
-        <div class="text-sm" x-text="msg.content"></div>
+        <template x-if="msg.audio_url">
+          <div class="mb-1">
+            <audio :src="msg.audio_url" controls style="max-width:100%;"></audio>
+            <details class="mt-1" x-show="(msg.transcript || msg.content) && (msg.transcript || msg.content).length > 0">
+              <summary class="text-sm text-muted" style="cursor:pointer;">Show text</summary>
+              <div class="text-sm" x-text="msg.transcript || msg.content"></div>
+            </details>
+          </div>
+        </template>
+        <div class="text-sm" x-show="!msg.audio_url" x-text="msg.content"></div>
       </div>
     </template>
     <div x-show="loading" class="text-sm text-muted" style="padding:.5rem;">
@@ -34,32 +44,108 @@
               rows="2" :disabled="loading"></textarea>
     <button class="btn btn-primary btn-sm" type="submit" :disabled="loading || !input.trim()">Send</button>
   </form>
-  <div x-data="{ insight: '', editing: false, saving: false,
-      get conflictId() { return Alpine.$data(document.querySelector('#kin-chat-panel')).conflictId },
-      async fetchInsight() {
-        try {
-          const resp = await fetch(`/conflicts/${this.conflictId}/chat/insight`, { method: 'POST' });
-          if (resp.ok) { const data = await resp.json(); this.insight = data.insight || ''; }
-        } catch(e) { this.insight = ''; }
-      },
-      async saveInsight() {
-        if (!this.insight.trim()) return; this.saving = true;
-        try { await fetch(`/conflicts/${this.conflictId}/chat/insight/save`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({insight:this.insight.trim()}) }); this.editing = false; this.insight = ''; } catch(e) {}
-        this.saving = false;
-      }
-    }" class="chat-insight-bar" x-show="messages.length > 0 && !retentionExpired" x-cloak>
-    <template x-if="!editing">
-      <button class="btn btn-sm" @click="editing = true; insight = ''; saving = false; fetchInsight()">💡 Save insight to journal</button>
-    </template>
-    <template x-if="editing">
-      <div style="flex:1;">
-        <textarea x-model="insight" rows="3" placeholder="Key insight…" :disabled="saving"
-                  style="width:100%; resize:vertical; font-size:.82rem; border:1px solid var(--border); border-radius:6px; padding:.35rem .5rem;"></textarea>
-        <div class="flex-gap mt-1">
-          <button class="btn btn-sm btn-primary" @click="saveInsight()" :disabled="saving || !insight.trim()">Save to journal</button>
-          <button class="btn btn-sm" @click="editing = false">Cancel</button>
-        </div>
+  <div class="chat-input" x-show="!retentionExpired" style="gap:.5rem;">
+    <div class="flex-gap" style="align-items:center; flex-wrap:wrap;">
+      <button class="btn btn-sm" type="button" id="chat-voice-record" title="Record voice note" aria-label="Record voice note">🎙️</button>
+      <input type="file" id="chat-voice-file" accept="audio/*" style="display:none;">
+      <button class="btn btn-sm" type="button" id="chat-voice-upload" title="Upload audio" aria-label="Upload audio">📎</button>
+      <span id="chat-voice-indicator" class="rec-indicator" style="display:none;"><span class="rec-dot"></span><span id="chat-voice-time">0:00</span></span>
+      <div id="chat-voice-playback" class="chat-voice-preview" style="display:none;">
+        <audio id="chat-voice-audio" controls style="flex:1; min-width:0; max-width:220px;"></audio>
+        <button class="btn btn-sm btn-primary" type="button" id="chat-voice-send" title="Send voice note" aria-label="Send voice note">📤</button>
+        <button class="btn btn-sm" type="button" id="chat-voice-discard" title="Discard recording" aria-label="Discard recording">✕</button>
       </div>
-    </template>
+      <span id="chat-voice-status" class="text-sm text-muted" aria-live="polite"></span>
+    </div>
+  </div>
+  <div class="chat-insight-bar" x-show="insightEditing && !retentionExpired" x-cloak>
+    <div style="flex:1;">
+      <textarea x-model="insight" rows="3" placeholder="Key insight…" :disabled="insightSaving"
+                style="width:100%; resize:vertical; font-size:.82rem; border:1px solid var(--border); border-radius:6px; padding:.35rem .5rem;"></textarea>
+      <div class="flex-gap mt-1">
+        <button class="btn btn-sm btn-primary" @click="saveInsight()" :disabled="insightSaving || !insight.trim()">Save to journal</button>
+        <button class="btn btn-sm" @click="insightEditing = false">Cancel</button>
+      </div>
+    </div>
   </div>
 </div>
+
+<style>
+.rec-indicator { display:inline-flex; align-items:center; gap:.4rem; color:#d00; font-weight:600; }
+.rec-dot { width:10px; height:10px; border-radius:50%; background:#d00; animation:rec-blink 1s steps(1,end) infinite; }
+@keyframes rec-blink { 50% { opacity:.25; } }
+.chat-voice-preview { display:flex; align-items:center; gap:.4rem; flex:1; min-width:200px; }
+</style>
+
+<script>
+(function(){
+  const panel = document.getElementById('kin-chat-panel');
+  const recordBtn = document.getElementById('chat-voice-record');
+  const uploadBtn = document.getElementById('chat-voice-upload');
+  const fileInput = document.getElementById('chat-voice-file');
+  const statusEl = document.getElementById('chat-voice-status');
+  const ind = document.getElementById('chat-voice-indicator');
+  const timeEl = document.getElementById('chat-voice-time');
+  const pb = document.getElementById('chat-voice-playback');
+  const audioEl = document.getElementById('chat-voice-audio');
+  const sendBtn = document.getElementById('chat-voice-send');
+  const discardBtn = document.getElementById('chat-voice-discard');
+
+  let rec = null, chunks = [], recording = false, recTimer = null, recStart = 0, blob = null, url = null;
+
+  function setStatus(msg){ statusEl.textContent = msg || ''; }
+  function fmt(t){ const m=Math.floor(t/60), s=Math.floor(t%60); return m+':'+String(s).padStart(2,'0'); }
+  function startInd(){ if(ind) ind.style.display=''; recStart=Date.now(); recTimer && clearInterval(recTimer); recTimer=setInterval(()=>{ timeEl.textContent=fmt((Date.now()-recStart)/1000); }, 1000); }
+  function stopInd(){ recTimer && clearInterval(recTimer); recTimer=null; if(ind) ind.style.display='none'; timeEl.textContent='0:00'; }
+  function cleanup(){ try{audioEl.pause(); audioEl.removeAttribute('src'); audioEl.load && audioEl.load();}catch{} if(url){ try{ URL.revokeObjectURL(url);}catch{} } url=null; blob=null; pb.style.display='none'; }
+
+  function bestMime(){ const c=['audio/webm;codecs=opus','audio/ogg;codecs=opus','audio/webm']; for(const mt of c){ if(window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(mt)) return mt;} return ''; }
+
+  // Pre-warn if permissions are blocked (helps users fix site-level blocks)
+  if (navigator.permissions && navigator.permissions.query) {
+    try {
+      navigator.permissions.query({ name: 'microphone' }).then((res) => {
+        if (res.state === 'denied') setStatus('Microphone permission is blocked. Click the site lock icon to allow.');
+      }).catch(() => {});
+    } catch {}
+  }
+
+  if(recordBtn){ recordBtn.addEventListener('click', async ()=>{
+    try{
+      if(!recording){ const stream=await navigator.mediaDevices.getUserMedia({audio:true}); chunks=[]; const mt=bestMime(); rec= mt? new MediaRecorder(stream,{mimeType:mt}) : new MediaRecorder(stream);
+        rec.ondataavailable=(e)=>{ if(e.data && e.data.size>0) chunks.push(e.data); };
+        rec.onstop=()=>{ const t=rec.mimeType||'audio/webm'; blob=new Blob(chunks,{type:t}); url=URL.createObjectURL(blob); audioEl.src=url; audioEl.load && audioEl.load(); pb.style.display='flex'; stopInd(); uploadBtn.disabled=false; stream.getTracks().forEach(t=>t.stop()); };
+        rec.start(); recording=true; recordBtn.textContent='⏹️'; recordBtn.title='Stop recording'; recordBtn.setAttribute('aria-label','Stop recording'); uploadBtn.disabled=true; startInd(); setStatus('Recording…'); }
+      else{ rec && rec.stop(); recording=false; recordBtn.textContent='🎙️'; recordBtn.title='Record voice note'; recordBtn.setAttribute('aria-label','Record voice note'); setStatus('Stopped'); }
+    }catch(e){
+      uploadBtn.disabled=false;
+      if (e && e.name === 'NotAllowedError') setStatus('Microphone permission denied. Enable it in the browser and try again.');
+      else if (e && e.name === 'NotFoundError') setStatus('No microphone found. Check input devices.');
+      else setStatus('Microphone unavailable');
+      stopInd();
+    }
+  }); }
+
+  if(uploadBtn){ uploadBtn.addEventListener('click', ()=> fileInput.click()); }
+  if(fileInput){ fileInput.addEventListener('change', ()=>{ const f=fileInput.files && fileInput.files[0]; if(!f) return; cleanup(); blob=f; try{ url=URL.createObjectURL(f);}catch{} audioEl.src=url; audioEl.load && audioEl.load(); pb.style.display='flex'; fileInput.value=''; }); }
+  if(discardBtn){ discardBtn.addEventListener('click', ()=>{ cleanup(); setStatus('Discarded'); setTimeout(()=>setStatus(''),1500); }); }
+  if(sendBtn){ sendBtn.addEventListener('click', async ()=>{
+    try{
+      if(!blob){ setStatus('No recording to send'); return; }
+      setStatus('Uploading…'); sendBtn.disabled=true;
+      // get current conflictId from Alpine data
+      const alpine = Alpine.$data(panel);
+      const cid = alpine && alpine.conflictId;
+      const fd=new FormData(); fd.append('audio_file', blob, 'voice.webm');
+      const resp= await fetch(`/conflicts/${cid}/chat/voice`, { method:'POST', body: fd });
+      const data = await resp.json().catch(()=>null);
+      if(!resp.ok || !data){ setStatus((data && data.error) || 'Upload failed'); sendBtn.disabled=false; return; }
+      // push user voice message
+      alpine.messages.push({ role:'user', content: data.text || '(voice note)', audio_url: data.audio_url, transcript: data.text||'' });
+      cleanup(); setStatus('Sent'); setTimeout(()=>setStatus(''),1500);
+      // trigger AI reply (respect reply-with-voice checkbox: we inform server by toggling default in settings? For now, mirror handled server-side; this just streams text)
+      alpine.loading = true; await alpine.streamMessage(''); alpine.loading = false;
+    }catch(e){ setStatus('Upload failed'); } finally { sendBtn.disabled=false; }
+  }); }
+})();
+</script>

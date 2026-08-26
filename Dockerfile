@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     gosu \
     tzdata \
+    ffmpeg \
     && pip install --no-cache-dir -r requirements.txt \
     && apt-get purge -y build-essential libjpeg62-turbo-dev zlib1g-dev \
     && apt-get autoremove -y \

@@ -69,6 +69,96 @@
   {% block auth_content %}{% endblock %}
 {% endif %}
 
+<div id="lightbox" class="lightbox-overlay" role="dialog" aria-modal="true" aria-label="Image viewer">
+  <button class="lightbox-close" type="button" aria-label="Close" title="Close">✕</button>
+  <img id="lightbox-img" class="lightbox-img" alt="">
+</div>
+
+<style>
+  img.lightbox-target { cursor: zoom-in; }
+  .lightbox-overlay {
+    position: fixed;
+    top: 0; right: 0; bottom: 0; left: 0;
+    z-index: 2000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10, 8, 6, .92);
+    cursor: zoom-out;
+  }
+  .lightbox-overlay.is-open { display: flex; }
+  .lightbox-img {
+    max-width: 92vw;
+    max-height: 88vh;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 12px 48px rgba(0, 0, 0, .6);
+  }
+  .lightbox-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, .35);
+    background: rgba(0, 0, 0, .4);
+    color: #fff;
+    font-size: 1.2rem;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .lightbox-close:hover { background: rgba(0, 0, 0, .7); }
+</style>
+
+<script>
+(function () {
+  const lb = document.getElementById('lightbox');
+  const lbImg = document.getElementById('lightbox-img');
+  if (!lb || !lbImg) return;
+
+  function fullSrc(el) {
+    if (el.dataset && el.dataset.full) return el.dataset.full;
+    const src = el.currentSrc || el.src || '';
+    return src.replace('/thumbnail', '/original');
+  }
+
+  function open(el) {
+    const src = fullSrc(el);
+    if (!src) return;
+    lbImg.src = src;
+    lb.classList.add('is-open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function close() {
+    lb.classList.remove('is-open');
+    lbImg.removeAttribute('src');
+    document.body.style.overflow = '';
+  }
+
+  document.addEventListener('click', (e) => {
+    const t = e.target;
+    const img = t && t.closest ? t.closest('img.lightbox-target') : null;
+    if (img) {
+      e.preventDefault();
+      open(img);
+      return;
+    }
+    if (lb.classList.contains('is-open') && t === lb) close();
+  });
+
+  const closeBtn = lb.querySelector('.lightbox-close');
+  if (closeBtn) closeBtn.addEventListener('click', close);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && lb.classList.contains('is-open')) close();
+  });
+})();
+</script>
+
 <script>
 function openKinChat(conflictId, personName) {
   window.dispatchEvent(new CustomEvent('kin-open-chat', {
@@ -85,6 +175,9 @@ function kinChat() {
     input: '',
     loading: false,
     retentionExpired: false,
+    insight: '',
+    insightEditing: false,
+    insightSaving: false,
 
     openChat(id, name) {
       this.conflictId = id;
@@ -94,6 +187,9 @@ function kinChat() {
       this.input = '';
       this.loading = false;
       this.retentionExpired = false;
+      this.insight = '';
+      this.insightEditing = false;
+      this.insightSaving = false;
       this.loadHistory();
       const self = this;
       this.$nextTick(() => {
@@ -105,6 +201,7 @@ function kinChat() {
     close() {
       this.open = false;
       this.conflictId = null;
+      this.insightEditing = false;
     },
 
     async loadHistory() {
@@ -169,6 +266,11 @@ function kinChat() {
                   aiContent += data.delta;
                   this.messages[idx].content = aiContent;
                 }
+                if (data.audio_url) {
+                  // Attach bot audio when ready
+                  this.messages[idx].audio_url = data.audio_url;
+                  this.messages[idx].transcript = this.messages[idx].content || '';
+                }
                 if (data.done) return;
               } catch (e) { /* skip */ }
             }
@@ -195,6 +297,37 @@ function kinChat() {
         await fetch(`/conflicts/${this.conflictId}/chat/clear`, { method: 'POST' });
         this.messages = [];
       } catch (e) { /* silent */ }
+    },
+
+    openInsight() {
+      this.insightEditing = !this.insightEditing;
+      if (this.insightEditing) {
+        this.insight = '';
+        this.insightSaving = false;
+        this.fetchInsight();
+      }
+    },
+
+    async fetchInsight() {
+      try {
+        const resp = await fetch(`/conflicts/${this.conflictId}/chat/insight`, { method: 'POST' });
+        if (resp.ok) { const data = await resp.json(); this.insight = data.insight || ''; }
+      } catch (e) { this.insight = ''; }
+    },
+
+    async saveInsight() {
+      if (!this.insight.trim()) return;
+      this.insightSaving = true;
+      try {
+        await fetch(`/conflicts/${this.conflictId}/chat/insight/save`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ insight: this.insight.trim() }),
+        });
+        this.insightEditing = false;
+        this.insight = '';
+      } catch (e) { /* silent */ }
+      this.insightSaving = false;
     }
   };
 }

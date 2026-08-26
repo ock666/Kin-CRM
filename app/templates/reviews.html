@@ -69,7 +69,7 @@
   {% endif %}
   {% for post in ig_posts %}
     <div class="card mt-1 flex-gap" style="align-items:flex-start;">
-      {% if post.media_url %}<img src="{{ post.media_url }}" style="width:90px;height:90px;object-fit:cover;border-radius:8px;" alt="">{% endif %}
+      {% if post.media_url %}<img src="{{ post.media_url }}" class="lightbox-target" style="width:90px;height:90px;object-fit:cover;border-radius:8px;" alt="">{% endif %}
       <div style="flex:1;">
         <strong>{{ post.person.name }}</strong> <span class="text-muted text-sm">@{{ post.person.instagram_username }} · {{ post.posted_at }}</span>
         <p class="text-sm">{{ post.caption or "(no caption)" }}</p>

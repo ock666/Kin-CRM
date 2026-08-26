@@ -84,7 +84,7 @@
         {% if h.thumbnails %}
         <div class="hangout-thumbs">
           {% for asset_id in h.thumbnails[:4] %}
-            <img src="/immich/asset/{{ asset_id }}/thumbnail" loading="lazy" alt="">
+            <img src="/immich/asset/{{ asset_id }}/thumbnail" loading="lazy" class="lightbox-target" alt="">
           {% endfor %}
         </div>
         {% endif %}
@@ -242,7 +242,7 @@
       <p class="text-sm text-muted mt-2 mb-1">{{ memory.data.year if memory.data else '' }}</p>
       <div class="photo-grid">
         {% for asset in memory.assets[:12] %}
-          <img src="/immich/asset/{{ asset.id }}/thumbnail" loading="lazy" alt="">
+          <img src="/immich/asset/{{ asset.id }}/thumbnail" loading="lazy" class="lightbox-target" alt="">
         {% endfor %}
       </div>
     {% endfor %}

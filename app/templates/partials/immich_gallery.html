@@ -8,8 +8,8 @@
     @click="$refs.track.scrollBy({left: -320, behavior: 'smooth'})">‹</button>
   <div class="photo-carousel" x-ref="track">
     {% for a in assets %}
-      <a class="photo-carousel-item" href="/immich/asset/{{ a.id }}/original" target="_blank" rel="noopener">
-        <img src="/immich/asset/{{ a.id }}/thumbnail" loading="lazy" alt="">
+      <a class="photo-carousel-item" href="/immich/asset/{{ a.id }}/original">
+        <img src="/immich/asset/{{ a.id }}/thumbnail" loading="lazy" class="lightbox-target" alt="">
       </a>
     {% endfor %}
   </div>

@@ -27,10 +27,21 @@ DEFAULTS = {
     "reassurance_note": "",
     "conflict_plan_idle_minutes": "15",
     "chat_retention_days": "14",
+    # TTS (voice replies)
+    "tts_provider": "piper",           # piper | openai
+    "tts_base_url": "",               # Piper base URL or OpenAI base (or LiteLLM)
+    "tts_api_key": "",                # OpenAI/LiteLLM key if needed
+    "tts_voice": "en_GB-alba-medium", # Piper default (Alba); OpenAI e.g. 'alloy'
+    "tts_lang": "en-GB",
+    "tts_format": "mp3",
+    "tts_piper_host": "",
+    "tts_piper_port": "10200",
+    "tts_piper_web_port": "5500",      # Piper web UI (used only to enumerate voices)
+    "tts_mirror_mode": "1",           # if on, bot replies with voice when user sends voice; if off, bot always replies with text
 }
 
 
-SENSITIVE_KEYS = {"immich_api_key", "ai_api_key", "instagram_password", "vapid_private_key", "whisper_api_key"}
+SENSITIVE_KEYS = {"immich_api_key", "ai_api_key", "instagram_password", "vapid_private_key", "whisper_api_key", "tts_api_key"}
 
 
 def get_all_settings(db: Session) -> dict:

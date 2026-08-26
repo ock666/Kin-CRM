@@ -79,6 +79,126 @@
   <p class="help-text">Tip: For the ASR webservice, run the container on your Unraid host and set Base URL to <code>http://192.168.0.51:9090</code>.</p>
   </div>
 
+<div class="card mt-2">
+  <h2>🔊 Voice Replies (TTS)</h2>
+  <p class="text-sm text-muted">Have the support chat reply with a natural-sounding voice. Local Piper (offline) or OpenAI TTS are supported. Replies always include the text transcript for accessibility.</p>
+  {% if tts_test %}<div class="notice notice-{{ tts_test[0] }}">{{ tts_test[1] }}</div>{% endif %}
+  <form method="post" action="/settings/tts">
+    <div class="field">
+      <label for="tts_provider">Provider</label>
+      <select id="tts_provider" name="tts_provider">
+        <option value="piper" {{ 'selected' if (cfg.tts_provider or 'piper') == 'piper' else '' }}>Piper (local, offline)</option>
+        <option value="openai" {{ 'selected' if cfg.tts_provider == 'openai' else '' }}>OpenAI TTS (tts-1)</option>
+      </select>
+    </div>
+    <div class="field" id="tts_base_url_field">
+      <label for="tts_base_url">Base URL</label>
+      <input type="text" id="tts_base_url" name="tts_base_url" value="{{ cfg.tts_base_url }}" placeholder="e.g. http://litellm:4000/v1 (OpenAI) or http://192.168.0.51:5500 (Piper web UI for voice listing)">
+    </div>
+    <div class="field-row" id="tts_piper_host_port">
+      <div class="field">
+        <label for="tts_piper_host">Piper host (Wyoming TCP)</label>
+        <input type="text" id="tts_piper_host" name="tts_piper_host" value="{{ cfg.tts_piper_host }}" placeholder="e.g. 192.168.0.51">
+      </div>
+      <div class="field">
+        <label for="tts_piper_port">Piper port</label>
+        <input type="text" id="tts_piper_port" name="tts_piper_port" value="{{ cfg.tts_piper_port or '10200' }}">
+      </div>
+      <div class="field">
+        <label for="tts_piper_web_port">Piper web UI port (voice list)</label>
+        <input type="text" id="tts_piper_web_port" name="tts_piper_web_port" value="{{ cfg.tts_piper_web_port or '5500' }}">
+      </div>
+    </div>
+    <div class="field" id="tts_api_key_field">
+      <label for="tts_api_key">API key (OpenAI only)</label>
+      <input type="password" id="tts_api_key" name="tts_api_key" placeholder="{{ '•••••••• (unchanged)' if cfg.tts_api_key else '' }}">
+    </div>
+    <div class="field">
+      <label for="tts_voice_select">Voice</label>
+      <select id="tts_voice_select" name="tts_voice">
+        {% if cfg.tts_voice %}<option value="{{ cfg.tts_voice }}" selected>{{ cfg.tts_voice }}</option>{% endif %}
+      </select>
+      <div class="flex-gap mt-1">
+        <button class="btn btn-sm" type="button" id="tts-fetch-voices">Fetch voices</button>
+        <button class="btn btn-sm" type="button" id="tts-play-sample">Play sample</button>
+      </div>
+      <p class="help-text">Piper: installed voice names (e.g. en_GB-alba-medium). OpenAI: typical options include alloy, verse. See <a href="https://rhasspy.github.io/piper-samples/#english-gb" target="_blank">Piper samples</a>.</p>
+      <audio id="tts-sample-audio" controls style="display:none; max-width:100%; margin-top:.5rem;"></audio>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="tts_lang">Language</label>
+        <input type="text" id="tts_lang" name="tts_lang" value="{{ cfg.tts_lang or 'en-GB' }}">
+      </div>
+      <div class="field">
+        <label for="tts_format">Format</label>
+        <input type="text" id="tts_format" name="tts_format" value="{{ cfg.tts_format or 'mp3' }}" readonly>
+      </div>
+    </div>
+    <div class="field">
+      <label class="flex-gap" style="justify-content:space-between;">
+        <span>Mirror my mode (if I send voice, reply with voice)</span>
+        <input type="checkbox" name="tts_mirror_mode" value="1" {{ 'checked' if cfg.tts_mirror_mode != '0' else '' }}>
+      </label>
+      <p class="help-text">If this is off, the bot will always reply with text regardless.</p>
+    </div>
+    <button class="btn btn-primary btn-sm" type="submit">Save</button>
+  </form>
+  <form method="post" action="/settings/tts/test" class="mt-1"><button class="btn btn-sm" type="submit">Test connection</button></form>
+</div>
+
+<script>
+  (function() {
+    const prov = document.getElementById('tts_provider');
+    const base = document.getElementById('tts_base_url_field');
+    const keyf = document.getElementById('tts_api_key_field');
+    const hostp = document.getElementById('tts_piper_host_port');
+    function sync() {
+      const p = prov && prov.value || 'piper';
+      if (p === 'piper') { if (keyf) keyf.style.display = 'none'; }
+      else { if (keyf) keyf.style.display = ''; }
+      // Base URL shown for OpenAI; for Piper it's optional (only used to fetch voices)
+      if (base) base.style.display = (p === 'piper') ? 'none' : '';
+      if (hostp) hostp.style.display = (p === 'piper') ? '' : 'none';
+    }
+    if (prov) { prov.addEventListener('change', sync); sync(); }
+
+    // Voices fetch
+    const fetchBtn = document.getElementById('tts-fetch-voices');
+    const voiceSel = document.getElementById('tts_voice_select');
+    async function fetchVoices() {
+      try {
+        const r = await fetch('/settings/tts/voices');
+        const d = await r.json();
+        const voices = d.voices || [];
+        if (!voiceSel) return;
+        const current = voiceSel.value;
+        voiceSel.innerHTML = voices.map(v => '<option value="'+v+'">'+v+'</option>').join('');
+        if (current && !voices.includes(current)) {
+          const opt = document.createElement('option'); opt.value=current; opt.textContent=current; opt.selected = true; voiceSel.appendChild(opt);
+        }
+      } catch (e) { /* silent */ }
+    }
+    if (fetchBtn) fetchBtn.addEventListener('click', fetchVoices);
+    // Auto-fetch on load if Piper selected
+    if (prov && prov.value === 'piper') { fetchVoices(); }
+
+    // Play sample (OpenAI only for now)
+    const playBtn = document.getElementById('tts-play-sample');
+    const audio = document.getElementById('tts-sample-audio');
+    const voiceInput = document.getElementById('tts_voice_select');
+    playBtn && playBtn.addEventListener('click', async () => {
+      try {
+        const r = await fetch('/settings/tts/sample', { method: 'POST' });
+        if (!r.ok) { alert('Sample failed.'); return; }
+        const blob = await r.blob();
+        const url = URL.createObjectURL(blob);
+        audio.src = url; audio.style.display=''; audio.load && audio.load(); audio.play && audio.play();
+      } catch (e) { alert('Sample failed.'); }
+    });
+  })();
+</script>
+
 <script>
   (function() {
     const providerSel = document.getElementById('whisper_provider');

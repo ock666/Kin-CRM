@@ -57,3 +57,7 @@ def run_startup_migrations():
     _ensure_column("users", "totp_secret", "VARCHAR(255)")
     _ensure_column("users", "totp_enabled", "BOOLEAN", default_sql="0")
     _ensure_column("users", "mfa_recovery_codes", "TEXT")
+
+    # v2.1: voice chat support (store audio URL + transcript on conflict chat messages)
+    _ensure_column("conflict_chat_messages", "audio_url", "TEXT")
+    _ensure_column("conflict_chat_messages", "transcript", "TEXT")
