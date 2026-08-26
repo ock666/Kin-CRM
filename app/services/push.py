@@ -16,6 +16,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import os
 
 from cryptography.hazmat.primitives import serialization
 from pywebpush import WebPushException, webpush
@@ -28,7 +29,10 @@ from . import grace as grace_service
 
 logger = logging.getLogger(__name__)
 
-VAPID_SUBJECT = "mailto:kin@localhost"  # VAPID 'sub' claim; replace with a real contact on deploy
+# VAPID 'sub' claim — identifies the push sender to the browser's push service. Must be a
+# mailto: or https: URL. Override with the VAPID_SUBJECT env var if your push service rejects
+# the default (some services want a real reachable address).
+VAPID_SUBJECT = os.environ.get("VAPID_SUBJECT", "mailto:kin@localhost")
 
 
 def _b64url(data: bytes) -> str:

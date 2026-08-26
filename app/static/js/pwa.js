@@ -62,24 +62,30 @@
   }
 
   async function subscribePush() {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
-    if (Notification.permission !== 'granted') return false;
-    const key = await getVapidKey();
-    if (!key) return false;
-    const registration = await navigator.serviceWorker.ready;
-    let sub = await registration.pushManager.getSubscription();
-    if (!sub) {
-      sub = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-            applicationServerKey: ASYNC.urlBase64ToUint8Array(key)
+    try {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+      if (!('Notification' in window) || Notification.permission !== 'granted') return false;
+      const key = await getVapidKey();
+      if (!key) return false;
+      const registration = await navigator.serviceWorker.ready;
+      let sub = await registration.pushManager.getSubscription();
+      if (!sub) {
+        sub = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: ASYNC.urlBase64ToUint8Array(key)
+        });
+      }
+      const resp = await fetch(API_BASE + '/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        body: JSON.stringify(sub)
       });
+      if (!resp.ok) return false;
+      return true;
+    } catch (e) {
+      console.error('Kin push subscribe failed:', e);
+      return false;
     }
-    await fetch(API_BASE + '/subscribe', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-      body: JSON.stringify(sub)
-    });
-    return true;
   }
 
   async function disablePush() {
@@ -101,7 +107,26 @@
     disable: disablePush,
     async sendTest() {
       try {
-        // Subscribe first (Firefox needs this to happen during a direct user gesture)
+        // Request permission inside this same user gesture (Firefox requires a gesture).
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+          alert('Push notifications aren\'t available here — this needs HTTPS and a modern browser.');
+          return;
+        }
+        if (!('Notification' in window)) {
+          alert('This browser doesn\'t support notifications.');
+          return;
+        }
+        if (Notification.permission === 'denied') {
+          alert('Notifications are blocked for this site. Allow them via the browser\'s site settings (the padlock/lock icon), then try again.');
+          return;
+        }
+        if (Notification.permission !== 'granted') {
+          const perm = await Notification.requestPermission();
+          if (perm !== 'granted') {
+            alert('Notifications need to be allowed for a test to send. Try again and choose "Allow".');
+            return;
+          }
+        }
         const ok = await subscribePush();
         if (!ok) {
           alert('Couldn\'t subscribe to push notifications. Try refreshing the page and clicking again.');
@@ -111,7 +136,9 @@
         const data = await resp.json();
         if (resp.ok) { alert('Test notification sent! Check your device.'); }
         else { alert(data.error || 'Test failed.'); }
-      } catch (e) { alert('Could not send a test notification right now.'); }
+      } catch (e) {
+        alert('Could not send a test notification right now: ' + (e && e.message ? e.message : e));
+      }
     }
   };
 

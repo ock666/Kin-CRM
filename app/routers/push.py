@@ -7,6 +7,7 @@ VAPID key endpoint is read-only and returns the key the client needs to subscrib
 from __future__ import annotations
 
 import json
+import logging
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
@@ -16,6 +17,8 @@ from ..database import get_db
 from ..deps import current_user
 from ..models import PushSubscription
 from ..services import push as push_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/push", tags=["push"])
 
@@ -31,11 +34,14 @@ async def send_test(db: Session = Depends(get_db)):
     (used by the 'Send a test notification' button in Settings)."""
     vapid = push_service.ensure_vapid_keys(db)
     if not vapid:
+        logger.warning("Push test: VAPID keys unavailable")
         return JSONResponse({"error": "push not configured"}, status_code=400)
     subs = db.query(PushSubscription).all()
+    logger.info("Push test: %d subscription(s)", len(subs))
     if not subs:
         return JSONResponse({"error": "no subscriptions - enable notifications on a device first"}, status_code=400)
     sent = push_service.send_test(db)
+    logger.info("Push test: sent to %d subscription(s)", sent)
     return {"ok": True, "sent": sent}
 
 
@@ -63,6 +69,7 @@ async def subscribe(request: Request, db: Session = Depends(get_db), user=Depend
     else:
         db.add(PushSubscription(endpoint=endpoint, p256dh=p256dh, auth=auth, user_id=user.id))
     db.commit()
+    logger.info("Push subscribe: saved subscription for user %s (endpoint %s…)", user.id, endpoint[:50])
     return {"ok": True}
 
 
