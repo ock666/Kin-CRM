@@ -174,7 +174,7 @@ pytest
 | `DISABLE_SCHEDULER` | `0` | Set to `1` for testing |
 | `SESSION_SECRET` | auto-generated | Persisted to `/data/.session_secret` on first run |
 | `DATABASE_URL` | (SQLite) | Optional Postgres connection string |
-| `ALLOWED_HOSTS` | `localhost,127.0.0.1` | Comma-separated hostnames this server accepts. Set to `*` or your domain in production. |
+| `ALLOWED_HOSTS` | `*` | Comma-separated hostnames this server accepts (e.g. `example.com,*.example.com`). Defaults to `*` for self-hosted LAN setups. |
 | `HTTPS_ONLY` | `0` | Set to `1` to restrict session cookies to HTTPS only (requires a TLS-terminating reverse proxy). |
 
 ### Behind a reverse proxy

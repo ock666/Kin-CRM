@@ -163,7 +163,10 @@ app.add_middleware(
 
 app.add_middleware(
     TrustedHostMiddleware,
-    allowed_hosts=os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(","),
+    # Allow-list of host headers. Default to '*' so self-hosted installs behind
+    # trusted LAN/reverse proxies don't unexpectedly break. To restrict, set
+    # ALLOWED_HOSTS to a comma-separated list (e.g. "example.com,*.example.com").
+    allowed_hosts=[h.strip() for h in os.environ.get("ALLOWED_HOSTS", "*").split(",") if h.strip()],
 )
 
 app.add_middleware(RateLimitMiddleware)
