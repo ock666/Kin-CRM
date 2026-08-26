@@ -124,3 +124,14 @@ def test_regulation_page_loads(logged_in_client):
     assert resp.status_code == 200
     assert "Regulation" in resp.text
     assert "5-4-3-2-1" in resp.text
+
+
+def test_soft_fall_page_loads(logged_in_client):
+    resp = logged_in_client.get("/regulation/soft-fall")
+    assert resp.status_code == 200
+    assert "Soft Fall" in resp.text
+
+
+def test_soft_fall_requires_auth(client):
+    resp = client.get("/regulation/soft-fall", follow_redirects=False)
+    assert resp.status_code == 303

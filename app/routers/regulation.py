@@ -15,3 +15,10 @@ def regulation_page(request: Request, db: Session = Depends(get_db), user=Depend
     if not user:
         return RedirectResponse("/login")
     return render(request, "regulation.html", db=db, user=user, active="regulation")
+
+
+@router.get("/regulation/soft-fall")
+def soft_fall_page(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
+    if not user:
+        return RedirectResponse("/login")
+    return render(request, "regulation_soft_fall.html", db=db, user=user, active="regulation")
