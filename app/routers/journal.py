@@ -1,8 +1,8 @@
 import datetime as dt
 import json
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Request, Form, Query
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, BackgroundTasks, Depends, Request, Form, Query, UploadFile, File
+from fastapi.responses import RedirectResponse, JSONResponse
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -52,6 +52,53 @@ def _process_ai_extraction(entry_id: int):
         pass
     finally:
         db.close()
+
+
+@router.post("/journal/transcribe")
+async def journal_transcribe(
+    request: Request,
+    db: Session = Depends(get_db),
+    user=Depends(current_user),
+    audio_file: UploadFile = File(...),
+):
+    """Accept an uploaded audio file and return a JSON transcription using the configured
+    OpenAI-compatible endpoint (reuses the AI base URL/API key).
+
+    Minimal dependency surface: rely on existing AI settings rather than introducing a
+    separate Whisper config. If AI is not configured or the endpoint doesn't support
+    audio transcription, return a helpful error; the UI will surface this gently.
+    """
+    if not user:
+        return RedirectResponse("/login")
+    try:
+        from ..settings_store import get_setting, get_setting_sensitive
+        from openai import OpenAI
+        import tempfile
+        import os
+
+        base_url = get_setting(db, "ai_base_url")
+        api_key = get_setting_sensitive(db, "ai_api_key")
+        model = get_setting(db, "whisper_model", "whisper-1")  # allow override later if added to settings
+        if not api_key or not base_url:
+            return JSONResponse({"error": "AI is not configured. Set API base URL and key in Settings."}, status_code=400)
+
+        client = OpenAI(base_url=base_url, api_key=api_key)
+
+        # Persist to a temp file so the OpenAI SDK can stream it properly regardless of upload type
+        suffix = os.path.splitext(audio_file.filename or "audio")[1] or ".webm"
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=True) as tmp:
+            tmp.write(await audio_file.read())
+            tmp.flush()
+            with open(tmp.name, "rb") as f:
+                resp = client.audio.transcriptions.create(
+                    model=model,
+                    file=f,
+                )
+        text = getattr(resp, "text", None) or ""
+        return JSONResponse({"text": text})
+    except Exception as e:
+        # Don't leak internals to the client; log server-side if needed.
+        return JSONResponse({"error": "Transcription failed. Check AI endpoint supports Whisper."}, status_code=502)
 
 
 @router.get("/journal/new")

@@ -17,6 +17,12 @@
   <form method="post" action="{{ '/journal/' ~ entry.id ~ '/edit' if entry else '/journal/new' }}" class="card">
     <div class="field">
       <label for="body">What's up? *</label>
+      <div class="flex-gap" style="align-items:center; margin-bottom:.4rem;">
+        <button type="button" class="btn btn-sm" id="voice-record-btn">🎙️ Voice (record)</button>
+        <input type="file" id="voice-file-input" accept="audio/*" style="display:none;">
+        <button type="button" class="btn btn-sm" id="voice-upload-btn">Upload audio</button>
+        <span id="voice-status" class="text-sm text-muted" aria-live="polite"></span>
+      </div>
       <textarea id="body" name="body" rows="6" required autofocus placeholder="e.g. Grabbed coffee with Sam, they just got a new job at...">{{ entry.body if entry else '' }}</textarea>
     </div>
 
@@ -101,4 +107,87 @@
     <a class="btn" href="{{ '/people/' ~ entry.people[0].id if entry and entry.people else '/' }}">Cancel</a>
   </form>
 </div>
+
+<script>
+// Minimal, inline voice capture + transcription handler.
+// Uses MediaRecorder if available; falls back to manual file upload.
+(function() {
+  const recordBtn = document.getElementById('voice-record-btn');
+  const uploadBtn = document.getElementById('voice-upload-btn');
+  const fileInput = document.getElementById('voice-file-input');
+  const statusEl = document.getElementById('voice-status');
+  const bodyEl = document.getElementById('body');
+
+  let mediaRecorder = null;
+  let chunks = [];
+  let recording = false;
+
+  function setStatus(msg) {
+    statusEl.textContent = msg || '';
+  }
+
+  async function sendForTranscription(blob, filename) {
+    try {
+      setStatus('Transcribing…');
+      const fd = new FormData();
+      fd.append('audio_file', blob, filename || 'voice.webm');
+      const resp = await fetch('/journal/transcribe', { method: 'POST', body: fd });
+      const data = await resp.json();
+      if (!resp.ok || !data || data.error) {
+        setStatus(data && data.error ? data.error : 'Transcription failed');
+        return;
+      }
+      const text = (data.text || '').trim();
+      if (text) {
+        if (!bodyEl.value) bodyEl.value = text; else bodyEl.value = bodyEl.value.replace(/\s*$/, '\n') + text + '\n';
+      }
+      setStatus('✓ Inserted transcription');
+      setTimeout(() => setStatus(''), 2000);
+    } catch (e) {
+      setStatus('Transcription failed');
+    }
+  }
+
+  if (!window.MediaRecorder) {
+    // Hide record button if unsupported
+    recordBtn.style.display = 'none';
+  }
+
+  recordBtn.addEventListener('click', async () => {
+    try {
+      if (!recording) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        chunks = [];
+        mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+        mediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+        mediaRecorder.onstop = async () => {
+          const blob = new Blob(chunks, { type: 'audio/webm' });
+          await sendForTranscription(blob, 'voice.webm');
+          // stop tracks
+          stream.getTracks().forEach(t => t.stop());
+        };
+        mediaRecorder.start();
+        recording = true;
+        recordBtn.textContent = '⏹️ Stop';
+        setStatus('Recording…');
+      } else {
+        mediaRecorder && mediaRecorder.stop();
+        recording = false;
+        recordBtn.textContent = '🎙️ Voice (record)';
+        setStatus('Processing…');
+      }
+    } catch (e) {
+      setStatus('Microphone unavailable');
+    }
+  });
+
+  uploadBtn.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', async () => {
+    const f = fileInput.files && fileInput.files[0];
+    if (!f) return;
+    await sendForTranscription(f, f.name || 'audio');
+    fileInput.value = '';
+  });
+})();
+</script>
 {% endblock %}
