@@ -21,7 +21,20 @@
         <button type="button" class="btn btn-sm" id="voice-record-btn">🎙️ Voice (record)</button>
         <input type="file" id="voice-file-input" accept="audio/*" style="display:none;">
         <button type="button" class="btn btn-sm" id="voice-upload-btn">Upload audio</button>
+        <span id="rec-indicator" class="rec-indicator" style="display:none;">
+          <span class="rec-dot" aria-hidden="true"></span>
+          <span id="rec-time">0:00</span>
+        </span>
         <span id="voice-status" class="text-sm text-muted" aria-live="polite"></span>
+      </div>
+      <div id="voice-playback" class="card" style="display:none; padding:.5rem; margin-bottom:.5rem;">
+        <div class="flex-gap" style="align-items:center; margin-bottom:.4rem;">
+          <audio id="voice-audio" controls style="max-width:100%;"></audio>
+        </div>
+        <div class="flex-gap">
+          <button type="button" class="btn btn-sm btn-primary" id="voice-transcribe-btn">Transcribe and insert</button>
+          <button type="button" class="btn btn-sm" id="voice-discard-btn">Discard</button>
+        </div>
       </div>
       <textarea id="body" name="body" rows="6" required autofocus placeholder="e.g. Grabbed coffee with Sam, they just got a new job at...">{{ entry.body if entry else '' }}</textarea>
     </div>
@@ -108,6 +121,12 @@
   </form>
 </div>
 
+<style>
+  .rec-indicator { display:inline-flex; align-items:center; gap:.4rem; color:#d00; font-weight:600; }
+  .rec-dot { width:10px; height:10px; border-radius:50%; background:#d00; animation:rec-blink 1s steps(1,end) infinite; }
+  @keyframes rec-blink { 50% { opacity:.25; } }
+</style>
+
 <script>
 // Minimal, inline voice capture + transcription handler.
 // Uses MediaRecorder if available; falls back to manual file upload.
@@ -117,13 +136,52 @@
   const fileInput = document.getElementById('voice-file-input');
   const statusEl = document.getElementById('voice-status');
   const bodyEl = document.getElementById('body');
+  const recIndicator = document.getElementById('rec-indicator');
+  const recTimeEl = document.getElementById('rec-time');
+  const playbackCard = document.getElementById('voice-playback');
+  const audioEl = document.getElementById('voice-audio');
+  const transcribeBtn = document.getElementById('voice-transcribe-btn');
+  const discardBtn = document.getElementById('voice-discard-btn');
 
   let mediaRecorder = null;
   let chunks = [];
   let recording = false;
+  let recTimer = null;
+  let recStart = 0;
+  let recordedBlob = null;
+  let recordedUrl = null;
 
   function setStatus(msg) {
     statusEl.textContent = msg || '';
+  }
+
+  function fmtTime(tSec) {
+    const m = Math.floor(tSec/60), s = Math.floor(tSec%60);
+    return m + ':' + String(s).padStart(2, '0');
+  }
+  function startIndicator() {
+    recStart = Date.now();
+    if (recIndicator) recIndicator.style.display = '';
+    if (recTimer) clearInterval(recTimer);
+    recTimer = setInterval(() => {
+      const t = (Date.now() - recStart) / 1000;
+      if (recTimeEl) recTimeEl.textContent = fmtTime(t);
+    }, 1000);
+  }
+  function stopIndicator() {
+    if (recTimer) { clearInterval(recTimer); recTimer = null; }
+    if (recIndicator) recIndicator.style.display = 'none';
+    if (recTimeEl) recTimeEl.textContent = '0:00';
+  }
+
+  function cleanupRecording() {
+    try { if (audioEl) { audioEl.pause(); audioEl.removeAttribute('src'); if (audioEl.load) audioEl.load(); } } catch {}
+    if (recordedUrl) {
+      try { URL.revokeObjectURL(recordedUrl); } catch {}
+    }
+    recordedUrl = null;
+    recordedBlob = null;
+    if (playbackCard) playbackCard.style.display = 'none';
   }
 
   async function sendForTranscription(blob, filename) {
@@ -141,6 +199,7 @@
       if (text) {
         if (!bodyEl.value) bodyEl.value = text; else bodyEl.value = bodyEl.value.replace(/\s*$/, '\n') + text + '\n';
       }
+      cleanupRecording();
       setStatus('✓ Inserted transcription');
       setTimeout(() => setStatus(''), 2000);
     } catch (e) {
@@ -153,31 +212,59 @@
     recordBtn.style.display = 'none';
   }
 
+  // Pre-warn if permissions are blocked
+  if (navigator.permissions && navigator.permissions.query) {
+    try { navigator.permissions.query({ name: 'microphone' }).then((res) => {
+      if (res.state === 'denied') setStatus('Microphone permission is blocked. Click the site lock icon to allow.');
+    }).catch(() => {}); } catch {}
+  }
+
+  function bestMimeType() {
+    const cands = [ 'audio/webm;codecs=opus', 'audio/ogg;codecs=opus', 'audio/webm' ];
+    for (const mt of cands) {
+      if (window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(mt)) return mt;
+    }
+    return '';
+  }
+
   recordBtn.addEventListener('click', async () => {
     try {
       if (!recording) {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         chunks = [];
-        mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+        const mt = bestMimeType();
+        mediaRecorder = mt ? new MediaRecorder(stream, { mimeType: mt }) : new MediaRecorder(stream);
         mediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
         mediaRecorder.onstop = async () => {
-          const blob = new Blob(chunks, { type: 'audio/webm' });
-          await sendForTranscription(blob, 'voice.webm');
-          // stop tracks
+          const mt2 = mediaRecorder.mimeType || 'audio/webm';
+          const blob = new Blob(chunks, { type: mt2 });
+          recordedBlob = blob;
+          if (recordedUrl) { try { URL.revokeObjectURL(recordedUrl); } catch {} }
+          recordedUrl = URL.createObjectURL(blob);
+          if (audioEl) { audioEl.src = recordedUrl; if (audioEl.load) audioEl.load(); }
+          if (playbackCard) playbackCard.style.display = '';
+          stopIndicator();
+          uploadBtn.disabled = false;
           stream.getTracks().forEach(t => t.stop());
         };
         mediaRecorder.start();
         recording = true;
         recordBtn.textContent = '⏹️ Stop';
+        uploadBtn.disabled = true;
+        startIndicator();
         setStatus('Recording…');
       } else {
         mediaRecorder && mediaRecorder.stop();
         recording = false;
         recordBtn.textContent = '🎙️ Voice (record)';
-        setStatus('Processing…');
+        setStatus('Stopped');
       }
     } catch (e) {
+      uploadBtn.disabled = false;
       setStatus('Microphone unavailable');
+      if (e && e.name === 'NotAllowedError') setStatus('Microphone permission denied. Enable it in the browser and try again.');
+      else if (e && e.name === 'NotFoundError') setStatus('No microphone found. Check input devices.');
+      stopIndicator();
     }
   });
 
@@ -185,8 +272,25 @@
   fileInput.addEventListener('change', async () => {
     const f = fileInput.files && fileInput.files[0];
     if (!f) return;
-    await sendForTranscription(f, f.name || 'audio');
+    // Prepare playback and wait for explicit transcribe
+    cleanupRecording();
+    recordedBlob = f;
+    try { recordedUrl = URL.createObjectURL(f); } catch { recordedUrl = null; }
+    if (audioEl && recordedUrl) { audioEl.src = recordedUrl; if (audioEl.load) audioEl.load(); }
+    if (playbackCard) playbackCard.style.display = '';
     fileInput.value = '';
+  });
+
+  transcribeBtn.addEventListener('click', async () => {
+    if (!recordedBlob) { setStatus('No recording to transcribe.'); return; }
+    const name = (fileInput.files && fileInput.files[0] && fileInput.files[0].name) || 'voice.webm';
+    await sendForTranscription(recordedBlob, name);
+  });
+
+  discardBtn.addEventListener('click', () => {
+    cleanupRecording();
+    setStatus('Discarded recording');
+    setTimeout(() => setStatus(''), 1500);
   });
 })();
 </script>
