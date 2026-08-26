@@ -1,12 +1,12 @@
 <CommunityApplications>
   <Profile>
-    **Kin -- Personal Relationship Manager**
+    **Kin-CRM -- a calm, self-hosted personal relationship manager / personal CRM.**
 
-    A self-hosted personal CRM built for neurodivergent brains (AuDHD, RSD, social anxiety, overwhelm). Remember your people, not the pressure.
+    Kin is a personal CRM built for neurodivergent brains (AuDHD, ADHD, autism, RSD, social anxiety, overwhelm): remember your people, not the pressure. Search for it as "Kin", "Kin-CRM" or "personal crm".
 
-    **Features:** People/relationship tracking with rich profiles, journaling with energy-cost tracking, conflict resolution with AI-assisted support chat, gentle check-in nudges, gamification with achievements, Immich photo integration, web push notifications, full JSON/CSV export and import, PWA support.
+    **Features:** People and relationship tracking with rich profiles, journaling with energy-cost tracking, conflict resolution with AI-assisted support chat, gentle check-in nudges, gamification with achievements, Immich photo integration, web push notifications, full JSON/CSV export and import, PWA support.
 
-    **Tech:** FastAPI + SQLite (default) or optional PostgreSQL. Runs as a single Docker container.
+    **Tech:** FastAPI + SQLite (default) or optional PostgreSQL. Runs as a single Docker container on Unraid.
 
     Built by Skye, a trans woman in Brisbane, Australia. MIT licensed.
   </Profile>

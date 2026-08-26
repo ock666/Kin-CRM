@@ -133,6 +133,14 @@ Kin runs as a single Docker container with a local SQLite database. No external 
    ```
 4. Open `http://localhost:8000` and follow the setup wizard to create your admin account.
 
+#### Install on Unraid (Community Applications)
+
+Kin-CRM is published to the Unraid Community Applications store from this repository (`ca_profile.xml` + `templates/kin-crm.xml`).
+
+- **In the Unraid Community Apps tab, search for `Kin`, `Kin-CRM`, or `personal crm`** (under **Productivity**).
+- The official template points at `ghcr.io/ock666/kin-crm:latest` and installs with app data in `/mnt/user/appdata/kin-crm` mapped to `/data` inside the container.
+- If a listing built by a third party shows up first, prefer the one whose **Support/Project** links point to `github.com/ock666/Kin-CRM` — the author's listing is the source of truth.
+
 Your data lives in the Docker volume at `/mnt/user/appdata/personal-crm_kin_data` mapped to `/data` inside the container — a SQLite database plus any cached Instagram session files. Back it up like any other volume, or export from the in-app Export page anytime.
 
 ### Development

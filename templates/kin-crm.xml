@@ -39,9 +39,12 @@
 
   <Category>Productivity:</Category>
 
-  <ExtraSearchTerms>personal crm relationship manager neurodivergent audhd rsd journal conflict resolution</ExtraSearchTerms>
+  <ExtraSearchTerms>kin kin-crm kin crm personal crm relationship manager relationship tracker contacts birthdays reminders self-hosted neurodivergent audhd adhd autism rsd social anxiety journal conflict resolution immich unraid</ExtraSearchTerms>
 
   <Requires>No additional services required. AI features need OpenAI or Ollama credentials.</Requires>
+
+  <DonateLink>https://github.com/sponsors/ock666</DonateLink>
+  <DonateText>Support Kin development</DonateText>
 
   <License>MIT</License>
 
