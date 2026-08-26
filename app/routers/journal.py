@@ -1,8 +1,8 @@
 import datetime as dt
 import json
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Request, Form, Query
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, BackgroundTasks, Depends, Request, Form, Query, UploadFile, File
+from fastapi.responses import RedirectResponse, JSONResponse
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -52,6 +52,40 @@ def _process_ai_extraction(entry_id: int):
         pass
     finally:
         db.close()
+
+
+@router.post("/journal/transcribe")
+async def journal_transcribe(
+    request: Request,
+    db: Session = Depends(get_db),
+    user=Depends(current_user),
+    audio_file: UploadFile = File(...),
+):
+    """Accept an uploaded audio file and return a JSON transcription using a configured
+    Whisper provider (OpenAI-compatible or local ASR webservice). Falls back to AI settings
+    if dedicated Whisper settings are not provided.
+    """
+    if not user:
+        return RedirectResponse("/login")
+    try:
+        from ..services.whisper_client import transcribe_from_settings, WhisperError
+        import io
+
+        # Basic content-type and size guards (defense-in-depth; UI already restricts)
+        ctype = (audio_file.content_type or "").lower()
+        if not ctype.startswith("audio/"):
+            return JSONResponse({"error": "Please upload an audio file."}, status_code=400)
+
+        raw = await audio_file.read()
+        max_bytes = 25 * 1024 * 1024  # 25 MB
+        if raw and len(raw) > max_bytes:
+            return JSONResponse({"error": "Audio too large (limit 25 MB)."}, status_code=413)
+        text = transcribe_from_settings(db, io.BytesIO(raw), audio_file.filename or "audio")
+        return JSONResponse({"text": text})
+    except WhisperError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    except Exception:
+        return JSONResponse({"error": "Transcription failed. Check Whisper settings and container."}, status_code=502)
 
 
 @router.get("/journal/new")

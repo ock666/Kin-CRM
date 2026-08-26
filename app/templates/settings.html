@@ -50,6 +50,56 @@
 </div>
 
 <div class="card mt-2">
+  <h2>🎙️ Voice (Whisper)</h2>
+  <p class="text-sm text-muted">Configure a local Whisper service for voice-to-text in the journal. Supports an OpenAI-compatible endpoint or the <code>openai-whisper-asr-webservice</code> container. If left blank, Kin will fall back to your AI settings.</p>
+  {% if whisper_test %}<div class="notice notice-{{ whisper_test[0] }}">{{ whisper_test[1] }}</div>{% endif %}
+  <form method="post" action="/settings/whisper">
+    <div class="field">
+      <label for="whisper_provider">Provider</label>
+      <select id="whisper_provider" name="whisper_provider">
+        <option value="openai" {{ 'selected' if (cfg.whisper_provider or 'openai') == 'openai' else '' }}>OpenAI-compatible (audio.transcriptions)</option>
+        <option value="asr-webservice" {{ 'selected' if cfg.whisper_provider == 'asr-webservice' else '' }}>ASR Webservice (onerahmet/openai-whisper-asr-webservice)</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="whisper_base_url">Base URL</label>
+      <input type="text" id="whisper_base_url" name="whisper_base_url" value="{{ cfg.whisper_base_url }}" placeholder="e.g. http://192.168.0.51:9090 or http://litellm:4000/v1">
+    </div>
+    <div class="field" id="whisper_api_key_field">
+      <label for="whisper_api_key">API key (if required)</label>
+      <input type="password" id="whisper_api_key" name="whisper_api_key" placeholder="{{ '•••••••• (unchanged)' if cfg.whisper_api_key else '' }}">
+    </div>
+    <div class="field" id="whisper_model_field">
+      <label for="whisper_model">Model (OpenAI-compatible only)</label>
+      <input type="text" id="whisper_model" name="whisper_model" value="{{ cfg.whisper_model or 'whisper-1' }}">
+    </div>
+    <button class="btn btn-primary btn-sm" type="submit">Save</button>
+  </form>
+  <form method="post" action="/settings/whisper/test" class="mt-1"><button class="btn btn-sm" type="submit">Test connection</button></form>
+  <p class="help-text">Tip: For the ASR webservice, run the container on your Unraid host and set Base URL to <code>http://192.168.0.51:9090</code>.</p>
+  </div>
+
+<script>
+  (function() {
+    const providerSel = document.getElementById('whisper_provider');
+    const apiKeyField = document.getElementById('whisper_api_key_field');
+    const modelField = document.getElementById('whisper_model_field');
+    function syncWhisperFields() {
+      const provider = (providerSel && providerSel.value) || 'openai';
+      // Hide API key when using ASR webservice (it doesn't support/need auth)
+      const hide = (provider === 'asr-webservice');
+      if (apiKeyField) apiKeyField.style.display = hide ? 'none' : '';
+      if (modelField) modelField.style.display = hide ? 'none' : '';
+    }
+    if (providerSel) {
+      providerSel.addEventListener('change', syncWhisperFields);
+      // Initialize on load
+      syncWhisperFields();
+    }
+  })();
+  </script>
+
+<div class="card mt-2">
   <h2>📱 Instagram</h2>
   <p class="text-sm text-muted">
     ⚠️ This uses an <strong>unofficial</strong> Instagram API. It's against Instagram's Terms of Service and carries

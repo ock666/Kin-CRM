@@ -12,6 +12,7 @@ from ..services.immich_client import ImmichClient, ImmichError
 from ..services.ai_client import AIClient, AIError
 from ..services.mfa import generate_totp_secret, verify_totp, generate_recovery_codes, decrypt_secret
 from ..config import settings
+from ..settings_store import set_many, get_all_settings, get_setting_sensitive
 
 router = APIRouter()
 
@@ -80,7 +81,62 @@ def test_ai(request: Request, db: Session = Depends(get_db), user=Depends(curren
         result = ("danger", "AI connection failed. Check your credentials and try again.")
     users = db.query(User).order_by(User.id).all()
     return render(request, "settings.html", db=db, user=user, active="settings", cfg=cfg, users=users,
-                  ai_test=result)
+                   ai_test=result)
+
+
+@router.post("/settings/whisper")
+def save_whisper(request: Request, db: Session = Depends(get_db), user=Depends(current_user),
+                 whisper_provider: str = Form("openai"), whisper_base_url: str = Form(""),
+                 whisper_api_key: str = Form(""), whisper_model: str = Form("whisper-1")):
+    provider = (whisper_provider or "openai").strip() or "openai"
+    values = {
+        "whisper_provider": provider,
+        "whisper_base_url": whisper_base_url.strip(),
+    }
+    # Only persist model/key for OpenAI-compatible provider; ignore for ASR to avoid
+    # accidentally overwriting or storing irrelevant fields.
+    if provider != "asr-webservice":
+        values["whisper_model"] = (whisper_model or "whisper-1").strip() or "whisper-1"
+        if whisper_api_key:
+            values["whisper_api_key"] = whisper_api_key
+    set_many(db, values)
+    return RedirectResponse("/settings", status_code=303)
+
+
+@router.post("/settings/whisper/test")
+def test_whisper(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
+    cfg = get_all_settings(db)
+    users = db.query(User).order_by(User.id).all()
+    result = None
+    try:
+        import httpx
+        provider = (cfg.get("whisper_provider") or "openai").lower()
+        base = (cfg.get("whisper_base_url") or cfg.get("ai_base_url") or "").strip()
+        if not base:
+            raise RuntimeError("No base URL configured")
+        if provider == "asr-webservice":
+            url = base.rstrip('/') + "/healthz"
+            # healthz may not exist; try root as a fallback
+            with httpx.Client(timeout=5.0) as client:
+                r = client.get(url)
+                if r.status_code >= 400:
+                    r = client.get(base)
+                if r.status_code < 400:
+                    result = ("success", "ASR webservice reachable.")
+                else:
+                    raise RuntimeError("ASR webservice returned an error")
+        else:
+            # OpenAI-compatible: just try a HEAD/GET to the base URL
+            with httpx.Client(timeout=5.0) as client:
+                r = client.get(base)
+                if r.status_code < 400:
+                    result = ("success", "OpenAI-compatible endpoint reachable.")
+                else:
+                    raise RuntimeError("Endpoint returned an error")
+    except Exception:
+        result = ("danger", "Whisper endpoint not reachable. Check URL and container.")
+    return render(request, "settings.html", db=db, user=user, active="settings", cfg=cfg, users=users,
+                  whisper_test=result)
 
 
 @router.post("/settings/instagram")

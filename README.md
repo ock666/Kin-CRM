@@ -200,6 +200,48 @@ Kin works fully without AI — it's purely additive. In Settings → AI assistan
 
 All AI output is a suggestion you explicitly approve or dismiss — nothing is written to a profile automatically.
 
+### Voice transcription (Whisper)
+
+Kin can transcribe voice notes directly into a journal entry. You can use either:
+
+- An OpenAI-compatible endpoint that supports `audio.transcriptions` (e.g. OpenAI, LiteLLM routing to Whisper), or
+- A local Whisper webservice container (CPU-friendly) on your Unraid host.
+
+Setup steps:
+
+1. Deploy a Whisper service (recommended: local on Unraid)
+   - ASR webservice (onerahmet/openai-whisper-asr-webservice):
+     ```bash
+     docker run -d --name whisper-asr --restart unless-stopped \
+       -p 9090:9000 -e ASR_MODEL=small \
+       onerahmet/openai-whisper-asr-webservice:latest
+     ```
+     - Visit Settings → Voice (Whisper) and set:
+       - Provider: ASR Webservice
+       - Base URL: `http://192.168.0.51:9090` (or wherever you exposed it)
+       - API key: leave blank (not required for this image)
+       - Model: ignored for this provider
+   - OpenAI-compatible route (OpenAI or LiteLLM):
+     - Provider: OpenAI-compatible
+     - Base URL: your OpenAI/LiteLLM base (e.g. `https://api.openai.com/v1` or `http://litellm:4000/v1`)
+     - API key: as required by the endpoint
+     - Model: e.g. `whisper-1` (or whatever your router exposes)
+
+2. Configure in Kin
+   - In Kin: Settings → Voice (Whisper)
+   - Choose provider + fill Base URL, API key (if needed), and model (OpenAI-compatible only)
+   - Click “Test connection”
+
+3. Use it in the Journal
+   - On the New Journal page, click “🎙️ Voice (record)” to capture audio in-browser or “Upload audio” to send a file.
+   - Kin posts the audio to `/journal/transcribe` and inserts the transcript into the text area.
+
+Notes
+- MediaRecorder is required for in-browser recording; if unavailable, use Upload.
+- Browsers require a secure context for microphone access: use HTTPS or access via http://localhost (SSH tunnel works). If you see no permission prompt, check this first.
+- The ASR webservice runs CPU-only and is a good default for Unraid. Set `ASR_MODEL=small|medium|large-v3` depending on accuracy vs speed.
+- If you use LiteLLM, ensure its routing includes an `audio.transcriptions`-capable backend.
+
 ### Instagram integration (use with caution)
 
 Kin includes an optional, unofficial Instagram reader using [instagrapi](https://github.com/subzeroid/instagrapi). It's against Instagram's Terms of Service. Use a throwaway/secondary account only — never your primary account. Nothing is ever posted or messaged. Posts land in the Review Queue for your approval. Leave it disabled if you'd rather not risk it; everything else works fine without it.
