@@ -34,6 +34,8 @@ DEFAULTS = {
     "tts_voice": "en_GB-alba-medium", # Piper default (Alba); OpenAI e.g. 'alloy'
     "tts_lang": "en-GB",
     "tts_format": "mp3",
+    "tts_piper_host": "",
+    "tts_piper_port": "10200",
     "tts_reply_default": "1",         # default: reply with voice on
     "tts_mirror_mode": "1",           # default: mirror user voice with bot voice
 }

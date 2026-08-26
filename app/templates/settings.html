@@ -95,14 +95,30 @@
       <label for="tts_base_url">Base URL</label>
       <input type="text" id="tts_base_url" name="tts_base_url" value="{{ cfg.tts_base_url }}" placeholder="e.g. http://192.168.0.51:5500 (Piper) or http://litellm:4000/v1 (OpenAI)">
     </div>
+    <div class="field-row" id="tts_piper_host_port">
+      <div class="field">
+        <label for="tts_piper_host">Piper host (Wyoming TCP)</label>
+        <input type="text" id="tts_piper_host" name="tts_piper_host" value="{{ cfg.tts_piper_host }}" placeholder="e.g. 192.168.0.51">
+      </div>
+      <div class="field">
+        <label for="tts_piper_port">Piper port</label>
+        <input type="text" id="tts_piper_port" name="tts_piper_port" value="{{ cfg.tts_piper_port or '10200' }}">
+      </div>
+    </div>
     <div class="field" id="tts_api_key_field">
       <label for="tts_api_key">API key (OpenAI only)</label>
       <input type="password" id="tts_api_key" name="tts_api_key" placeholder="{{ '•••••••• (unchanged)' if cfg.tts_api_key else '' }}">
     </div>
     <div class="field">
       <label for="tts_voice">Voice</label>
-      <input type="text" id="tts_voice" name="tts_voice" value="{{ cfg.tts_voice or 'en_GB-alba-medium' }}" placeholder="e.g. en_GB-alba-medium (Piper) or alloy (OpenAI)">
+      <input type="text" id="tts_voice" name="tts_voice" list="tts_voices" value="{{ cfg.tts_voice or 'en_GB-alba-medium' }}" placeholder="e.g. en_GB-alba-medium (Piper) or alloy (OpenAI)">
+      <datalist id="tts_voices"></datalist>
+      <div class="flex-gap mt-1">
+        <button class="btn btn-sm" type="button" id="tts-fetch-voices">Fetch voices</button>
+        <button class="btn btn-sm" type="button" id="tts-play-sample">Play sample</button>
+      </div>
       <p class="help-text">Piper voices: see the <a href="https://rhasspy.github.io/piper-samples/#english-gb" target="_blank">voice samples</a>. Install voices on your Piper server. OpenAI: try 'alloy', 'verse'.</p>
+      <audio id="tts-sample-audio" controls style="display:none; max-width:100%; margin-top:.5rem;"></audio>
     </div>
     <div class="field-row">
       <div class="field">
@@ -126,7 +142,7 @@
     </div>
     <button class="btn btn-primary btn-sm" type="submit">Save</button>
   </form>
-  <form method="post" action="/settings/tts/test" class="mt-1"><button class="btn btn-sm" type="submit">Test TTS</button></form>
+  <form method="post" action="/settings/tts/test" class="mt-1"><button class="btn btn-sm" type="submit">Test connection</button></form>
 </div>
 
 <script>
@@ -134,14 +150,44 @@
     const prov = document.getElementById('tts_provider');
     const base = document.getElementById('tts_base_url_field');
     const keyf = document.getElementById('tts_api_key_field');
+    const hostp = document.getElementById('tts_piper_host_port');
     function sync() {
       const p = prov && prov.value || 'piper';
       if (p === 'piper') { if (keyf) keyf.style.display = 'none'; }
       else { if (keyf) keyf.style.display = ''; }
       // Base URL required for both (Piper HTTP or OpenAI/LiteLLM)
       if (base) base.style.display = '';
+      if (hostp) hostp.style.display = (p === 'piper') ? '' : 'none';
     }
     if (prov) { prov.addEventListener('change', sync); sync(); }
+
+    // Voices fetch
+    const fetchBtn = document.getElementById('tts-fetch-voices');
+    const listEl = document.getElementById('tts_voices');
+    if (fetchBtn && listEl) {
+      fetchBtn.addEventListener('click', async () => {
+        try {
+          const r = await fetch('/settings/tts/voices');
+          const d = await r.json();
+          listEl.innerHTML = (d.voices || []).map(v => '<option value="'+v+'">').join('');
+        } catch (e) { /* silent */ }
+      });
+    }
+
+    // Play sample (OpenAI only for now)
+    const playBtn = document.getElementById('tts-play-sample');
+    const audio = document.getElementById('tts-sample-audio');
+    const voiceInput = document.getElementById('tts_voice');
+    playBtn && playBtn.addEventListener('click', async () => {
+      try {
+        // For now attempt OpenAI via server-side synth; Piper sample to be added with Wyoming adapter
+        const provVal = prov && prov.value;
+        if (provVal === 'piper') { alert('Sample playback for Piper will be available once the Wyoming adapter lands.'); return; }
+        const resp = await fetch('/settings/tts/test', { method:'POST' });
+        // Test connection already runs; for real sample, a separate endpoint will be added if desired
+        alert('Connection tested. For actual sample playback, I can add a small /settings/tts/sample endpoint.');
+      } catch (e) { /* ignore */ }
+    });
   })();
 </script>
 
