@@ -133,13 +133,10 @@
     </div>
     <div class="field">
       <label class="flex-gap" style="justify-content:space-between;">
-        <span>Reply with voice by default</span>
-        <input type="checkbox" name="tts_reply_default" value="1" {{ 'checked' if cfg.tts_reply_default != '0' else '' }}>
-      </label>
-      <label class="flex-gap" style="justify-content:space-between;">
         <span>Mirror my mode (if I send voice, reply with voice)</span>
         <input type="checkbox" name="tts_mirror_mode" value="1" {{ 'checked' if cfg.tts_mirror_mode != '0' else '' }}>
       </label>
+      <p class="help-text">If this is off, the bot will always reply with text regardless.</p>
     </div>
     <button class="btn btn-primary btn-sm" type="submit">Save</button>
   </form>

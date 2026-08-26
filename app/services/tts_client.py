@@ -22,14 +22,16 @@ def _read_tts_settings(db):
         "voice": get_setting(db, "tts_voice", "en_GB-alba-medium"),
         "lang": get_setting(db, "tts_lang", "en-GB"),
         "format": get_setting(db, "tts_format", "mp3"),
-        "reply_default": get_setting(db, "tts_reply_default", "1"),
         "mirror_mode": get_setting(db, "tts_mirror_mode", "1"),
     }
 
 
 def should_reply_with_voice(db) -> tuple[bool, bool]:
+    """Return a tuple (deprecated_reply_default, mirror_mode).
+    reply_default is deprecated and always False. mirror_mode controls whether
+    the bot replies with voice when the user sends a voice note."""
     cfg = _read_tts_settings(db)
-    return (cfg.get("reply_default") == "1", cfg.get("mirror_mode") == "1")
+    return (False, cfg.get("mirror_mode") == "1")
 
 
 def synthesize_from_settings(db, text: str, *, voice: Optional[str] = None, fmt: str = "mp3") -> bytes:

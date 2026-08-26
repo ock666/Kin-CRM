@@ -144,7 +144,7 @@ def save_tts(request: Request, db: Session = Depends(get_db), user=Depends(curre
              tts_provider: str = Form("piper"), tts_base_url: str = Form(""), tts_api_key: str = Form(""),
              tts_voice: str = Form("en_GB-alba-medium"), tts_lang: str = Form("en-GB"),
              tts_format: str = Form("mp3"), tts_piper_host: str = Form(""), tts_piper_port: str = Form("10200"),
-             tts_reply_default: str = Form("1"), tts_mirror_mode: str = Form("1")):
+             tts_mirror_mode: str = Form("1")):
     values = {
         "tts_provider": (tts_provider or "piper").strip(),
         "tts_base_url": tts_base_url.strip(),
@@ -153,7 +153,6 @@ def save_tts(request: Request, db: Session = Depends(get_db), user=Depends(curre
         "tts_format": tts_format.strip() or "mp3",
         "tts_piper_host": tts_piper_host.strip(),
         "tts_piper_port": tts_piper_port.strip() or "10200",
-        "tts_reply_default": "1" if tts_reply_default == "1" else "0",
         "tts_mirror_mode": "1" if tts_mirror_mode == "1" else "0",
     }
     if tts_api_key:

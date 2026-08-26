@@ -260,10 +260,10 @@ async def conflict_chat(conflict_id: int, request: Request, db: Session = Depend
                     # Attempt voice synth if enabled; ignore failures silently
                     try:
                         from ..services.tts_client import synthesize_from_settings, should_reply_with_voice
-                        reply_default, mirror_mode = should_reply_with_voice(db2)
-                        do_voice = reply_default
+                        _, mirror_mode = should_reply_with_voice(db2)
+                        do_voice = False
                         if mirror_mode and prior:
-                            do_voice = do_voice or any((pm.audio_url for pm in prior if pm.role == 'user'))
+                            do_voice = any((pm.audio_url for pm in prior if pm.role == 'user'))
                         if do_voice:
                             audio_bytes = synthesize_from_settings(db2, reply)
                             from ..config import settings as app_settings
