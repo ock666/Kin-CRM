@@ -65,7 +65,7 @@
       <label for="whisper_base_url">Base URL</label>
       <input type="text" id="whisper_base_url" name="whisper_base_url" value="{{ cfg.whisper_base_url }}" placeholder="e.g. http://192.168.0.51:9090 or http://litellm:4000/v1">
     </div>
-    <div class="field">
+    <div class="field" id="whisper_api_key_field">
       <label for="whisper_api_key">API key (if required)</label>
       <input type="password" id="whisper_api_key" name="whisper_api_key" placeholder="{{ '•••••••• (unchanged)' if cfg.whisper_api_key else '' }}">
     </div>
@@ -78,6 +78,23 @@
   <form method="post" action="/settings/whisper/test" class="mt-1"><button class="btn btn-sm" type="submit">Test connection</button></form>
   <p class="help-text">Tip: For the ASR webservice, run the container on your Unraid host and set Base URL to <code>http://192.168.0.51:9090</code>.</p>
   </div>
+
+<script>
+  (function() {
+    const providerSel = document.getElementById('whisper_provider');
+    const apiKeyField = document.getElementById('whisper_api_key_field');
+    function syncWhisperFields() {
+      const provider = (providerSel && providerSel.value) || 'openai';
+      // Hide API key when using ASR webservice (it doesn't support/need auth)
+      if (apiKeyField) apiKeyField.style.display = (provider === 'asr-webservice') ? 'none' : '';
+    }
+    if (providerSel) {
+      providerSel.addEventListener('change', syncWhisperFields);
+      // Initialize on load
+      syncWhisperFields();
+    }
+  })();
+  </script>
 
 <div class="card mt-2">
   <h2>📱 Instagram</h2>
