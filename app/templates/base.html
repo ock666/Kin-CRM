@@ -69,10 +69,50 @@
   {% block auth_content %}{% endblock %}
 {% endif %}
 
-<div id="lightbox" class="lightbox" hidden aria-hidden="true" role="dialog" aria-label="Image viewer">
+<div id="lightbox" class="lightbox" role="dialog" aria-modal="true" aria-label="Image viewer">
   <button class="lightbox-close" type="button" aria-label="Close" title="Close">✕</button>
-  <img id="lightbox-img" class="lightbox-img" src="" alt="">
+  <img id="lightbox-img" class="lightbox-img" alt="">
 </div>
+
+<style>
+  img.lightbox { cursor: zoom-in; }
+  .lightbox {
+    position: fixed;
+    top: 0; right: 0; bottom: 0; left: 0;
+    z-index: 2000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10, 8, 6, .92);
+    cursor: zoom-out;
+  }
+  .lightbox.is-open { display: flex; }
+  .lightbox-img {
+    max-width: 92vw;
+    max-height: 88vh;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 12px 48px rgba(0, 0, 0, .6);
+  }
+  .lightbox-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, .35);
+    background: rgba(0, 0, 0, .4);
+    color: #fff;
+    font-size: 1.2rem;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .lightbox-close:hover { background: rgba(0, 0, 0, .7); }
+</style>
 
 <script>
 (function () {
@@ -90,32 +130,31 @@
     const src = fullSrc(el);
     if (!src) return;
     lbImg.src = src;
-    lb.hidden = false;
-    lb.setAttribute('aria-hidden', 'false');
+    lb.classList.add('is-open');
     document.body.style.overflow = 'hidden';
   }
 
   function close() {
-    lb.hidden = true;
-    lb.setAttribute('aria-hidden', 'true');
+    lb.classList.remove('is-open');
     lbImg.removeAttribute('src');
     document.body.style.overflow = '';
   }
 
   document.addEventListener('click', (e) => {
-    const img = e.target && e.target.closest ? e.target.closest('img.lightbox') : null;
+    const t = e.target;
+    const img = t && t.closest ? t.closest('img.lightbox') : null;
     if (img) {
       e.preventDefault();
       open(img);
       return;
     }
-    if (!lb.hidden && e.target === lb) close();
+    if (lb.classList.contains('is-open') && t === lb) close();
   });
 
   const closeBtn = lb.querySelector('.lightbox-close');
   if (closeBtn) closeBtn.addEventListener('click', close);
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !lb.hidden) close();
+    if (e.key === 'Escape' && lb.classList.contains('is-open')) close();
   });
 })();
 </script>

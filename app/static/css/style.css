@@ -519,52 +519,6 @@ label { display: block; font-weight: 600; font-size: .875rem; margin: 0 0 .3rem;
 }
 .carousel-btn:hover { background: var(--accent-soft); }
 
-/* In-page photo lightbox (cinematic viewer) */
-img.lightbox { cursor: zoom-in; }
-.lightbox {
-  position: fixed;
-  inset: 0;
-  z-index: 2000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, .85);
-  backdrop-filter: blur(4px);
-  cursor: zoom-out;
-  animation: lightbox-fade .18s ease;
-}
-.lightbox[hidden] { display: none; }
-.lightbox-img {
-  max-width: 92vw;
-  max-height: 88vh;
-  object-fit: contain;
-  border-radius: 8px;
-  box-shadow: 0 10px 44px rgba(0, 0, 0, .55);
-  cursor: default;
-  animation: lightbox-zoom .18s ease;
-}
-.lightbox-close {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, .35);
-  background: rgba(0, 0, 0, .4);
-  color: #fff;
-  font-size: 1.2rem;
-  line-height: 1;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background .15s ease;
-}
-.lightbox-close:hover { background: rgba(0, 0, 0, .7); }
-@keyframes lightbox-fade { from { opacity: 0; } to { opacity: 1; } }
-@keyframes lightbox-zoom { from { transform: scale(.94); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-
 .energy-low { color: var(--success); }
 .energy-medium { color: var(--warn); }
 .energy-high { color: var(--danger); }
