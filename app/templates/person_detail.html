@@ -211,13 +211,7 @@
     <h3 class="mt-2">🎯 Things to ask (gaps)</h3>
     <div id="ai-gap-questions">
       {% set gap_items = person.ai_starters_json|parse_json if person.ai_starters_json else none %}
-      {% if gap_items %}
-        {% with items = gap_items, error = none %}{% include "partials/ai_list.html" %}{% endwith %}
-      {% else %}
-        <button class="btn btn-sm" hx-post="/ai/people/{{ person.id }}/gap-questions" hx-target="#ai-gap-questions" hx-swap="innerHTML">
-          ✨ What's good to ask?
-        </button>
-      {% endif %}
+      {% with items = gap_items or [], person_id = person.id, error = none %}{% include "partials/ai_gap_questions.html" %}{% endwith %}
     </div>
 
     {% if person.gift_ideas %}

@@ -40,19 +40,23 @@ def generate_bio(person_id: int, request: Request, db: Session = Depends(get_db)
 def generate_gap_questions(person_id: int, request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
     person = db.get(Person, person_id)
     if not person:
-        return render(request, "partials/ai_list.html", db=db, user=user, items=[], error="Person not found.")
+        return render(request, "partials/ai_gap_questions.html", db=db, user=user, items=[],
+                      person_id=person_id, error="Person not found.")
     try:
         ai = get_client_from_settings(db)
         if not ai:
-            return render(request, "partials/ai_list.html", db=db, user=user, items=[],
+            return render(request, "partials/ai_gap_questions.html", db=db, user=user, items=[],
+                          person_id=person_id,
                           error="AI isn't configured yet. Add an API key in Settings.")
         gaps = friend_rank.compute_friend_rank(person).get("gaps", [])
         items = ai.conversation_gap_questions(person.name, build_person_context(person), gaps)
         person.ai_starters_json = json.dumps(items)
         db.commit()
-        return render(request, "partials/ai_list.html", db=db, user=user, items=items, error=None)
+        return render(request, "partials/ai_gap_questions.html", db=db, user=user, items=items,
+                      person_id=person_id, error=None)
     except AIError as e:
-        return render(request, "partials/ai_list.html", db=db, user=user, items=[], error=str(e))
+        return render(request, "partials/ai_gap_questions.html", db=db, user=user, items=[],
+                      person_id=person_id, error=str(e))
 
 
 @router.post("/people/{person_id}/summary")

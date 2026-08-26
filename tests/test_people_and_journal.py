@@ -17,6 +17,26 @@ def test_create_person_minimal(logged_in_client):
     assert "Ada Lovelace" in detail.text
 
 
+def test_gap_questions_regenerate_button_shown_when_present(logged_in_client):
+    from app.database import SessionLocal
+    from app.models import Person
+
+    resp = logged_in_client.post("/people/new", data={"name": "Gap Person"}, follow_redirects=False)
+    person_id = _extract_person_id_from_redirect(resp.headers["location"])
+
+    db = SessionLocal()
+    try:
+        p = db.get(Person, person_id)
+        p.ai_starters_json = '["What do you do for work?", "Any siblings?"]'
+        db.commit()
+    finally:
+        db.close()
+
+    detail = logged_in_client.get(f"/people/{person_id}")
+    assert "Regenerate" in detail.text
+    assert "What do you do for work?" in detail.text
+
+
 def test_people_list_shows_created_person(logged_in_client):
     logged_in_client.post("/people/new", data={"name": "Grace Hopper"})
     resp = logged_in_client.get("/people")
