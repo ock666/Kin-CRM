@@ -69,7 +69,7 @@
       <label for="whisper_api_key">API key (if required)</label>
       <input type="password" id="whisper_api_key" name="whisper_api_key" placeholder="{{ '•••••••• (unchanged)' if cfg.whisper_api_key else '' }}">
     </div>
-    <div class="field">
+    <div class="field" id="whisper_model_field">
       <label for="whisper_model">Model (OpenAI-compatible only)</label>
       <input type="text" id="whisper_model" name="whisper_model" value="{{ cfg.whisper_model or 'whisper-1' }}">
     </div>
@@ -83,10 +83,13 @@
   (function() {
     const providerSel = document.getElementById('whisper_provider');
     const apiKeyField = document.getElementById('whisper_api_key_field');
+    const modelField = document.getElementById('whisper_model_field');
     function syncWhisperFields() {
       const provider = (providerSel && providerSel.value) || 'openai';
       // Hide API key when using ASR webservice (it doesn't support/need auth)
-      if (apiKeyField) apiKeyField.style.display = (provider === 'asr-webservice') ? 'none' : '';
+      const hide = (provider === 'asr-webservice');
+      if (apiKeyField) apiKeyField.style.display = hide ? 'none' : '';
+      if (modelField) modelField.style.display = hide ? 'none' : '';
     }
     if (providerSel) {
       providerSel.addEventListener('change', syncWhisperFields);
