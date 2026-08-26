@@ -84,6 +84,7 @@ I hope it can help others too.
 - **Visual-first.** Avatar grids, tag colours, water meters — built for brains that balk at dense spreadsheets and long forms.
 - **No lock-in.** Full JSON/CSV export, local SQLite database, data stays on your server. Leave anytime with everything.
 - **AuDHD/RSD-first.** Designed around the realities of executive dysfunction, rejection sensitivity, and social anxiety before anything else.
+- **Cosy by default.** A warm "evening lamp" interface — dim backgrounds, soft wide shadows, a faint amber glow — with every animation reduced-motion-aware.
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
@@ -207,6 +208,7 @@ Kin includes an optional, unofficial Instagram reader using [instagrapi](https:/
 - **"Time to reach out"** — gentle cadence nudges with per-person quick reply ideas (AI-generated from profile data or template fallback)
 - **Grace mode** — pause all nudges and push notifications for a week, no reason needed
 - **"On this day"** Immich photo memories widget
+- **Hangout detection** — when a linked Immich face shows up in a photo from the last month, a "Looks like you hung out" card appears. It auto-credits the check-in, offers one-click "Quick log" or a pre-filled "Write about it" journal entry (with the photos attached), dedupes against photos already on the person's timeline, and is dismissible
 - **"Read back when anxious"** — your own reassurance note plus recently unlocked achievements
 
 ### People & relationships
