@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}{{ game_title }} — {{ app_name }}{% endblock %}
+{% block content %}
+<div class="container-narrow">
+  <h1>{{ game_emoji }} {{ game_title }}</h1>
+  <p class="text-sm text-muted mb-2">{{ game_description }} <a href="/regulation">← back to the toolkit</a></p>
+  <div id="game-root"></div>
+</div>
+<script src="/static/js/{{ game_script }}"></script>
+{% endblock %}
