@@ -85,6 +85,9 @@ function kinChat() {
     input: '',
     loading: false,
     retentionExpired: false,
+    insight: '',
+    insightEditing: false,
+    insightSaving: false,
 
     openChat(id, name) {
       this.conflictId = id;
@@ -94,6 +97,9 @@ function kinChat() {
       this.input = '';
       this.loading = false;
       this.retentionExpired = false;
+      this.insight = '';
+      this.insightEditing = false;
+      this.insightSaving = false;
       this.loadHistory();
       const self = this;
       this.$nextTick(() => {
@@ -105,6 +111,7 @@ function kinChat() {
     close() {
       this.open = false;
       this.conflictId = null;
+      this.insightEditing = false;
     },
 
     async loadHistory() {
@@ -200,6 +207,37 @@ function kinChat() {
         await fetch(`/conflicts/${this.conflictId}/chat/clear`, { method: 'POST' });
         this.messages = [];
       } catch (e) { /* silent */ }
+    },
+
+    openInsight() {
+      this.insightEditing = !this.insightEditing;
+      if (this.insightEditing) {
+        this.insight = '';
+        this.insightSaving = false;
+        this.fetchInsight();
+      }
+    },
+
+    async fetchInsight() {
+      try {
+        const resp = await fetch(`/conflicts/${this.conflictId}/chat/insight`, { method: 'POST' });
+        if (resp.ok) { const data = await resp.json(); this.insight = data.insight || ''; }
+      } catch (e) { this.insight = ''; }
+    },
+
+    async saveInsight() {
+      if (!this.insight.trim()) return;
+      this.insightSaving = true;
+      try {
+        await fetch(`/conflicts/${this.conflictId}/chat/insight/save`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ insight: this.insight.trim() }),
+        });
+        this.insightEditing = false;
+        this.insight = '';
+      } catch (e) { /* silent */ }
+      this.insightSaving = false;
     }
   };
 }
