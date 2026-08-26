@@ -217,7 +217,12 @@ def list_tts_voices(request: Request, db: Session = Depends(get_db), user=Depend
         if prov == "piper":
             base = (cfg.get("tts_base_url") or "").strip()
             if not base:
-                return JSONResponse({"voices": [], "error": "Set Piper Base URL for listing voices."}, status_code=400)
+                # Fall back to Piper web UI on host:5500 if host provided
+                host = (cfg.get("tts_piper_host") or "").strip()
+                if host:
+                    base = f"http://{host}:5500"
+            if not base:
+                return JSONResponse({"voices": [], "error": "Provide Piper Base URL or Piper host to fetch voices."}, status_code=400)
             with httpx.Client(timeout=5.0) as client:
                 r = client.get(base.rstrip("/") + "/api/piper/voices")
                 if r.status_code >= 400:
