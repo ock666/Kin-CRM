@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import logging
+import re
 import subprocess
 import tempfile
 from typing import Optional
@@ -16,6 +17,34 @@ logger = logging.getLogger(__name__)
 
 class TTSError(Exception):
     pass
+
+
+# Emoji (and associated modifiers/variation selectors/ZWJ) are never spoken, so
+# strip them before synthesis. Best-effort: covers the common emoji blocks.
+_EMOJI_RE = re.compile(
+    "["
+    "\U0001F1E6-\U0001F1FF"   # regional indicator symbols (flags)
+    "\U0001F300-\U0001F5FF"   # misc symbols & pictographs
+    "\U0001F600-\U0001F64F"   # emoticons
+    "\U0001F680-\U0001F6FF"   # transport & map symbols
+    "\U0001F900-\U0001F9FF"   # supplemental symbols & pictographs
+    "\U0001FA70-\U0001FAFF"   # symbols & pictographs extended-a
+    "\U000023E9-\U000023F3"   # av symbols
+    "\U000023F8-\U000023FA"   # av symbols
+    "\U00002600-\U000027BF"   # misc symbols & dingbats
+    "\U00002B00-\U00002BFF"   # misc symbols & arrows
+    "\U0001F3FB-\U0001F3FF"   # skin tone modifiers
+    "\U0000FE00-\U0000FE0F"   # variation selectors
+    "\U0000200D"              # zero-width joiner
+    "\U000020E3"              # keycap
+    "]"
+)
+
+
+def _strip_emoji(text: str) -> str:
+    """Remove emoji and collapse leftover whitespace so TTS only speaks words."""
+    cleaned = _EMOJI_RE.sub("", text or "")
+    return re.sub(r"\s{2,}", " ", cleaned).strip()
 
 
 def _read_tts_settings(db):
@@ -46,6 +75,9 @@ def synthesize_from_settings(db, text: str, *, voice: Optional[str] = None, fmt:
     provider = (cfg.get("provider") or "piper").lower()
     fmt = fmt or (cfg.get("format") or "mp3")
     v = voice or (cfg.get("voice") or "en_GB-alba-medium")
+    text = _strip_emoji(text)
+    if not text:
+        raise TTSError("Nothing to speak after removing emoji.")
     logger.info("TTS synth request: provider=%s voice=%s fmt=%s text_len=%d", provider, v, fmt, len(text))
     if provider == "openai":
         return _synthesize_openai(cfg, text, v, fmt)
