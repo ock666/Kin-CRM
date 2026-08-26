@@ -11,7 +11,8 @@ import datetime as dt
 import json
 
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import RedirectResponse, StreamingResponse, JSONResponse
+from fastapi import UploadFile, File
+from fastapi.responses import RedirectResponse, StreamingResponse, JSONResponse, FileResponse
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -188,6 +189,8 @@ def get_chat_messages(conflict_id: int, db: Session = Depends(get_db), user=Depe
     return JSONResponse([{
         "role": m.role,
         "content": m.content,
+        "audio_url": m.audio_url,
+        "transcript": m.transcript,
         "created_at": m.created_at.isoformat() if m.created_at else None,
     } for m in msgs])
 
@@ -251,10 +254,31 @@ async def conflict_chat(conflict_id: int, request: Request, db: Session = Depend
             if reply:
                 db2 = SessionLocal()
                 try:
-                    db2.add(ConflictChatMessage(
-                        conflict_id=conflict_id, role="assistant", content=reply,
-                    ))
+                    msg = ConflictChatMessage(conflict_id=conflict_id, role="assistant", content=reply)
+                    db2.add(msg)
                     db2.commit()
+                    # Attempt voice synth if enabled; ignore failures silently
+                    try:
+                        from ..services.tts_client import synthesize_from_settings, should_reply_with_voice
+                        reply_default, mirror_mode = should_reply_with_voice(db2)
+                        do_voice = reply_default
+                        if mirror_mode and prior:
+                            do_voice = do_voice or any((pm.audio_url for pm in prior if pm.role == 'user'))
+                        if do_voice:
+                            audio_bytes = synthesize_from_settings(db2, reply)
+                            from ..config import settings as app_settings
+                            import uuid, os
+                            voice_dir = app_settings.UPLOAD_DIR / "voice"
+                            voice_dir.mkdir(parents=True, exist_ok=True)
+                            fname = f"bot_{uuid.uuid4().hex}.mp3"
+                            fpath = voice_dir / fname
+                            fpath.write_bytes(audio_bytes)
+                            msg.audio_url = f"/uploads/voice/{fname}"
+                            msg.transcript = reply
+                            db2.commit()
+                            yield f"data: {json.dumps({'audio_url': msg.audio_url})}\n\n"
+                    except Exception:
+                        pass
                 finally:
                     db2.close()
 
@@ -263,6 +287,54 @@ async def conflict_chat(conflict_id: int, request: Request, db: Session = Depend
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
     return StreamingResponse(generate(), media_type="text/event-stream")
+
+
+@router.post("/conflicts/{conflict_id}/chat/voice")
+async def conflict_chat_voice(conflict_id: int, db: Session = Depends(get_db), user=Depends(current_user),
+                              audio_file: UploadFile = File(...)):
+    conflict = db.get(ConflictLog, conflict_id)
+    if not conflict:
+        return JSONResponse({"error": "not found"}, status_code=404)
+    if audio_file.content_type and not audio_file.content_type.startswith("audio/"):
+        return JSONResponse({"error": "Please upload an audio file."}, status_code=400)
+    raw = await audio_file.read()
+    if len(raw) > 25 * 1024 * 1024:
+        return JSONResponse({"error": "Audio too large (limit 25 MB)."}, status_code=413)
+    # Save user audio to uploads/voice (keep original container type)
+    from ..config import settings as app_settings
+    import uuid, os
+    voice_dir = app_settings.UPLOAD_DIR / "voice"
+    voice_dir.mkdir(parents=True, exist_ok=True)
+    ext = os.path.splitext(audio_file.filename or "voice")[1] or ".webm"
+    fname = f"user_{uuid.uuid4().hex}{ext}"
+    fpath = voice_dir / fname
+    fpath.write_bytes(raw)
+    audio_url = f"/uploads/voice/{fname}"
+
+    # Transcribe
+    from ..services.whisper_client import transcribe_from_settings, WhisperError
+    import io as _io
+    try:
+        text = transcribe_from_settings(db, _io.BytesIO(raw), audio_file.filename or "audio")
+    except WhisperError as e:
+        text = ""
+
+    # Record user message (with audio + transcript)
+    msg = ConflictChatMessage(conflict_id=conflict_id, role="user", content=(text or "(voice note)"),
+                              audio_url=audio_url, transcript=text or None)
+    db.add(msg)
+    db.commit()
+    return JSONResponse({"ok": True, "text": text or "", "audio_url": audio_url})
+
+
+@router.get("/uploads/voice/{filename}")
+def serve_voice_upload(filename: str, db: Session = Depends(get_db), user=Depends(current_user)):
+    # Auth-gated simple file server for voice uploads
+    from ..config import settings as app_settings
+    fpath = app_settings.UPLOAD_DIR / "voice" / filename
+    if not fpath.exists():
+        return JSONResponse({"error": "not found"}, status_code=404)
+    return FileResponse(str(fpath))
 
 
 @router.post("/conflicts/{conflict_id}/chat/insight")

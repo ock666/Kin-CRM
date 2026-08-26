@@ -139,6 +139,44 @@ def test_whisper(request: Request, db: Session = Depends(get_db), user=Depends(c
                   whisper_test=result)
 
 
+@router.post("/settings/tts")
+def save_tts(request: Request, db: Session = Depends(get_db), user=Depends(current_user),
+             tts_provider: str = Form("piper"), tts_base_url: str = Form(""), tts_api_key: str = Form(""),
+             tts_voice: str = Form("en_GB-alba-medium"), tts_lang: str = Form("en-GB"),
+             tts_format: str = Form("mp3"), tts_reply_default: str = Form("1"), tts_mirror_mode: str = Form("1")):
+    values = {
+        "tts_provider": (tts_provider or "piper").strip(),
+        "tts_base_url": tts_base_url.strip(),
+        "tts_voice": tts_voice.strip() or "en_GB-alba-medium",
+        "tts_lang": tts_lang.strip() or "en-GB",
+        "tts_format": tts_format.strip() or "mp3",
+        "tts_reply_default": "1" if tts_reply_default == "1" else "0",
+        "tts_mirror_mode": "1" if tts_mirror_mode == "1" else "0",
+    }
+    if tts_api_key:
+        values["tts_api_key"] = tts_api_key
+    set_many(db, values)
+    return RedirectResponse("/settings", status_code=303)
+
+
+@router.post("/settings/tts/test")
+def test_tts(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
+    cfg = get_all_settings(db)
+    users = db.query(User).order_by(User.id).all()
+    result = None
+    try:
+        from ..services.tts_client import synthesize_from_settings
+        data = synthesize_from_settings(db, "Testing voice reply from Kin.")
+        if data and len(data) > 0:
+            result = ("success", "TTS synth OK.")
+        else:
+            result = ("danger", "TTS returned empty audio.")
+    except Exception:
+        result = ("danger", "TTS failed. Check provider, base URL and key.")
+    return render(request, "settings.html", db=db, user=user, active="settings", cfg=cfg, users=users,
+                  tts_test=result)
+
+
 @router.post("/settings/instagram")
 def save_instagram(request: Request, db: Session = Depends(get_db), user=Depends(current_user),
                     instagram_username: str = Form(""), instagram_password: str = Form("")):

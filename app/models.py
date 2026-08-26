@@ -396,6 +396,8 @@ class ConflictChatMessage(Base):
     conflict_id = Column(Integer, ForeignKey("conflict_logs.id", ondelete="CASCADE"), nullable=False)
     role = Column(String(20), nullable=False)
     content = Column(Text, nullable=False)
+    audio_url = Column(Text, nullable=True)
+    transcript = Column(Text, nullable=True)
     created_at = Column(DateTime, default=utcnow)
 
     conflict = relationship("ConflictLog", back_populates="chat_messages")

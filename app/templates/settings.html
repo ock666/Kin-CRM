@@ -79,6 +79,72 @@
   <p class="help-text">Tip: For the ASR webservice, run the container on your Unraid host and set Base URL to <code>http://192.168.0.51:9090</code>.</p>
   </div>
 
+<div class="card mt-2">
+  <h2>🔊 Voice Replies (TTS)</h2>
+  <p class="text-sm text-muted">Have the support chat reply with a natural-sounding voice. Local Piper (offline) or OpenAI TTS are supported. Replies always include the text transcript for accessibility.</p>
+  {% if tts_test %}<div class="notice notice-{{ tts_test[0] }}">{{ tts_test[1] }}</div>{% endif %}
+  <form method="post" action="/settings/tts">
+    <div class="field">
+      <label for="tts_provider">Provider</label>
+      <select id="tts_provider" name="tts_provider">
+        <option value="piper" {{ 'selected' if (cfg.tts_provider or 'piper') == 'piper' else '' }}>Piper (local, offline)</option>
+        <option value="openai" {{ 'selected' if cfg.tts_provider == 'openai' else '' }}>OpenAI TTS (tts-1)</option>
+      </select>
+    </div>
+    <div class="field" id="tts_base_url_field">
+      <label for="tts_base_url">Base URL</label>
+      <input type="text" id="tts_base_url" name="tts_base_url" value="{{ cfg.tts_base_url }}" placeholder="e.g. http://192.168.0.51:5500 (Piper) or http://litellm:4000/v1 (OpenAI)">
+    </div>
+    <div class="field" id="tts_api_key_field">
+      <label for="tts_api_key">API key (OpenAI only)</label>
+      <input type="password" id="tts_api_key" name="tts_api_key" placeholder="{{ '•••••••• (unchanged)' if cfg.tts_api_key else '' }}">
+    </div>
+    <div class="field">
+      <label for="tts_voice">Voice</label>
+      <input type="text" id="tts_voice" name="tts_voice" value="{{ cfg.tts_voice or 'en_GB-alba-medium' }}" placeholder="e.g. en_GB-alba-medium (Piper) or alloy (OpenAI)">
+      <p class="help-text">Piper voices: see the <a href="https://rhasspy.github.io/piper-samples/#english-gb" target="_blank">voice samples</a>. Install voices on your Piper server. OpenAI: try 'alloy', 'verse'.</p>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="tts_lang">Language</label>
+        <input type="text" id="tts_lang" name="tts_lang" value="{{ cfg.tts_lang or 'en-GB' }}">
+      </div>
+      <div class="field">
+        <label for="tts_format">Format</label>
+        <input type="text" id="tts_format" name="tts_format" value="{{ cfg.tts_format or 'mp3' }}" readonly>
+      </div>
+    </div>
+    <div class="field">
+      <label class="flex-gap" style="justify-content:space-between;">
+        <span>Reply with voice by default</span>
+        <input type="checkbox" name="tts_reply_default" value="1" {{ 'checked' if cfg.tts_reply_default != '0' else '' }}>
+      </label>
+      <label class="flex-gap" style="justify-content:space-between;">
+        <span>Mirror my mode (if I send voice, reply with voice)</span>
+        <input type="checkbox" name="tts_mirror_mode" value="1" {{ 'checked' if cfg.tts_mirror_mode != '0' else '' }}>
+      </label>
+    </div>
+    <button class="btn btn-primary btn-sm" type="submit">Save</button>
+  </form>
+  <form method="post" action="/settings/tts/test" class="mt-1"><button class="btn btn-sm" type="submit">Test TTS</button></form>
+</div>
+
+<script>
+  (function() {
+    const prov = document.getElementById('tts_provider');
+    const base = document.getElementById('tts_base_url_field');
+    const keyf = document.getElementById('tts_api_key_field');
+    function sync() {
+      const p = prov && prov.value || 'piper';
+      if (p === 'piper') { if (keyf) keyf.style.display = 'none'; }
+      else { if (keyf) keyf.style.display = ''; }
+      // Base URL required for both (Piper HTTP or OpenAI/LiteLLM)
+      if (base) base.style.display = '';
+    }
+    if (prov) { prov.addEventListener('change', sync); sync(); }
+  })();
+</script>
+
 <script>
   (function() {
     const providerSel = document.getElementById('whisper_provider');
