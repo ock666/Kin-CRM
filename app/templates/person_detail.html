@@ -284,8 +284,8 @@
       {% if entry.images %}
       <div class="photo-grid mt-1">
         {% for img in entry.images %}
-          {% if img.immich_asset_id %}<img src="/immich/asset/{{ img.immich_asset_id }}/thumbnail" alt="">
-          {% elif img.upload_path %}<img src="{{ img.upload_path }}" alt="{{ img.caption or '' }}">{% endif %}
+          {% if img.immich_asset_id %}<img src="/immich/asset/{{ img.immich_asset_id }}/thumbnail" class="lightbox" alt="">
+          {% elif img.upload_path %}<img src="{{ img.upload_path }}" class="lightbox" alt="{{ img.caption or '' }}">{% endif %}
         {% endfor %}
       </div>
       {% endif %}
