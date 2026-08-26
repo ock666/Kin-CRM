@@ -63,10 +63,14 @@
 
   async function subscribePush() {
     try {
-      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
-      if (!('Notification' in window) || Notification.permission !== 'granted') return false;
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        return 'Push isn\'t available in this browser/context.';
+      }
+      if (!('Notification' in window) || Notification.permission !== 'granted') {
+        return 'Notifications aren\'t allowed yet.';
+      }
       const key = await getVapidKey();
-      if (!key) return false;
+      if (!key) return 'Couldn\'t load the push key.';
       const registration = await navigator.serviceWorker.ready;
       let sub = await registration.pushManager.getSubscription();
       if (!sub) {
@@ -80,11 +84,10 @@
         headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
         body: JSON.stringify(sub)
       });
-      if (!resp.ok) return false;
-      return true;
+      if (!resp.ok) return 'The server rejected the subscription (HTTP ' + resp.status + ').';
+      return null; // success
     } catch (e) {
-      console.error('Kin push subscribe failed:', e);
-      return false;
+      return 'Subscribe error: ' + (e && e.message ? e.message : e);
     }
   }
 
@@ -127,9 +130,9 @@
             return;
           }
         }
-        const ok = await subscribePush();
-        if (!ok) {
-          alert('Couldn\'t subscribe to push notifications. Try refreshing the page and clicking again.');
+        const err = await subscribePush();
+        if (err) {
+          alert(err);
           return;
         }
         const resp = await fetch(API_BASE + '/test', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
