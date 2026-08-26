@@ -7,9 +7,9 @@
       <span class="text-sm text-muted" style="margin-left:.5rem;" x-text="personName"></span>
     </div>
     <div class="flex-gap">
-      <button class="btn btn-sm" type="button" @click="openInsight()" title="Save insight to journal" x-show="messages.length > 0 && !retentionExpired">💡</button>
-      <button class="btn btn-sm" type="button" @click="clearChat()" title="Clear chat transcript">🗑️</button>
-      <button class="btn btn-sm" type="button" @click="close()" title="Close">✕</button>
+      <button class="btn btn-sm" type="button" @click="openInsight()" title="Save insight to journal" aria-label="Save insight to journal" x-show="messages.length > 0 && !retentionExpired">💡</button>
+      <button class="btn btn-sm" type="button" @click="clearChat()" title="Clear chat transcript" aria-label="Clear chat transcript">🗑️</button>
+      <button class="btn btn-sm" type="button" @click="close()" title="Close" aria-label="Close">✕</button>
     </div>
   </div>
   <div class="chat-messages" id="chat-messages" x-ref="messages">
@@ -18,9 +18,9 @@
         <template x-if="msg.audio_url">
           <div class="mb-1">
             <audio :src="msg.audio_url" controls style="max-width:100%;"></audio>
-            <details class="mt-1" x-show="msg.transcript && msg.transcript.length > 0">
+            <details class="mt-1" x-show="(msg.transcript || msg.content) && (msg.transcript || msg.content).length > 0">
               <summary class="text-sm text-muted" style="cursor:pointer;">Show text</summary>
-              <div class="text-sm" x-text="msg.transcript"></div>
+              <div class="text-sm" x-text="msg.transcript || msg.content"></div>
             </details>
           </div>
         </template>
@@ -46,14 +46,14 @@
   </form>
   <div class="chat-input" x-show="!retentionExpired" style="gap:.5rem;">
     <div class="flex-gap" style="align-items:center; flex-wrap:wrap;">
-      <button class="btn btn-sm" type="button" id="chat-voice-record" title="Record voice note">🎙️</button>
+      <button class="btn btn-sm" type="button" id="chat-voice-record" title="Record voice note" aria-label="Record voice note">🎙️</button>
       <input type="file" id="chat-voice-file" accept="audio/*" style="display:none;">
-      <button class="btn btn-sm" type="button" id="chat-voice-upload" title="Upload audio">📎</button>
+      <button class="btn btn-sm" type="button" id="chat-voice-upload" title="Upload audio" aria-label="Upload audio">📎</button>
       <span id="chat-voice-indicator" class="rec-indicator" style="display:none;"><span class="rec-dot"></span><span id="chat-voice-time">0:00</span></span>
       <div id="chat-voice-playback" class="chat-voice-preview" style="display:none;">
         <audio id="chat-voice-audio" controls style="flex:1; min-width:0; max-width:220px;"></audio>
-        <button class="btn btn-sm btn-primary" type="button" id="chat-voice-send" title="Send voice note">📤</button>
-        <button class="btn btn-sm" type="button" id="chat-voice-discard" title="Discard recording">✕</button>
+        <button class="btn btn-sm btn-primary" type="button" id="chat-voice-send" title="Send voice note" aria-label="Send voice note">📤</button>
+        <button class="btn btn-sm" type="button" id="chat-voice-discard" title="Discard recording" aria-label="Discard recording">✕</button>
       </div>
       <span id="chat-voice-status" class="text-sm text-muted" aria-live="polite"></span>
     </div>
@@ -115,8 +115,8 @@
       if(!recording){ const stream=await navigator.mediaDevices.getUserMedia({audio:true}); chunks=[]; const mt=bestMime(); rec= mt? new MediaRecorder(stream,{mimeType:mt}) : new MediaRecorder(stream);
         rec.ondataavailable=(e)=>{ if(e.data && e.data.size>0) chunks.push(e.data); };
         rec.onstop=()=>{ const t=rec.mimeType||'audio/webm'; blob=new Blob(chunks,{type:t}); url=URL.createObjectURL(blob); audioEl.src=url; audioEl.load && audioEl.load(); pb.style.display='flex'; stopInd(); uploadBtn.disabled=false; stream.getTracks().forEach(t=>t.stop()); };
-        rec.start(); recording=true; recordBtn.textContent='⏹️'; recordBtn.title='Stop recording'; uploadBtn.disabled=true; startInd(); setStatus('Recording…'); }
-      else{ rec && rec.stop(); recording=false; recordBtn.textContent='🎙️'; recordBtn.title='Record voice note'; setStatus('Stopped'); }
+        rec.start(); recording=true; recordBtn.textContent='⏹️'; recordBtn.title='Stop recording'; recordBtn.setAttribute('aria-label','Stop recording'); uploadBtn.disabled=true; startInd(); setStatus('Recording…'); }
+      else{ rec && rec.stop(); recording=false; recordBtn.textContent='🎙️'; recordBtn.title='Record voice note'; recordBtn.setAttribute('aria-label','Record voice note'); setStatus('Stopped'); }
     }catch(e){
       uploadBtn.disabled=false;
       if (e && e.name === 'NotAllowedError') setStatus('Microphone permission denied. Enable it in the browser and try again.');

@@ -20,7 +20,8 @@ class TTSError(Exception):
 
 
 # Emoji (and associated modifiers/variation selectors/ZWJ) are never spoken, so
-# strip them before synthesis. Best-effort: covers the common emoji blocks.
+# strip them before synthesis. Best-effort: covers the common emoji blocks and
+# some non-spoken dingbats/symbols (e.g. ✓ ✕ ★ ☀), which is harmless for speech.
 _EMOJI_RE = re.compile(
     "["
     "\U0001F1E6-\U0001F1FF"   # regional indicator symbols (flags)
@@ -103,6 +104,21 @@ def _synthesize_openai(cfg: dict, text: str, voice: str, fmt: str) -> bytes:
     raise TTSError("Unexpected OpenAI TTS response")
 
 
+def _run_wyoming(coro) -> bytes:
+    """Run the async Wyoming coroutine safely regardless of the calling context.
+
+    asyncio.run() raises if there is already a running loop (e.g. an async route).
+    When that happens, run the coroutine on a fresh loop in a worker thread.
+    """
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)
+    import concurrent.futures
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        return pool.submit(asyncio.run, coro).result()
+
+
 def _synthesize_piper(cfg: dict, text: str, voice: str, fmt: str) -> bytes:
     """Prefer Wyoming TCP (host/port). If not configured, fall back to Piper web UI HTTP
     (only if a synth endpoint exists; some builds don't expose one)."""
@@ -110,7 +126,7 @@ def _synthesize_piper(cfg: dict, text: str, voice: str, fmt: str) -> bytes:
     port = int((cfg.get("piper_port") or cfg.get("tts_piper_port") or 10200))
     if host:
         logger.info("TTS Piper via Wyoming TCP %s:%s voice=%s", host, port, voice)
-        return asyncio.run(_synthesize_piper_wyoming(host, port, text, voice, fmt))
+        return _run_wyoming(_synthesize_piper_wyoming(host, port, text, voice, fmt))
     # HTTP fallback (may not exist in wyoming-piper images) - best effort only
     base = (cfg.get("base_url") or "").rstrip("/")
     if not base:

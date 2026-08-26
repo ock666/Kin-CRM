@@ -143,7 +143,7 @@ def save_tts(request: Request, db: Session = Depends(get_db), user=Depends(curre
              tts_provider: str = Form("piper"), tts_base_url: str = Form(""), tts_api_key: str = Form(""),
              tts_voice: str = Form("en_GB-alba-medium"), tts_lang: str = Form("en-GB"),
              tts_format: str = Form("mp3"), tts_piper_host: str = Form(""), tts_piper_port: str = Form("10200"),
-             tts_mirror_mode: str = Form("1")):
+             tts_piper_web_port: str = Form("5500"), tts_mirror_mode: str = Form("1")):
     values = {
         "tts_provider": (tts_provider or "piper").strip(),
         "tts_base_url": tts_base_url.strip(),
@@ -152,6 +152,7 @@ def save_tts(request: Request, db: Session = Depends(get_db), user=Depends(curre
         "tts_format": tts_format.strip() or "mp3",
         "tts_piper_host": tts_piper_host.strip(),
         "tts_piper_port": tts_piper_port.strip() or "10200",
+        "tts_piper_web_port": tts_piper_web_port.strip() or "5500",
         "tts_mirror_mode": "1" if tts_mirror_mode == "1" else "0",
     }
     if tts_api_key:
@@ -215,10 +216,11 @@ def list_tts_voices(request: Request, db: Session = Depends(get_db), user=Depend
         if prov == "piper":
             base = (cfg.get("tts_base_url") or "").strip()
             if not base:
-                # Fall back to Piper web UI on host:5500 if host provided
+                # Fall back to Piper web UI on host:web_port if host provided
                 host = (cfg.get("tts_piper_host") or "").strip()
                 if host:
-                    base = f"http://{host}:5500"
+                    web_port = (cfg.get("tts_piper_web_port") or "5500").strip() or "5500"
+                    base = f"http://{host}:{web_port}"
             if not base:
                 return JSONResponse({"voices": [], "error": "Provide Piper Base URL or Piper host to fetch voices."}, status_code=400)
             with httpx.Client(timeout=5.0) as client:

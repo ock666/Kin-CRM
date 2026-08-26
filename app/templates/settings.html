@@ -104,6 +104,10 @@
         <label for="tts_piper_port">Piper port</label>
         <input type="text" id="tts_piper_port" name="tts_piper_port" value="{{ cfg.tts_piper_port or '10200' }}">
       </div>
+      <div class="field">
+        <label for="tts_piper_web_port">Piper web UI port (voice list)</label>
+        <input type="text" id="tts_piper_web_port" name="tts_piper_web_port" value="{{ cfg.tts_piper_web_port or '5500' }}">
+      </div>
     </div>
     <div class="field" id="tts_api_key_field">
       <label for="tts_api_key">API key (OpenAI only)</label>

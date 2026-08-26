@@ -36,6 +36,7 @@ DEFAULTS = {
     "tts_format": "mp3",
     "tts_piper_host": "",
     "tts_piper_port": "10200",
+    "tts_piper_web_port": "5500",      # Piper web UI (used only to enumerate voices)
     "tts_mirror_mode": "1",           # if on, bot replies with voice when user sends voice; if off, bot always replies with text
 }
 
