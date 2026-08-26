@@ -260,6 +260,12 @@ class AIClient:
         system = (
             "Suggest 3-5 short, specific conversation starters or follow-up questions to ask "
             "next time the user talks to this person, based on their journal history. "
+            "The journal entries are the user's own writing about this person - mirror their voice "
+            "(warmth, humour, how they refer to the person) so the starters sound like the user "
+            "wrote them, never like a generic AI assistant or a coworker. Borrow tone and style "
+            "only, never import negative or conflict-heavy wording. Match the relationship register "
+            "given in the known context: closer relationships get a casual, warm voice; newer ones "
+            "stay warm but lighter. "
             "Respond ONLY as a JSON array of strings."
         )
         joined = "\n---\n".join(journal_snippets[-20:])
@@ -281,9 +287,13 @@ class AIClient:
             "from the person's profile and recent journal history (shared events, hobbies, "
             "people in their life, how they met, recent news) so they feel personal, never "
             "generic. Each is 1-2 sentences, ready to send as-is, low-pressure, genuinely "
-            "optional. Produce 3 short scripts with varied angles (a gentle check-in, a "
-            "specific callback to shared history or recent news, a low-effort invitation or "
-            "acknowledgment of the time gap). Respond ONLY as a JSON array of strings."
+            "optional. The journal entries are the user's own writing about this person - mirror "
+            "their voice (warmth, humour, how they refer to the person) so the messages sound like "
+            "the user wrote them, never like a generic AI assistant or a coworker. Borrow tone and "
+            "style only, never import negative or conflict-heavy wording. Match the relationship "
+            "register given in the known context. Produce 3 short scripts with varied angles (a "
+            "gentle check-in, a specific callback to shared history or recent news, a low-effort "
+            "invitation or acknowledgment of the time gap). Respond ONLY as a JSON array of strings."
         )
         gap_note = f"It's been {days_since_contact} days since last contact." if days_since_contact else ""
         joined = "\n---\n".join(journal_snippets[-20:])
@@ -394,6 +404,9 @@ def build_person_context(person) -> str:
     except Exception:
         pass  # friend-rank context is a nice-to-have, never let it break AI features
 
+    register = familiarity_register(person)
+    parts.append(f"Relationship register (match this warmth/familiarity): {register}")
+
     return "\n".join(parts)
 
 
@@ -412,6 +425,29 @@ def _safe_json(raw: str):
             except json.JSONDecodeError:
                 pass
     return {}
+
+
+_REGISTER_BY_TIER = {
+    "Acquaintance": "warm but polite; lighter register; reference what's known (occupation, hobby, how you met); don't presume shared intimacy or inside jokes",
+    "Getting to know them": "friendly and light; use their name; reference a specific known detail; keep it easy to answer",
+    "Close Friend": "casual and warm; use contractions; reference shared memories or hobbies; assume warmth",
+    "Inner Circle": "playful and intimate; natural shorthand; reference shared or inside references; warm and easy",
+}
+
+
+def familiarity_register(person) -> str:
+    """Return a short 'register' instruction for AI prompts, derived from how much we know about
+    the person (the friend-rank tier: journal count + contact recency + profile completeness).
+
+    Intentionally invisible to the user - this only shapes how AI-suggested messages are written
+    so they land at the right level of warmth/familiarity instead of a flat 'acquaintance/coworker'
+    register. Duck-typed on `person` (works with stub objects in tests)."""
+    try:
+        from .friend_rank import compute_friend_rank
+        tier = compute_friend_rank(person).get("tier", "")
+        return _REGISTER_BY_TIER.get(tier, "warm, natural, and human")
+    except Exception:
+        return "warm, natural, and human"
 
 
 def get_client_from_settings(db) -> Optional["AIClient"]:
