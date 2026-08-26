@@ -11,6 +11,7 @@
   var grid = [];
   var score = 0;
   var cells = [];
+  var done = false;
 
   root.innerHTML =
     '<div class="card" style="text-align:center;">' +
@@ -113,7 +114,7 @@
     if (changed) {
       spawn();
       render();
-      if (!canMove()) statusEl.textContent = "No more moves — that was a good run. New game whenever you like.";
+      if (!canMove()) { done = true; statusEl.textContent = "No more moves — that was a good run. New game whenever you like."; }
     }
     return changed;
   }
@@ -146,6 +147,7 @@
     grid = [];
     for (var r = 0; r < SIZE; r++) grid.push([0, 0, 0, 0]);
     score = 0;
+    done = false;
     statusEl.textContent = "";
     spawn();
     spawn();
@@ -154,6 +156,7 @@
 
   // input
   function keydown(e) {
+    if (done) return;
     var handled = true;
     if (e.keyCode === 37 || e.keyCode === 65) move(3);          // left / A
     else if (e.keyCode === 39 || e.keyCode === 68) move(1);      // right / D
@@ -166,6 +169,7 @@
   var touchStart = null;
   function touchstart(e) { touchStart = e.touches[0]; }
   function touchend(e) {
+    if (done) return;
     if (!touchStart) return;
     var dx = e.changedTouches[0].clientX - touchStart.clientX;
     var dy = e.changedTouches[0].clientY - touchStart.clientY;

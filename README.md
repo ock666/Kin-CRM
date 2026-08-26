@@ -180,6 +180,7 @@ pytest
 | `DATABASE_URL` | (SQLite) | Optional Postgres connection string |
 | `ALLOWED_HOSTS` | `*` | Comma-separated hostnames this server accepts (e.g. `example.com,*.example.com`). Defaults to `*` for self-hosted LAN setups. |
 | `HTTPS_ONLY` | `0` | Set to `1` to restrict session cookies to HTTPS only (requires a TLS-terminating reverse proxy). |
+| `VAPID_SUBJECT` | `mailto:kin@localhost` | `mailto:`/`https:` contact for Web Push's VAPID `sub` claim. Set it to a real address (e.g. `mailto:you@example.com`) if your browser's push service rejects the default. |
 
 ### Behind a reverse proxy
 
@@ -337,7 +338,10 @@ Kin includes an optional, unofficial Instagram reader using [instagrapi](https:/
 
 ### Regulation toolkit
 - Sidebar `🧘 Regulation` link — always accessible, zero AI, no pressure
-- 5-4-3-2-1 grounding, box breathing (interactive countdown), facts-vs-RSD reality check, physical grounding
+- **Breathe**: Box, 4-7-8, physiological sigh, and 4-6 patterns with one interactive timer
+- **Ground**: 5-4-3-2-1 grounding and quick physical resets
+- **Reframe**: facts-vs-RSD reality check, the STOP technique, and "name it to tame it" affect labeling
+- **Soothe**: gentle, no-pressure games (no timers, no score pressure, touch + keyboard) — Soft Fall (falling blocks), 2048, Memory, and Minesweeper
 - Inclusive help lines: AU (000, Lifeline, Beyond Blue, QLife), US (988, Trevor Project, Trans Lifeline), UK (999/111, Mind, Switchboard) — secular and queer-affirming only
 
 ### PWA: install anywhere
