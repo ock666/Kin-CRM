@@ -187,12 +187,15 @@
   async function sendForTranscription(blob, filename) {
     try {
       setStatus('Transcribing…');
+      if (transcribeBtn) transcribeBtn.disabled = true;
       const fd = new FormData();
       fd.append('audio_file', blob, filename || 'voice.webm');
       const resp = await fetch('/journal/transcribe', { method: 'POST', body: fd });
-      const data = await resp.json();
+      let data = null;
+      try { data = await resp.json(); } catch (_) { data = null; }
       if (!resp.ok || !data || data.error) {
         setStatus(data && data.error ? data.error : 'Transcription failed');
+        if (transcribeBtn) transcribeBtn.disabled = false;
         return;
       }
       const text = (data.text || '').trim();
@@ -204,6 +207,8 @@
       setTimeout(() => setStatus(''), 2000);
     } catch (e) {
       setStatus('Transcription failed');
+    } finally {
+      if (transcribeBtn) transcribeBtn.disabled = false;
     }
   }
 

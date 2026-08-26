@@ -121,12 +121,18 @@ def test_whisper(request: Request, db: Session = Depends(get_db), user=Depends(c
                 r = client.get(url)
                 if r.status_code >= 400:
                     r = client.get(base)
-            result = ("success", "ASR webservice reachable.")
+                if r.status_code < 400:
+                    result = ("success", "ASR webservice reachable.")
+                else:
+                    raise RuntimeError("ASR webservice returned an error")
         else:
             # OpenAI-compatible: just try a HEAD/GET to the base URL
             with httpx.Client(timeout=5.0) as client:
-                client.get(base)
-            result = ("success", "OpenAI-compatible endpoint reachable.")
+                r = client.get(base)
+                if r.status_code < 400:
+                    result = ("success", "OpenAI-compatible endpoint reachable.")
+                else:
+                    raise RuntimeError("Endpoint returned an error")
     except Exception:
         result = ("danger", "Whisper endpoint not reachable. Check URL and container.")
     return render(request, "settings.html", db=db, user=user, active="settings", cfg=cfg, users=users,
