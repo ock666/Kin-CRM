@@ -107,6 +107,7 @@ class AIClient:
         system = (
             "You write short, genuine, human-sounding birthday messages. Avoid generic greeting-card "
             "cliches. Keep it brief (2-4 sentences), personal, and specific to details given. "
+            "Keep it understated and low-key — no hype, no excessive exclamation marks, no emoji. "
             f"Tone: {tone}."
         )
         user = (
@@ -260,6 +261,9 @@ class AIClient:
         system = (
             "Suggest 3-5 short, specific conversation starters or follow-up questions to ask "
             "next time the user talks to this person, based on their journal history. "
+            + _NATURAL_VOICE_GUIDE + " "
+            "Good examples of the tone: \"Did you end up trying that new place you mentioned? Worth it?\" "
+            "and \"How's the move going — settled in yet?\". "
             "Respond ONLY as a JSON array of strings."
         )
         joined = "\n---\n".join(journal_snippets[-20:])
@@ -276,14 +280,15 @@ class AIClient:
         """Generate 3 short, copy-paste quick-reply scripts for reconnecting after being out of
         touch, referencing specifics from the person's profile and recent shared history."""
         system = (
-            "You write short, warm, copy-paste quick-reply messages for someone reconnecting "
+            "You write short, low-key, copy-paste quick-reply messages for someone reconnecting "
             "after being out of touch with a friend. The messages should reference specifics "
             "from the person's profile and recent journal history (shared events, hobbies, "
             "people in their life, how they met, recent news) so they feel personal, never "
             "generic. Each is 1-2 sentences, ready to send as-is, low-pressure, genuinely "
-            "optional. Produce 3 short scripts with varied angles (a gentle check-in, a "
-            "specific callback to shared history or recent news, a low-effort invitation or "
-            "acknowledgment of the time gap). Respond ONLY as a JSON array of strings."
+            "optional. " + _NATURAL_VOICE_GUIDE + " "
+            "Produce 3 short scripts with varied angles (a gentle check-in, a specific callback "
+            "to shared history or recent news, a low-effort invitation or acknowledgment of the "
+            "time gap). Respond ONLY as a JSON array of strings."
         )
         gap_note = f"It's been {days_since_contact} days since last contact." if days_since_contact else ""
         joined = "\n---\n".join(journal_snippets[-20:])
@@ -394,6 +399,9 @@ def build_person_context(person) -> str:
     except Exception:
         pass  # friend-rank context is a nice-to-have, never let it break AI features
 
+    register = familiarity_register(person)
+    parts.append(f"Relationship register (match this warmth/familiarity): {register}")
+
     return "\n".join(parts)
 
 
@@ -412,6 +420,39 @@ def _safe_json(raw: str):
             except json.JSONDecodeError:
                 pass
     return {}
+
+
+_REGISTER_BY_TIER = {
+    "Acquaintance": "warm but not over-familiar; plain and polite; reference what's known (occupation, hobby, how you met); don't presume shared intimacy or inside jokes",
+    "Getting to know them": "friendly and curious; low-key; use their name; reference a specific known detail; keep it easy to answer",
+    "Close Friend": "relaxed and low-key; plain wording; reference shared specifics; understated warmth, a little dry is fine — never hype or cheesy",
+    "Inner Circle": "natural shorthand and inside references; still understated and genuine, like a real text — never performative or sentimental",
+}
+
+
+_NATURAL_VOICE_GUIDE = (
+    "Voice: write like a real, low-key message between these two people — specific and "
+    "understated, never hyped. Use the journal entries for WHAT to reference, and match their "
+    "register without amplifying it. No excessive exclamation marks (zero is fine, one at most). "
+    "No clichés like 'partner in crime' or 'can't wait to see what you whip up'. No influencer or "
+    "infomercial energy, no greeting-card phrasing, no emoji, no hashtags. Borrow tone and style "
+    "only — never import negative or conflict-heavy wording."
+)
+
+
+def familiarity_register(person) -> str:
+    """Return a short 'register' instruction for AI prompts, derived from how much we know about
+    the person (the friend-rank tier: journal count + contact recency + profile completeness).
+
+    Intentionally invisible to the user - this only shapes how AI-suggested messages are written
+    so they land at the right level of warmth/familiarity instead of a flat 'acquaintance/coworker'
+    register. Duck-typed on `person` (works with stub objects in tests)."""
+    try:
+        from .friend_rank import compute_friend_rank
+        tier = compute_friend_rank(person).get("tier", "")
+        return _REGISTER_BY_TIER.get(tier, "warm, natural, and human")
+    except Exception:
+        return "warm, natural, and human"
 
 
 def get_client_from_settings(db) -> Optional["AIClient"]:

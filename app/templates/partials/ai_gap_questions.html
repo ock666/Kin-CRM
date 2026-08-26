@@ -1,0 +1,12 @@
+{% if error %}
+  <p class="text-muted text-sm">{{ error }}</p>
+{% elif items %}
+  <ul class="text-sm">
+    {% for item in items %}<li>{{ item }}</li>{% endfor %}
+  </ul>
+{% else %}
+  <p class="text-muted text-sm">Nothing to suggest yet — log a few journal entries first.</p>
+{% endif %}
+<button class="btn btn-sm mt-1" hx-post="/ai/people/{{ person_id }}/gap-questions" hx-target="#ai-gap-questions" hx-swap="innerHTML">
+  {{ "🔁 Regenerate" if items else "✨ What's good to ask?" }}
+</button>
