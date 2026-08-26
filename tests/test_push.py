@@ -127,5 +127,5 @@ def test_subscribe_requires_auth(client):
         json={"endpoint": "https://push.example/abc", "keys": {"p256dh": "a", "auth": "b"}},
         follow_redirects=False,
     )
-    assert r.status_code == 303  # redirected to login by the auth gate
+    assert r.status_code == 401  # API returns 401 (not a login redirect) for unauthenticated clients
 

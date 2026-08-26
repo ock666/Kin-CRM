@@ -690,3 +690,127 @@ label { display: block; font-weight: 600; font-size: .875rem; margin: 0 0 .3rem;
   background: var(--bg-main);
   flex-shrink: 0;
 }
+
+/* Soft Fall (regulation game) */
+#soft-fall { max-width: 480px; margin: 0 auto; }
+.soft-fall-board { display: flex; gap: .75rem; justify-content: center; align-items: flex-start; }
+#sf-canvas {
+  width: 210px;
+  height: 420px;
+  display: block;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+#sf-upcoming {
+  width: 105px;
+  height: 105px;
+  display: block;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.soft-fall-side { display: flex; flex-direction: column; align-items: center; min-width: 88px; }
+.soft-fall-controls { display: flex; gap: .5rem; justify-content: center; margin-top: .85rem; }
+.soft-fall-controls button {
+  width: 52px;
+  height: 52px;
+  font-size: 1.35rem;
+  line-height: 1;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-alt);
+  color: var(--text);
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+}
+.soft-fall-controls button:active { background: var(--accent-soft); }
+@media (max-width: 420px) {
+  #sf-canvas { width: 150px; height: 300px; }
+  #sf-upcoming { width: 75px; height: 75px; }
+}
+
+/* 2048 */
+.g2048-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: .4rem;
+  max-width: 320px;
+  margin: 0 auto;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: .4rem;
+}
+.g2048-cell {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  font-weight: 700;
+  border-radius: 8px;
+  background: var(--bg-main);
+  color: var(--text);
+}
+.g2048-cell[data-v="2"] { background: #3a3450; }
+.g2048-cell[data-v="4"] { background: #4a4364; }
+.g2048-cell[data-v="8"], .g2048-cell[data-v="16"] { background: #c9a06a; color: #221e1a; }
+.g2048-cell[data-v="32"], .g2048-cell[data-v="64"] { background: #e2a06a; color: #221e1a; }
+.g2048-cell[data-v="128"], .g2048-cell[data-v="256"] { background: #e2c86a; color: #221e1a; }
+.g2048-cell[data-v="512"], .g2048-cell[data-v="1024"] { background: var(--accent); color: var(--accent-contrast); }
+.g2048-cell[data-v="2048"], .g2048-cell[data-v="4096"] { background: var(--success); color: #12231a; }
+
+/* Memory */
+.mem-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: .5rem;
+  max-width: 320px;
+  margin: 0 auto;
+}
+.mem-card {
+  aspect-ratio: 1;
+  font-size: 1.6rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-alt);
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.mem-card.flipped, .mem-card.matched { background: var(--accent-soft); }
+.mem-card.matched { opacity: .55; cursor: default; }
+
+/* Minesweeper */
+.ms-grid {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  gap: 2px;
+  max-width: 340px;
+  margin: 0 auto;
+}
+.ms-cell {
+  aspect-ratio: 1;
+  border: 1px solid var(--border);
+  background: var(--bg-alt);
+  color: var(--text);
+  font-weight: 600;
+  font-size: .9rem;
+  line-height: 1;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 0;
+}
+.ms-cell.revealed { background: var(--bg-main); }
+.ms-cell.flag { font-size: .8rem; }
+.ms-cell.mine { background: var(--danger-soft); }
+.ms-cell[data-n="1"] { color: var(--info); }
+.ms-cell[data-n="2"] { color: var(--success); }
+.ms-cell[data-n="3"] { color: var(--danger); }
+.ms-cell[data-n="4"] { color: var(--warn); }
+.ms-cell[data-n="5"], .ms-cell[data-n="6"], .ms-cell[data-n="7"], .ms-cell[data-n="8"] { color: var(--accent); }

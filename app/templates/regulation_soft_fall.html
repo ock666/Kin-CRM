@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Soft Fall — {{ app_name }}{% endblock %}
+{% block content %}
+<div class="container-narrow">
+  <h1>🧱 Soft Fall</h1>
+  <p class="text-sm text-muted mb-2">
+    A gentle block puzzle to occupy your visual system when thoughts are looping. No score, no timer, no levels — just clear lines at a steady pace.
+    <a href="/regulation">← back to the toolkit</a>
+  </p>
+
+  <div class="card" id="soft-fall" style="text-align:center;">
+    <p id="sf-status" class="text-sm text-muted mb-1" aria-live="polite"></p>
+
+    <div class="soft-fall-board">
+      <canvas id="sf-canvas" aria-label="Soft Fall game board"></canvas>
+      <div class="soft-fall-side">
+        <p class="text-sm text-muted mb-1">next</p>
+        <canvas id="sf-upcoming" aria-hidden="true"></canvas>
+        <p class="text-sm mt-2 mb-1">lines <strong id="sf-lines">0</strong></p>
+        <button id="sf-start" class="btn btn-sm btn-primary" type="button">Start</button>
+      </div>
+    </div>
+
+    <div class="soft-fall-controls" id="sf-controls" style="display:none;">
+      <button type="button" data-sf="left" aria-label="Move left" title="Move left">←</button>
+      <button type="button" data-sf="rotate" aria-label="Rotate" title="Rotate">↻</button>
+      <button type="button" data-sf="right" aria-label="Move right" title="Move right">→</button>
+      <button type="button" data-sf="down" aria-label="Soft drop" title="Soft drop">↓</button>
+      <button type="button" data-sf="drop" aria-label="Hard drop" title="Hard drop">⤓</button>
+    </div>
+
+    <p class="help-text mt-1 mb-0">Keys: ← → move · ↑ rotate · ↓ drop · space hard-drop · esc pause</p>
+  </div>
+</div>
+<script src="/static/js/soft-fall.js"></script>
+{% endblock %}

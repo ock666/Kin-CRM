@@ -4,9 +4,39 @@
 <h1>🧘 Regulation toolkit</h1>
 <p class="text-sm text-muted mb-2">Quick grounding when things feel overwhelming. Use anytime — no one's keeping score.</p>
 
+<div class="pill-row mb-2">
+  <a class="btn btn-sm" href="#breathe">🫁 Breathe</a>
+  <a class="btn btn-sm" href="#ground">🌱 Ground</a>
+  <a class="btn btn-sm" href="#reframe">🧠 Reframe</a>
+  <a class="btn btn-sm" href="#soothe">🧱 Soothe</a>
+  <a class="btn btn-sm" href="#help">📞 Help</a>
+</div>
+
+<h2 id="breathe" class="mt-2">🫁 Breathe</h2>
+<div class="card" x-data="breath()">
+  <h3 class="mt-0">Follow the rhythm</h3>
+  <p class="text-sm text-muted mb-1">Pick a pattern, then follow along. If holding your breath feels uncomfortable, just skip the holds — a slow exhale is the part that matters.</p>
+  <div class="pill-row mb-1">
+    <template x-for="(p, key) in patterns" :key="key">
+      <button class="btn btn-sm" type="button"
+        :class="key === current ? 'btn-primary' : ''"
+        @click="select(key)" x-text="p.label"></button>
+    </template>
+  </div>
+  <div style="text-align:center; padding:.75rem;">
+    <div class="text-sm mb-1" x-text="phaseLabel"></div>
+    <div style="font-size:2rem; font-weight:700;" x-text="count || '—'"></div>
+  </div>
+  <div class="flex-gap" style="justify-content:center;">
+    <button class="btn btn-sm btn-primary" type="button" x-show="!running" @click="start()">Start</button>
+    <button class="btn btn-sm" type="button" x-show="running" @click="stop()">Stop</button>
+  </div>
+</div>
+
+<h2 id="ground" class="mt-2">🌱 Ground</h2>
 <div class="grid grid-cols-2">
   <div class="card">
-    <h3>🌱 5-4-3-2-1 Grounding</h3>
+    <h3 class="mt-0">5-4-3-2-1 Grounding</h3>
     <p class="text-sm text-muted mb-1">Engage senses to anchor in the moment.</p>
     <ol class="text-sm" style="padding-left:1.2rem;">
       <li><strong>5</strong> things you can <em>see</em></li>
@@ -18,33 +48,22 @@
     <p class="help-text mt-1">Take your time. No rush. Try to really notice each one.</p>
   </div>
 
-  <div class="card" x-data="{ count: 4, phase: 'inhale', running: false, interval: null }">
-    <h3>🫁 Box breathing</h3>
-    <p class="text-sm text-muted mb-1">Inhale → hold → exhale → hold (4sec each).</p>
-    <div style="text-align:center; padding:1rem;">
-      <div class="text-sm mb-1" x-text="phase === 'inhale' ? '⬆️ Inhale' : phase === 'hold1' ? '⏸️ Hold' : phase === 'exhale' ? '⬇️ Exhale' : '⏸️ Hold'"></div>
-      <div style="font-size:2rem; font-weight:700;" x-text="count"></div>
-    </div>
-    <div class="flex-gap" style="justify-content:center;">
-      <button class="btn btn-sm btn-primary" x-show="!running" @click="
-        running = true; phase = 'inhale'; count = 4;
-        interval = setInterval(() => {
-          count--;
-          if (count === 0) {
-            if (phase === 'inhale') { phase = 'hold1'; count = 4; }
-            else if (phase === 'hold1') { phase = 'exhale'; count = 4; }
-            else if (phase === 'exhale') { phase = 'hold2'; count = 4; }
-            else { phase = 'inhale'; count = 4; }
-          }
-        }, 1000);
-      ">Start</button>
-      <button class="btn btn-sm" x-show="running" @click="running = false; clearInterval(interval); phase = 'inhale'; count = 4;">Stop</button>
-    </div>
+  <div class="card">
+    <h3 class="mt-0">🧊 Physical grounding</h3>
+    <p class="text-sm text-muted mb-1">Quick resets you can do anywhere:</p>
+    <ul class="text-sm" style="padding-left:1.2rem;">
+      <li>Run cold water over your wrists for 30 seconds</li>
+      <li>Press your feet firmly into the floor — feel the ground</li>
+      <li>Squeeze and release your fists 5 times</li>
+      <li>Notice the temperature of the air on your skin</li>
+      <li>Stretch your neck gently side to side</li>
+    </ul>
   </div>
 </div>
 
-<div class="card mt-2">
-  <h3>🧠 Facts vs. the RSD story</h3>
+<h2 id="reframe" class="mt-2">🧠 Reframe</h2>
+<div class="card">
+  <h3 class="mt-0">🧠 Facts vs. the RSD story</h3>
   <p class="text-sm text-muted mb-1">When your anxiety is telling you a story — try this:</p>
   <div class="grid grid-cols-2">
     <div>
@@ -68,24 +87,62 @@
 </div>
 
 <div class="card mt-2">
-  <h3>🧊 Physical grounding</h3>
-  <p class="text-sm text-muted mb-1">Quick resets you can do anywhere:</p>
-  <ul class="text-sm" style="padding-left:1.2rem;">
-    <li>Run cold water over your wrists for 30 seconds</li>
-    <li>Press your feet firmly into the floor — feel the ground</li>
-    <li>Squeeze and release your fists 5 times</li>
-    <li>Notice the temperature of the air on your skin</li>
-    <li>Stretch your neck gently side to side</li>
-  </ul>
+  <h3 class="mt-0">🛑 STOP</h3>
+  <p class="text-sm text-muted mb-1">For the moment you notice yourself starting to spiral.</p>
+  <ol class="text-sm" style="padding-left:1.2rem;">
+    <li><strong>S — Stop.</strong> Pause. You don't have to react yet — you're allowed to wait.</li>
+    <li><strong>T — Take a breath.</strong> One slow breath, even just a long exhale.</li>
+    <li><strong>O — Observe.</strong> What's happening in your body and around you? What's fact vs. story?</li>
+    <li><strong>P — Proceed.</strong> Pick the smallest next step — or choose to do nothing right now. Both count.</li>
+  </ol>
+</div>
+
+<div class="card mt-2" x-data="moodBank()">
+  <h3 class="mt-0">🏷️ Name it to tame it</h3>
+  <p class="text-sm text-muted mb-1">Naming a feeling dials down the alarm system. Pick the closest word — or a few.</p>
+  <div class="pill-row mb-1">
+    <template x-for="w in words" :key="w">
+      <button class="btn btn-sm" type="button"
+        :class="selected === w ? 'btn-primary' : ''"
+        @click="select(w)" x-text="w"></button>
+    </template>
+  </div>
+  <p class="text-sm mb-0" x-show="selected" x-text="note" style="font-style:italic; border-left:3px solid var(--success-soft); padding-left:.6rem;"></p>
+</div>
+
+<h2 id="soothe" class="mt-2">🧱 Soothe</h2>
+<p class="text-sm text-muted mb-1">A few gentle games to occupy the visual system when thoughts are looping. No timers, no pressure.</p>
+<div class="grid grid-cols-2">
+  <div class="card">
+    <h3 class="mt-0">🧱 Soft Fall</h3>
+    <p class="text-sm text-muted mb-1">Guide falling blocks and clear lines at a steady pace.</p>
+    <a class="btn btn-sm btn-primary" href="/regulation/soft-fall">Play</a>
+  </div>
+  <div class="card">
+    <h3 class="mt-0">🔢 2048</h3>
+    <p class="text-sm text-muted mb-1">Slide tiles to merge matching numbers.</p>
+    <a class="btn btn-sm btn-primary" href="/regulation/2048">Play</a>
+  </div>
+  <div class="card">
+    <h3 class="mt-0">🃏 Memory</h3>
+    <p class="text-sm text-muted mb-1">Flip cards to find matching pairs.</p>
+    <a class="btn btn-sm btn-primary" href="/regulation/memory">Play</a>
+  </div>
+  <div class="card">
+    <h3 class="mt-0">💣 Minesweeper</h3>
+    <p class="text-sm text-muted mb-1">Reveal safe tiles and flag the mines — no clock.</p>
+    <a class="btn btn-sm btn-primary" href="/regulation/minesweeper">Play</a>
+  </div>
+</div>
+
+<h2 id="help" class="mt-2">📞 Help</h2>
+<div class="card" style="border-color: var(--info-soft);">
+  <h3 class="mt-0">🕊️ Reminders</h3>
+  <p class="text-sm mb-0">Feeling overwhelmed is not a moral failure. Taking space is allowed. You don't have to fix it right now.</p>
 </div>
 
 <div class="card mt-2" style="border-color: var(--info-soft);">
-  <h3>🕊️ Reminders</h3>
-  <p class="text-sm mb-1">Feeling overwhelmed is not a moral failure. Taking space is allowed. You don't have to fix it right now.</p>
-</div>
-
-<div class="card mt-2" style="border-color: var(--info-soft);">
-  <h3>📞 Help lines</h3>
+  <h3 class="mt-0">📞 Help lines</h3>
   <p class="text-sm text-muted mb-1">If you need someone to talk to — crisis or support:</p>
 
   <div class="grid grid-cols-2">
@@ -116,4 +173,91 @@
     </div>
   </div>
 </div>
+
+<script>
+function breath() {
+  return {
+    patterns: {
+      box: { label: 'Box', phases: [
+        { icon: '⬆️', label: 'Inhale', secs: 4 },
+        { icon: '⏸️', label: 'Hold', secs: 4 },
+        { icon: '⬇️', label: 'Exhale', secs: 4 },
+        { icon: '⏸️', label: 'Hold', secs: 4 },
+      ] },
+      '4-7-8': { label: '4-7-8', phases: [
+        { icon: '⬆️', label: 'Inhale', secs: 4 },
+        { icon: '⏸️', label: 'Hold', secs: 7 },
+        { icon: '⬇️', label: 'Exhale', secs: 8 },
+      ] },
+      sigh: { label: 'Physiological sigh', phases: [
+        { icon: '⬆️', label: 'Inhale', secs: 2 },
+        { icon: '⬆️', label: 'Sip more', secs: 1 },
+        { icon: '⬇️', label: 'Long exhale', secs: 6 },
+      ] },
+      '4-6': { label: '4-6', phases: [
+        { icon: '⬆️', label: 'Inhale', secs: 4 },
+        { icon: '⬇️', label: 'Exhale', secs: 6 },
+      ] },
+    },
+    current: 'box',
+    index: 0,
+    count: 0,
+    running: false,
+    interval: null,
+    get phaseLabel() {
+      if (!this.running) return 'Ready when you are';
+      const p = this.patterns[this.current].phases[this.index];
+      return p.icon + ' ' + p.label;
+    },
+    select(key) {
+      this.stop();
+      this.current = key;
+    },
+    start() {
+      this.stop();
+      this.running = true;
+      this.index = 0;
+      this.count = this.patterns[this.current].phases[0].secs;
+      const self = this;
+      this.interval = setInterval(() => {
+        self.count--;
+        if (self.count <= 0) {
+          self.index = (self.index + 1) % self.patterns[self.current].phases.length;
+          self.count = self.patterns[self.current].phases[self.index].secs;
+        }
+      }, 1000);
+    },
+    stop() {
+      this.running = false;
+      if (this.interval) clearInterval(this.interval);
+      this.interval = null;
+      this.index = 0;
+      this.count = 0;
+    },
+  };
+}
+
+function moodBank() {
+  return {
+    selected: '',
+    words: ['Anxious', 'Overwhelmed', 'Hurt', 'Angry', 'Sad', 'Lonely', 'Ashamed', 'Tired', 'Restless', 'Calm', 'Grateful', 'Connected'],
+    notes: {
+      'Anxious': "Anxiety is your brain trying to protect you. It's loud, not truthful.",
+      'Overwhelmed': "Overwhelm means too much at once — not that you're failing. Fewer inputs can help.",
+      'Hurt': "Hurt makes sense when something mattered to you. It's okay to feel it.",
+      'Angry': "Anger is information — it usually means a boundary got crossed.",
+      'Sad': "Sadness is grief doing its work. It's allowed to be here.",
+      'Lonely': "Lonely is a need for connection, not a flaw in you.",
+      'Ashamed': "Shame lies. You are not your worst moment.",
+      'Tired': "Tired is your body asking for rest — it's not laziness.",
+      'Restless': "Restlessness might be your body asking to move or stim. That's allowed.",
+      'Calm': "Calm is here too. Notice it so you can find it again.",
+      'Grateful': "Noticing something good is real regulation, not toxic positivity.",
+      'Connected': "Connection, even a small one, is worth letting in.",
+    },
+    get note() { return this.notes[this.selected] || ''; },
+    select(w) { this.selected = (this.selected === w) ? '' : w; },
+  };
+}
+</script>
 {% endblock %}
