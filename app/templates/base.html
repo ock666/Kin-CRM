@@ -75,7 +75,7 @@
 </div>
 
 <style>
-  img.lightbox { cursor: zoom-in; }
+  img.lightbox-target { cursor: zoom-in; }
   .lightbox-overlay {
     position: fixed;
     top: 0; right: 0; bottom: 0; left: 0;
@@ -142,7 +142,7 @@
 
   document.addEventListener('click', (e) => {
     const t = e.target;
-    const img = t && t.closest ? t.closest('img.lightbox') : null;
+    const img = t && t.closest ? t.closest('img.lightbox-target') : null;
     if (img) {
       e.preventDefault();
       open(img);

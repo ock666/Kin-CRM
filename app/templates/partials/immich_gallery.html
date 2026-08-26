@@ -9,7 +9,7 @@
   <div class="photo-carousel" x-ref="track">
     {% for a in assets %}
       <a class="photo-carousel-item" href="/immich/asset/{{ a.id }}/original">
-        <img src="/immich/asset/{{ a.id }}/thumbnail" loading="lazy" class="lightbox" alt="">
+        <img src="/immich/asset/{{ a.id }}/thumbnail" loading="lazy" class="lightbox-target" alt="">
       </a>
     {% endfor %}
   </div>
