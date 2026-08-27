@@ -335,4 +335,10 @@
     <a class="btn btn-primary btn-sm" href="/settings/mfa/setup">Set up two-factor authentication</a>
   {% endif %}
 </div>
+
+<div class="card mt-2">
+  <h2>✨ {{ whats_new.title }}</h2>
+  <p class="text-sm text-muted mb-1">{{ whats_new.date }} · version {{ app_version }}</p>
+  <div class="text-sm whatsnew-body">{{ whats_new.body|markdown|safe }}</div>
+</div>
 {% endblock %}

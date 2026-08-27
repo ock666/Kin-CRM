@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from .config import settings
 from .models import InstagramPost, BirthdayMessageDraft, ReviewStatus
+from .services import whatsnew
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
@@ -34,6 +35,8 @@ def render(request: Request, template: str, db: Session = None, user=None, activ
     context = {
         "request": request,
         "app_name": settings.APP_NAME,
+        "app_version": settings.APP_VERSION,
+        "whats_new": whatsnew.WHATS_NEW,
         "user": user,
         "active": active,
         "pending_review_count": _pending_review_count(db),

@@ -6,6 +6,15 @@ def test_settings_page_loads(logged_in_client):
     assert "Instagram" in resp.text
 
 
+def test_settings_page_has_whats_new(logged_in_client):
+    resp = logged_in_client.get("/settings")
+    assert resp.status_code == 200
+    assert "new in Kin" in resp.text
+    assert "2026.08.1" in resp.text
+    assert "don't let the bastards get you down" in resp.text.lower()
+    assert "Voice replies" in resp.text
+
+
 def test_save_immich_settings_persist(logged_in_client):
     resp = logged_in_client.post(
         "/settings/immich",
