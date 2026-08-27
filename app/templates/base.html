@@ -69,6 +69,22 @@
   {% block auth_content %}{% endblock %}
 {% endif %}
 
+{% if user %}
+<div id="whatsnew-modal" class="whatsnew-overlay" role="dialog" aria-modal="true" aria-label="What's new" data-version="{{ app_version }}">
+  <div class="whatsnew-dialog">
+    <div class="whatsnew-head">
+      <span class="text-sm text-muted">✨ {{ whats_new.date }}</span>
+      <button class="whatsnew-close" type="button" aria-label="Close" title="Close">✕</button>
+    </div>
+    <h2 class="mt-0 mb-1">{{ whats_new.title }}</h2>
+    <div class="whatsnew-body text-sm">{{ whats_new.body|markdown|safe }}</div>
+    <div class="flex-gap mt-2" style="justify-content:flex-end;">
+      <button class="btn btn-sm btn-primary" type="button" id="whatsnew-dismiss">Got it — thanks</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <div id="lightbox" class="lightbox-overlay" role="dialog" aria-modal="true" aria-label="Image viewer">
   <button class="lightbox-close" type="button" aria-label="Close" title="Close">✕</button>
   <img id="lightbox-img" class="lightbox-img" alt="">
@@ -112,7 +128,74 @@
     justify-content: center;
   }
   .lightbox-close:hover { background: rgba(0, 0, 0, .7); }
+
+  /* What's new dialog */
+  .whatsnew-overlay {
+    position: fixed;
+    top: 0; right: 0; bottom: 0; left: 0;
+    z-index: 2100;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10, 8, 6, .82);
+    padding: 1rem;
+  }
+  .whatsnew-overlay.is-open { display: flex; }
+  .whatsnew-dialog {
+    width: 100%;
+    max-width: 560px;
+    max-height: 85vh;
+    overflow-y: auto;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.1rem 1.25rem;
+    box-shadow: var(--shadow-lift);
+  }
+  .whatsnew-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: .35rem;
+  }
+  .whatsnew-close {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--bg-alt);
+    color: var(--text);
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .whatsnew-body h3 { font-size: .95rem; margin: 1rem 0 .25rem; }
+  .whatsnew-body h3:first-child { margin-top: 0; }
+  .whatsnew-body p { margin: .25rem 0; }
 </style>
+
+<script>
+(function () {
+  const modal = document.getElementById('whatsnew-modal');
+  if (!modal) return;
+  const version = modal.getAttribute('data-version');
+  const KEY = 'kin_whatsnew_seen';
+  let seen = null;
+  try { seen = localStorage.getItem(KEY); } catch (e) { /* storage unavailable */ }
+  if (!version || seen === version) return;
+
+  function close() {
+    modal.classList.remove('is-open');
+    try { localStorage.setItem(KEY, version); } catch (e) { /* ignore */ }
+  }
+
+  modal.classList.add('is-open');
+  modal.querySelector('.whatsnew-close').addEventListener('click', close);
+  const dismissBtn = document.getElementById('whatsnew-dismiss');
+  if (dismissBtn) dismissBtn.addEventListener('click', close);
+  modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+})();
+</script>
 
 <script>
 (function () {

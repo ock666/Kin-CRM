@@ -17,6 +17,7 @@ from .render import templates
 from .models import User
 from .migrations import run_startup_migrations
 from .rate_limiter import RateLimitMiddleware
+from .services import whatsnew
 from .services.scheduler import start_scheduler, shutdown_scheduler
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -248,7 +249,8 @@ async def not_found(request: Request, exc):
                 db2.close()
     return templates.TemplateResponse(
         request, "404.html",
-        {"request": request, "user": user, "active": "", "app_name": settings.APP_NAME},
+        {"request": request, "user": user, "active": "", "app_name": settings.APP_NAME,
+         "app_version": settings.APP_VERSION, "whats_new": whatsnew.WHATS_NEW},
         status_code=404,
     )
 
@@ -257,6 +259,7 @@ async def not_found(request: Request, exc):
 async def server_error(request: Request, exc):
     return templates.TemplateResponse(
         request, "500.html",
-        {"request": request, "user": None, "active": "", "app_name": settings.APP_NAME},
+        {"request": request, "user": None, "active": "", "app_name": settings.APP_NAME,
+         "app_version": settings.APP_VERSION, "whats_new": whatsnew.WHATS_NEW},
         status_code=500,
     )
