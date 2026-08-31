@@ -49,8 +49,6 @@ def export_json(db: Session = Depends(get_db), user=Depends(current_user)):
             "last_contact_date": p.last_contact_date.isoformat() if p.last_contact_date else None,
             "reminders_dismissed": p.reminders_dismissed,
             "relationship_state": p.relationship_state.value if p.relationship_state else "none",
-            "instagram_username": p.instagram_username,
-            "instagram_enabled": p.instagram_enabled,
             "tags": [t.name for t in p.tags],
             "notable_dates": [{"label": nd.label, "month": nd.month, "day": nd.day, "year": nd.year,
                                "recurring": nd.recurring, "notes": nd.notes} for nd in p.notable_dates],
@@ -70,12 +68,6 @@ def export_json(db: Session = Depends(get_db), user=Depends(current_user)):
                     "created_at": cm.created_at.isoformat() if cm.created_at else None,
                 } for cm in (c.chat_messages or [])],
             } for c in p.conflict_logs],
-            "instagram_posts": [{
-                "ig_post_id": ip.ig_post_id, "caption": ip.caption,
-                "media_url": ip.media_url, "permalink": ip.permalink,
-                "post_type": ip.post_type, "posted_at": ip.posted_at.isoformat() if ip.posted_at else None,
-                "status": ip.status.value,
-            } for ip in p.instagram_posts],
             "journal_entries": [{
                 "date": e.entry_date.isoformat(), "title": e.title, "body": e.body,
                 "event_type": e.event_type.value if e.event_type else None,

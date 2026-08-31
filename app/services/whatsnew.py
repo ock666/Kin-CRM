@@ -27,6 +27,9 @@ To set it up: Settings → Calendar sync → turn it on → copy the subscribe l
 ### 🎂 Two weeks to plan
 Birthday reminders (drafts, nudges, and calendar alerts) now start two weeks out instead of three days, so there's more grace to sort a card or gift without the scramble.
 
+### 🧹 Instagram, gone
+The unofficial Instagram reader never quite worked and kept making "check now" hang, so it's been removed. Nothing else changes — your people, journal, and reviews all stay exactly as they are.
+
 That's everything for now. Thank you for being here — don't let the bastards get you down~ — Skye
 """.strip(),
 }

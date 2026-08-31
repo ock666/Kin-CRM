@@ -31,16 +31,14 @@ def _load_or_create_secret() -> str:
 
 class Settings:
     APP_NAME = "Kin — Personal Relationship Manager"
-    APP_VERSION = "2026.09.2"  # date-based: YYYY.MM.N (N = release within the month)
+    APP_VERSION = "2026.09.3"  # date-based: YYYY.MM.N (N = release within the month)
     DATABASE_URL: str = (os.environ.get("DATABASE_URL") or f"sqlite:///{DATA_DIR}/app.db")
     SESSION_SECRET: str = _load_or_create_secret()
     DATA_DIR: Path = DATA_DIR
     UPLOAD_DIR: Path = DATA_DIR / "uploads"
-    INSTAGRAM_SESSION_DIR: Path = DATA_DIR / "ig_sessions"
     TIMEZONE: str = os.environ.get("TZ", "UTC")
     DISABLE_SCHEDULER: bool = os.environ.get("DISABLE_SCHEDULER", "0") == "1"
 
 
 settings = Settings()
 settings.UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-settings.INSTAGRAM_SESSION_DIR.mkdir(parents=True, exist_ok=True)

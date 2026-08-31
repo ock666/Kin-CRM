@@ -223,7 +223,7 @@ def check_achievements(db: Session, stats: UserStats, event_type: str | None = N
             _unlock("details_matter")
     if _locked("well_connected"):
         has_contact = db.query(Person).filter(
-            (Person.email.isnot(None)) | (Person.phone.isnot(None)) | (Person.instagram_username.isnot(None))
+            (Person.email.isnot(None)) | (Person.phone.isnot(None))
         ).count() >= 1
         if has_contact:
             _unlock("well_connected")

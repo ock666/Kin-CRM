@@ -15,8 +15,6 @@ DEFAULTS = {
     "whisper_api_key": "",
     "whisper_model": "whisper-1",
     "whisper_provider": "openai",  # 'openai' or 'asr-webservice'
-    "instagram_username": "",
-    "instagram_password": "",
     "birthday_lead_days": "14",
     "checkin_default_cadence_days": "60",
     "daily_job_hour": "8",
@@ -48,7 +46,7 @@ DEFAULTS = {
 }
 
 
-SENSITIVE_KEYS = {"immich_api_key", "ai_api_key", "instagram_password", "vapid_private_key", "whisper_api_key", "tts_api_key"}
+SENSITIVE_KEYS = {"immich_api_key", "ai_api_key", "vapid_private_key", "whisper_api_key", "tts_api_key"}
 
 
 def get_all_settings(db: Session) -> dict:

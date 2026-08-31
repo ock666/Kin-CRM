@@ -40,11 +40,6 @@ class AiSettingsUpdate(BaseModel):
     support_chat_model: str | None = None
 
 
-class InstagramSettingsUpdate(BaseModel):
-    instagram_username: str | None = None
-    instagram_password: str | None = None
-
-
 class MfaDisableRequest(BaseModel):
     password: str
 
@@ -102,18 +97,6 @@ def update_ai(body: AiSettingsUpdate, db: Session = Depends(get_db), user=Depend
         updates["ai_model"] = body.ai_model.strip()
     if body.support_chat_model is not None:
         updates["support_chat_model"] = body.support_chat_model.strip() or "gpt-4o"
-    if updates:
-        set_many(db, updates)
-    return get_all_settings(db)
-
-
-@router.put("/instagram")
-def update_instagram(body: InstagramSettingsUpdate, db: Session = Depends(get_db), user=Depends(get_current_api_user)):
-    updates = {}
-    if body.instagram_username is not None:
-        updates["instagram_username"] = body.instagram_username.strip()
-    if body.instagram_password:
-        updates["instagram_password"] = body.instagram_password
     if updates:
         set_many(db, updates)
     return get_all_settings(db)

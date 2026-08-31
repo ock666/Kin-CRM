@@ -3,14 +3,14 @@ def test_settings_page_loads(logged_in_client):
     assert resp.status_code == 200
     assert "Immich" in resp.text
     assert "AI assistant" in resp.text
-    assert "Instagram" in resp.text
+    assert 'action="/settings/instagram"' not in resp.text  # feature removed
 
 
 def test_settings_page_has_whats_new(logged_in_client):
     resp = logged_in_client.get("/settings")
     assert resp.status_code == 200
     assert "new in Kin" in resp.text
-    assert "2026.09.2" in resp.text
+    assert "2026.09.3" in resp.text
     assert "don't let the bastards get you down" in resp.text.lower()
     assert "Kin Wrapped" in resp.text
     assert "Calendar sync" in resp.text

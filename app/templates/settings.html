@@ -220,27 +220,6 @@
   </script>
 
 <div class="card mt-2">
-  <h2>📱 Instagram</h2>
-  <p class="text-sm text-muted">
-    ⚠️ This uses an <strong>unofficial</strong> Instagram API. It's against Instagram's Terms of Service and carries
-    a real risk of your account being challenged or restricted — use a secondary/throwaway account you don't mind
-    losing, never your primary one. New posts always land in your <a href="/reviews">review queue</a> for approval;
-    nothing is ever posted or messaged automatically.
-  </p>
-  <form method="post" action="/settings/instagram">
-    <div class="field">
-      <label for="instagram_username">Instagram username (the account used to check)</label>
-      <input type="text" id="instagram_username" name="instagram_username" value="{{ cfg.instagram_username }}">
-    </div>
-    <div class="field">
-      <label for="instagram_password">Password</label>
-      <input type="password" id="instagram_password" name="instagram_password" placeholder="{{ '••••••••' if cfg.instagram_password else '' }}">
-    </div>
-    <button class="btn btn-primary btn-sm" type="submit">Save</button>
-  </form>
-</div>
-
-<div class="card mt-2">
   <h2>⚙️ General</h2>
   <form method="post" action="/settings/general">
     <div class="field">

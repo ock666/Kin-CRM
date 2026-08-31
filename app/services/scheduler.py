@@ -5,7 +5,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from ..database import SessionLocal
 from ..settings_store import get_setting
-from . import birthdays, instagram_poll, push as push_service, resolution_plans, wrapped as wrapped_service
+from . import birthdays, push as push_service, resolution_plans, wrapped as wrapped_service
 
 logger = logging.getLogger(__name__)
 
@@ -21,15 +21,6 @@ def run_daily_jobs():
                 logger.info("Generated %d birthday draft(s)", n)
         except Exception:
             logger.exception("Birthday draft generation failed")
-
-        try:
-            summary = instagram_poll.poll_all(db)
-            if summary["new_posts"]:
-                logger.info("Instagram poll found %d new post(s)", summary["new_posts"])
-            if summary["errors"]:
-                logger.info("Instagram poll errors: %s", summary["errors"])
-        except Exception:
-            logger.exception("Instagram poll failed")
 
         try:
             push_service.send_push_notifications(db)
@@ -79,6 +70,20 @@ def start_scheduler():
     db = SessionLocal()
     try:
         hour = int(get_setting(db, "daily_job_hour", "8") or 8)
+    finally:
+        db.close()
+
+    # Hotfix: a container that (re)starts after the daily 8am run would otherwise leave in-window
+    # birthdays without a draft for up to ~24h. Generate birthday drafts once on startup so new
+    # or edited birthdays always have a message ready, no matter when the container came up.
+    db = SessionLocal()
+    try:
+        try:
+            n = birthdays.generate_birthday_drafts(db)
+            if n:
+                logger.info("Startup: generated %d birthday draft(s)", n)
+        except Exception:
+            logger.exception("Startup birthday draft generation failed")
     finally:
         db.close()
 

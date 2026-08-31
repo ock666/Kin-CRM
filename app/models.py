@@ -128,12 +128,6 @@ class Person(Base):
     # Immich linkage
     immich_person_id = Column(String(100), nullable=True, index=True)
 
-    # Instagram linkage
-    instagram_username = Column(String(255), nullable=True)
-    instagram_enabled = Column(Boolean, default=False)
-    instagram_last_checked = Column(DateTime, nullable=True)
-    instagram_last_error = Column(Text, nullable=True)
-
     # Check-in cadence (AuDHD-friendly nudges)
     checkin_cadence_days = Column(Integer, nullable=True)  # None = no reminder
     checkin_snoozed_until = Column(Date, nullable=True)
@@ -147,7 +141,6 @@ class Person(Base):
 
     tags = relationship("Tag", secondary=person_tags, back_populates="people")
     notable_dates = relationship("NotableDate", back_populates="person", cascade="all, delete-orphan")
-    instagram_posts = relationship("InstagramPost", back_populates="person", cascade="all, delete-orphan")
     birthday_drafts = relationship("BirthdayMessageDraft", back_populates="person", cascade="all, delete-orphan")
     scratchpad_items = relationship(
         "ScratchpadItem", back_populates="person", cascade="all, delete-orphan",
@@ -284,26 +277,6 @@ class ReviewStatus(str, enum.Enum):
     dismissed = "dismissed"
     sent = "sent"
     skipped = "skipped"
-
-
-class InstagramPost(Base):
-    __tablename__ = "instagram_posts"
-
-    id = Column(Integer, primary_key=True)
-    person_id = Column(Integer, ForeignKey("people.id", ondelete="CASCADE"), nullable=False)
-    ig_post_id = Column(String(100), nullable=False, index=True)
-    caption = Column(Text, nullable=True)
-    media_url = Column(String(1000), nullable=True)
-    permalink = Column(String(500), nullable=True)
-    post_type = Column(String(50), nullable=True)
-    posted_at = Column(DateTime, nullable=True)
-    fetched_at = Column(DateTime, default=utcnow)
-    status = Column(Enum(ReviewStatus), default=ReviewStatus.pending)
-    imported_as_journal_entry_id = Column(Integer, ForeignKey("journal_entries.id"), nullable=True)
-
-    person = relationship("Person", back_populates="instagram_posts")
-
-    __table_args__ = (UniqueConstraint("person_id", "ig_post_id", name="uq_person_ig_post"),)
 
 
 class BirthdayMessageDraft(Base):

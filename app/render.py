@@ -10,7 +10,7 @@ from starlette.requests import Request
 from sqlalchemy.orm import Session
 
 from .config import settings
-from .models import InstagramPost, BirthdayMessageDraft, ReviewStatus
+from .models import BirthdayMessageDraft, ReviewStatus
 from .services import whatsnew
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
@@ -20,9 +20,8 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 def _pending_review_count(db: Session | None) -> int:
     if db is None:
         return 0
-    ig = db.query(InstagramPost).filter_by(status=ReviewStatus.pending).count()
     bd = db.query(BirthdayMessageDraft).filter_by(status=ReviewStatus.pending).count()
-    return ig + bd
+    return bd
 
 
 def _wrapped_ready(db: Session | None) -> bool:

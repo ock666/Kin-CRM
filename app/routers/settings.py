@@ -252,16 +252,6 @@ def tts_sample(request: Request, db: Session = Depends(get_db), user=Depends(cur
         return JSONResponse({"error": "Sample failed"}, status_code=400)
 
 
-@router.post("/settings/instagram")
-def save_instagram(request: Request, db: Session = Depends(get_db), user=Depends(current_user),
-                    instagram_username: str = Form(""), instagram_password: str = Form("")):
-    values = {"instagram_username": instagram_username.strip()}
-    if instagram_password:
-        values["instagram_password"] = instagram_password
-    set_many(db, values)
-    return RedirectResponse("/settings", status_code=303)
-
-
 @router.post("/settings/calendar")
 def save_calendar(request: Request, db: Session = Depends(get_db), user=Depends(current_user),
                   calendar_ics_enabled: str = Form("0"),
