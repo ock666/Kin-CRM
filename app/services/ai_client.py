@@ -301,6 +301,82 @@ class AIClient:
             return [str(x) for x in data]
         return []
 
+    def year_in_review(self, year: int, stats: str, people: str, moments: str) -> dict:
+        """Narrate Kin's 'Your Year' card - an overall warm summary plus a short blurb per top
+        person. Tone is warm and grounded, deliberately NOT hype-y (no OMG/WOW/emoji/exclamation
+        stacking) - this is a private reflection. Returns {'summary': str,
+        'people': [{'name': str, 'blurb': str}]}; empty dict on any parse failure so callers
+        fall back to the deterministic-only card."""
+        system = (
+            "You help someone reflect warmly on their year of relationships, based on a private "
+            "personal relationship journal. Write with genuine warmth but strong restraint - "
+            "grounded, specific, understated. Never hype, never exaggerated praise, no 'incredible', "
+            "no 'best year ever', no emoji, no excessive exclamation marks, no influencer or "
+            "greeting-card energy. Celebrate the quiet, real moments of showing up for people - "
+            "the value is in truth and specificity, not performance.\n\n"
+            "Respond ONLY with valid JSON matching this schema:\n"
+            '{"summary": string (1-3 sentences, overall), '
+            '"people": [{"name": string, "blurb": string (1-2 sentences, specific to THIS person and the moments listed)}]}'
+        )
+        user = (
+            f"Year: {year}\n\nYear in numbers:\n{stats or '(nothing notable)'}\n\n"
+            f"People the journal says they were closest to this year:\n{people or '(none yet)'}\n\n"
+            f"Standout moments:\n{moments or '(none yet)'}"
+        )
+        raw = self._chat(system, user, max_tokens=600, temperature=0.7)
+        data = _safe_json(raw)
+        if isinstance(data, dict) and ("summary" in data or "people" in data):
+            return data
+        return {}
+
+    def person_year_note(self, person_name: str, stats: str, moments: str) -> str:
+        """A short, warm note (1-2 sentences) for the 'Our year with {name}' Kin Wrapped share
+        card. It will be seen by that person, so it should feel genuine, specific, and
+        understated - never performative, never exaggerated praise, no emoji, no excessive
+        exclamation marks, no greeting-card cliches. Returns the note text, or '' on failure
+        (the caller falls back to a gentle template)."""
+        system = (
+            "You write a short, warm note (1-2 sentences) about what a year of logged moments "
+            "with one person added up to, for the recipient to see. Be genuine, specific, and "
+            "understated - never performative or inflated, never emoji, never excessive "
+            "exclamation marks, no greeting-card cliches. Mention something concrete from the "
+            "moments if you can. Write ONLY the note text, no markdown, no quotes."
+        )
+        user = (
+            f"Person: {person_name}\n\nTheir year together:\n{moments or '(not much logged yet)'}\n\n"
+            f"In numbers:\n{stats or '(none)'}"
+        )
+        try:
+            return self._chat(system, user, max_tokens=120, temperature=0.7)
+        except AIError:
+            return ""
+
+    def month_summaries(self, month_label: str, moments: list[dict]) -> list[str]:
+        """One short, warm sentence per moment in a month, for the 'your rhythm' drill-down -
+        so the text always fits regardless of how long the original journal entry was. Returns a
+        list aligned to `moments` (may be shorter if parsing failed)."""
+        system = (
+            "You write ONE short, warm sentence summarising each logged moment below, for a "
+            "personal relationship journal's year-in-review. Keep each summary to a single "
+            "sentence (~15 words), specific and understated - never hype, no emoji, no "
+            "excessive exclamation marks, no greeting-card cliches. Respond ONLY as a JSON "
+            "array of strings, one per moment, in the same order."
+        )
+        items = "\n".join(
+            f"{i + 1}. {m.get('date_display') or ''} - {m.get('title') or '(untitled)'}: "
+            f"{m.get('body_preview') or m.get('body') or ''}"
+            for i, m in enumerate(moments)
+        )
+        user = f"{month_label}:\n{items}"
+        try:
+            raw = self._chat(system, user, max_tokens=300, temperature=0.6)
+        except AIError:
+            return []
+        data = _safe_json(raw)
+        if isinstance(data, list):
+            return [str(x).strip() for x in data]
+        return []
+
     def support_chat(self, messages: list[dict]) -> Generator[str, None, None]:
         """Stream a support-chat response using a capable model (e.g. gpt-4o).
         Takes a full messages list including the system prompt."""

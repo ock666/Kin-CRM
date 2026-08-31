@@ -262,9 +262,33 @@ def save_instagram(request: Request, db: Session = Depends(get_db), user=Depends
     return RedirectResponse("/settings", status_code=303)
 
 
+@router.post("/settings/calendar")
+def save_calendar(request: Request, db: Session = Depends(get_db), user=Depends(current_user),
+                  calendar_ics_enabled: str = Form("0"),
+                  calendar_sync_birthdays: str = Form("1"),
+                  calendar_sync_notable_dates: str = Form("1"),
+                  calendar_birthday_reminder_days: str = Form("14"),
+                  calendar_notable_reminder_days: str = Form("1")):
+    """Calendar sync preferences. Enabling the feed generates a one-time subscribe token if it
+    doesn't exist yet (the URL is shared externally, so the token is rotated only by disabling
+    and re-enabling)."""
+    values = {
+        "calendar_ics_enabled": calendar_ics_enabled,
+        "calendar_sync_birthdays": calendar_sync_birthdays,
+        "calendar_sync_notable_dates": calendar_sync_notable_dates,
+        "calendar_birthday_reminder_days": calendar_birthday_reminder_days or "14",
+        "calendar_notable_reminder_days": calendar_notable_reminder_days or "1",
+    }
+    if calendar_ics_enabled == "1" and not get_setting_sensitive(db, "calendar_ics_token"):
+        import secrets
+        values["calendar_ics_token"] = secrets.token_urlsafe(24)
+    set_many(db, values)
+    return RedirectResponse("/settings", status_code=303)
+
+
 @router.post("/settings/general")
 def save_general(request: Request, db: Session = Depends(get_db), user=Depends(current_user),
-                  birthday_lead_days: str = Form("3"), checkin_default_cadence_days: str = Form("60"),
+                  birthday_lead_days: str = Form("14"), checkin_default_cadence_days: str = Form("60"),
                   daily_job_hour: str = Form("8"), conflict_plan_idle_minutes: str = Form("15"),
                   chat_retention_days: str = Form("14")):
     set_many(db, {

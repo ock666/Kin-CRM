@@ -10,6 +10,18 @@
   <a class="btn btn-primary" href="/journal/new">✏️ New entry</a>
 </div>
 
+{% if wrapped_ready %}
+<div class="card" style="border-left:4px solid var(--accent);">
+  <div class="flex-gap" style="justify-content:space-between; flex-wrap:wrap;">
+    <div>
+      <h2 class="mb-0">🎉 Kin Wrapped {{ current_year }} is ready</h2>
+      <p class="text-muted mb-0 text-sm">A quiet look back at the people you were closest to and the moments you shared — yours to keep or share for a few weeks.</p>
+    </div>
+    <a class="btn btn-sm btn-primary" href="/wrapped">View Kin Wrapped</a>
+  </div>
+</div>
+{% endif %}
+
 {% if grace_active %}
 <div class="card" style="border-color: var(--success-soft);">
   <div class="flex-gap" style="justify-content:space-between; flex-wrap:wrap;">

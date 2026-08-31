@@ -64,3 +64,10 @@ def run_startup_migrations():
     # v2.1: voice chat support (store audio URL + transcript on conflict chat messages)
     _ensure_column("conflict_chat_messages", "audio_url", "TEXT")
     _ensure_column("conflict_chat_messages", "transcript", "TEXT")
+
+    # v2.2: birthday reminders expanded from 3 days to 2 weeks (more grace time to plan a gift).
+    # The default changed in settings_store; bump any existing installs still on the old default.
+    with engine.begin() as conn:
+        conn.execute(text(
+            "UPDATE settings SET value='14' WHERE key='birthday_lead_days' AND value='3'"
+        ))

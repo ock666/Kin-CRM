@@ -20,6 +20,9 @@
         <button class="btn btn-sm" hx-post="/ai/people/{{ person.id }}/bio" hx-target="#bio-result" hx-swap="innerHTML">✨ Generate bio</button>
         <span id="bio-result"></span>
         <a class="btn btn-sm" href="/people/{{ person.id }}/edit#bio">✏️ Edit</a>
+        {% if wrapped_share_available %}
+        <a class="btn btn-sm" href="/wrapped/person/{{ person.id }}">🎉 Share our year</a>
+        {% endif %}
       </p>
       <span class="tag" title="Friend rank: based on how much you've logged and filled in for them">
         {{ rank.emoji }} {{ rank.tier }} · {{ rank.score }}/100

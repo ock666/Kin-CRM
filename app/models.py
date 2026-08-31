@@ -167,6 +167,9 @@ class Person(Base):
     hangout_dismissals = relationship(
         "HangoutDismissal", back_populates="person", cascade="all, delete-orphan",
     )
+    wrapped_shares = relationship(
+        "WrappedPersonShare", back_populates="person", cascade="all, delete-orphan",
+    )
 
     journal_entries = relationship(
         "JournalEntry", secondary=journal_entry_people, back_populates="people",
@@ -424,6 +427,40 @@ class HangoutDismissal(Base):
     created_at = Column(DateTime, default=utcnow)
 
     person = relationship("Person", back_populates="hangout_dismissals")
+
+
+class WrappedCard(Base):
+    """A generated 'Your Year' card - a private, shareable year-in-review snapshot.
+
+    Cards are auto-generated once per year (mid-December) and expire ~4 weeks later so
+    long-running installs never accumulate stale cards, and shared links don't live forever
+    (privacy). `data_json` holds the computed, AI-narrated payload so views are cheap and
+    stable."""
+    __tablename__ = "wrapped_cards"
+
+    id = Column(Integer, primary_key=True)
+    token = Column(String(64), unique=True, nullable=False, index=True)
+    year = Column(Integer, nullable=False, index=True)
+    data_json = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=utcnow)
+
+
+class WrappedPersonShare(Base):
+    """A per-person 'Our year with {Name}' share link for Kin Wrapped.
+
+    Created on demand from a person's preview page during the wrapped season. The public card
+    contains ONLY that person's moments (plus a warm note) - never other people, aggregate stats,
+    gifts, or conflicts. Expires with the season (~4 weeks) and is pruned with the main cards."""
+    __tablename__ = "wrapped_person_shares"
+
+    id = Column(Integer, primary_key=True)
+    person_id = Column(Integer, ForeignKey("people.id", ondelete="CASCADE"), nullable=False, index=True)
+    year = Column(Integer, nullable=False)
+    token = Column(String(64), unique=True, nullable=False, index=True)
+    data_json = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=utcnow)
+
+    person = relationship("Person", back_populates="wrapped_shares")
 
 
 class PushSubscription(Base):

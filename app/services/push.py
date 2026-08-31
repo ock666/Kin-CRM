@@ -159,6 +159,37 @@ def send_test(db: Session) -> int:
     return sent
 
 
+def push_notification(db: Session, title: str, body: str, url: str = "/",
+                      tag: str = "kin") -> int:
+    """Send a single one-off notification to all opted-in subscriptions (e.g. 'your year is
+    ready'). Respects the same rules as the daily nudges: no-op unless push is enabled, no
+    delivery during grace mode, dead subscriptions pruned. Returns count sent."""
+    if get_setting(db, "push_enabled", "0") == "0":
+        return 0
+    if grace_service.is_grace_active(db):
+        return 0
+    vapid = ensure_vapid_keys(db)
+    if not vapid:
+        return 0
+    subs = db.query(PushSubscription).all()
+    if not subs:
+        return 0
+
+    payload = {"title": title, "body": body, "url": url, "tag": tag}
+    sent = 0
+    for sub in list(subs):
+        result = _send(sub, payload, vapid)
+        if result == "gone":
+            db.delete(sub)
+            try:
+                db.commit()
+            except Exception:
+                db.rollback()
+        elif result:
+            sent += 1
+    return sent
+
+
 def send_push_notifications(db: Session) -> int:
     """Send aggregated push notifications to all opted-in subscriptions. Returns the number of
     subscriptions successfully notified, or 0 if push isn't configured / disabled / nothing to

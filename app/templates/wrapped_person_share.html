@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>You &amp; {{ data.name }} — Kin Wrapped {{ data.year }}</title>
+{% include "partials/wrapped_styles.html" %}
+<style>
+  body {
+    margin: 0;
+    padding: 0;
+    background: radial-gradient(720px 440px at 16% -8%, rgba(255,178,110,.14), transparent 70%), #221e1a;
+    color: #f3ecdf;
+  }
+  .share-shell { padding: 1.25rem 1rem 3rem; }
+  .share-tools {
+    max-width: 720px;
+    margin: 0 auto 1.25rem;
+    display: flex;
+    justify-content: center;
+    gap: .6rem;
+  }
+  .share-tools button {
+    font-family: inherit;
+    font-size: .9rem;
+    border: 1px solid #4a4136;
+    background: #302a23;
+    color: #f3ecdf;
+    padding: .55rem 1rem;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .share-tools button:hover { background: #3a3450; border-color: #b3a0ff; }
+  .share-foot { text-align: center; color: #a89b86; font-size: .8rem; margin-top: 2rem; }
+</style>
+</head>
+<body>
+  <div class="share-shell">
+    <div class="share-tools">
+      <button type="button" id="wrapped-save">⬇️ Save as image</button>
+    </div>
+    {% include "partials/wrapped_person_card.html" %}
+    <div class="wrapped-outro">
+      <p>Thanks for the year, {{ data.name }}.</p>
+    </div>
+    <p class="share-foot">A moment worth keeping — made with Kin.</p>
+  </div>
+  <script src="/static/js/wrapped.js" defer></script>
+</body>
+</html>

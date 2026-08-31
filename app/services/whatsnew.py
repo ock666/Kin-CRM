@@ -12,39 +12,20 @@ from ..config import settings
 WHATS_NEW = {
     "version": settings.APP_VERSION,
     "title": "What's new in Kin",
-    "date": "August 2026",
+    "date": "September 2026",
     "body": """
 Hi, it's Skye. Thanks for trusting Kin with your relationships — this one's a big one, all built to make keeping in touch feel lighter, not heavier.
 
-### 🎙️ Talk, don't type
-Record or upload voice notes in the journal and in "Talk it through". Whisper transcribes them into your entries and chats.
+### 🎉 Kin Wrapped
+Around mid-December Kin quietly puts together a warm, private year-in-review — the people you were closest to, your standout moments, and the small ways you showed up. No hype, no scoreboard, just a gentle look back. It arrives on its own, and you can share the whole card — or just your year with one person — for a few weeks.
 
-### 🔊 Voice replies
-The support chat can reply out loud using a local Piper voice or OpenAI, and it mirrors you when you speak. Emoji stay out of the spoken audio (they stay in the text).
+### 📅 Calendar sync
+Birthdays and notable dates now live in any calendar you use — Google, Apple, Outlook, or anything that can subscribe to a link.
+How it works: Kin serves a private calendar just for you. Birthdays and recurring notable dates appear as yearly all-day events (no timezone fuss), each with a gentle reminder — two weeks ahead for birthdays, so there's room to sort a card or gift.
+To set it up: Settings → Calendar sync → turn it on → copy the subscribe link → add it to your calendar app by URL. It stays in sync on its own, and only ever shows the dates you've chosen to sync.
 
-### 🖼️ Click any photo to zoom
-An in-page cinematic viewer across memories, timelines, galleries, and Instagram — the page dims, and you dismiss it anytime.
-
-### 🧘 A bigger regulation toolkit
-Four breathing patterns (Box, 4-7-8, physiological sigh, 4-6), "name it to tame it", the STOP technique, and four gentle games: Soft Fall, 2048, Memory, and Minesweeper. No timers, no scores, no pressure.
-
-### 🗣️ AI that sounds like you
-Conversation starters, quick replies, gift ideas, and birthday drafts now match how close you are to someone and mirror your own writing style — no more "coworker" or greeting-card energy.
-
-### 🤫 Dismiss reminders when you need a breather
-Quiet a person's gentle nudges with a tap; they'll be there when you're ready. You can also regenerate "things to ask" anytime.
-
-### 📵 Notifications actually work
-Fixed the push subscription flow so gentle nudges and test notifications arrive properly.
-
-### 🕵️ Hangout detection
-Kin can spot a linked face in a photo from the last month and suggest a quick "looks like you hung out" log.
-
-### 🌙 Calmer look
-A moodier evening-lamp theme with gentler entrance motion.
-
-### 🛡️ Safer defaults
-Host settings that keep updates from breaking self-hosted setups.
+### 🎂 Two weeks to plan
+Birthday reminders (drafts, nudges, and calendar alerts) now start two weeks out instead of three days, so there's more grace to sort a card or gift without the scramble.
 
 That's everything for now. Thank you for being here — don't let the bastards get you down~ — Skye
 """.strip(),

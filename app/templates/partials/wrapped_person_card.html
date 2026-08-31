@@ -1,0 +1,48 @@
+{% macro event_label(et) %}{{ {'hangout':'Hangout','call':'Call','message':'Message','gift':'Gift','milestone':'Milestone','instagram':'Shared','note':'Moment','other':'Moment'}.get(et, 'Moment') }}{% endmacro %}
+
+<div class="wrapped-person-card" id="wrapped-card">
+
+  <div class="wrapped-person-hero wrapped-reveal">
+    <span class="wrapped-kicker">Kin Wrapped {{ data.year }}</span>
+    <h1 class="wrapped-title">You &amp; {{ data.name }}{% if data.nickname and data.nickname != data.name %} <span style="font-size:.45em; color:#d3c5ad;">"{{ data.nickname }}"</span>{% endif %}</h1>
+    <p class="wrapped-tagline">A look back at the moments the two of you shared this year.</p>
+  </div>
+
+  {% if data.note %}
+  <p class="wrapped-person-note wrapped-reveal">{{ data.note }}</p>
+  {% else %}
+  <p class="wrapped-person-note wrapped-reveal">This year with you added up to something real. Here's a little of it.</p>
+  {% endif %}
+
+  {% set s = data.stats %}
+  <div class="wrapped-person-stats wrapped-reveal">
+    {% if s.entries %}<div class="wrapped-person-stat"><strong>{{ s.entries }}</strong><span>moments together</span></div>{% endif %}
+    {% if s.hangouts %}<div class="wrapped-person-stat"><strong>{{ s.hangouts }}</strong><span>hangouts</span></div>{% endif %}
+    {% if s.calls %}<div class="wrapped-person-stat"><strong>{{ s.calls }}</strong><span>calls</span></div>{% endif %}
+    {% if s.messages %}<div class="wrapped-person-stat"><strong>{{ s.messages }}</strong><span>messages</span></div>{% endif %}
+    {% if s.months_together %}<div class="wrapped-person-stat"><strong>{{ s.months_together }}</strong><span>months in touch</span></div>{% endif %}
+    {% if s.photos %}<div class="wrapped-person-stat"><strong>{{ s.photos }}</strong><span>photos</span></div>{% endif %}
+  </div>
+
+  {% if data.moments %}
+  <div class="wrapped-band wrapped-reveal">
+    <div class="wrapped-band-head">
+      <span class="wrapped-band-num">✦</span>
+      <h2>Moments we shared</h2>
+    </div>
+    {% for m in data.moments %}
+    <div class="wrapped-moment">
+      {% if m.asset_id %}<img src="{{ img_base }}/asset/{{ m.asset_id }}/thumbnail" alt="" loading="lazy">{% elif m.url %}<img src="{{ m.url }}" alt="" loading="lazy">{% endif %}
+      <div class="wrapped-moment-body">
+        <span class="wrapped-moment-meta">{{ m.date }} · {{ event_label(m.event_type) }}</span>
+        {% if m.title %}<h3>{{ m.title }}</h3>{% endif %}
+        {% if m.body_preview %}<p>{{ m.body_preview }}</p>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="wrapped-empty wrapped-reveal"><p>Not much was logged this year — and that's okay. This space is here whenever you are.</p></div>
+  {% endif %}
+
+</div>

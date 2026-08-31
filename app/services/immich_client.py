@@ -16,6 +16,9 @@ class ImmichError(Exception):
     pass
 
 
+_RENDERABLE_IMAGE_TYPES = {"jpeg", "jpg", "png", "gif", "webp", "avif"}
+
+
 def _parse_asset_datetime(asset: dict) -> Optional[dt.datetime]:
     """Prefer `localDateTime` (Immich's own timezone-adjusted local capture time) over
     `fileCreatedAt` (which may be in UTC) so day/month comparisons reflect when the photo was
@@ -205,6 +208,15 @@ class ImmichClient:
     def original_url(self, asset_id: str) -> str:
         return f"{self.base_url}/assets/{asset_id}/original"
 
+    def fetch_asset_preview_bytes(self, asset_id: str) -> tuple[bytes, str]:
+        """High-quality, web-safe image for display. Prefers the full-resolution original file,
+        but falls back to the small JPEG thumbnail when the original isn't a browser-renderable
+        format (e.g. HEIC/RAW) so the card never shows a broken image."""
+        content, content_type = self.fetch_asset_bytes(asset_id, size="original")
+        if content_type.split("/")[-1].lower() not in _RENDERABLE_IMAGE_TYPES:
+            content, content_type = self.fetch_asset_bytes(asset_id, size="thumbnail")
+        return content, content_type
+
     def fetch_asset_bytes(self, asset_id: str, size: str = "thumbnail") -> tuple[bytes, str]:
         path = f"/assets/{asset_id}/thumbnail" if size == "thumbnail" else f"/assets/{asset_id}/original"
         try:
@@ -216,6 +228,32 @@ class ImmichClient:
             raise ImmichError(f"Immich returned {e.response.status_code} fetching asset")
         except httpx.RequestError as e:
             raise ImmichError(f"Could not reach Immich server: {e}")
+
+    def asset_face_center(self, asset_id: str) -> tuple[float, float] | None:
+        """Approximate centre of an asset's first detected face, as (x_pct, y_pct) in 0-100.
+        Used to keep object-fit image crops on the faces (so people are front and centre).
+        Returns None when Immich has no face info or the API is unreachable."""
+        try:
+            data = self._get(f"/assets/{asset_id}")
+        except ImmichError:
+            return None
+        people = data.get("people") or []
+        for person in people:
+            bb = person.get("boundingBox") or person.get("bounding_box")
+            coords = None
+            if isinstance(bb, dict):
+                x1, y1, x2, y2 = bb.get("x1"), bb.get("y1"), bb.get("x2"), bb.get("y2")
+                if all(v is not None for v in (x1, y1, x2, y2)):
+                    coords = (float(x1), float(y1), float(x2), float(y2))
+            elif isinstance(bb, str):
+                parts = [float(x) for x in bb.split(",")]
+                if len(parts) == 4:
+                    coords = tuple(parts)
+            if coords:
+                cx = (coords[0] + coords[2]) / 2
+                cy = (coords[1] + coords[3]) / 2
+                return (round(cx * 100, 1), round(cy * 100, 1))
+        return None
 
     def person_thumbnail_bytes(self, person_id: str) -> tuple[bytes, str]:
         try:
