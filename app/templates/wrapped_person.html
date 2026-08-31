@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Our year with {{ data.name }} — {{ app_name }}{% endblock %}
+{% block content %}
+{% include "partials/wrapped_styles.html" %}
+
+<div class="topbar">
+  <div>
+    <h1 class="mb-0">🎉 Our year with {{ data.name }}</h1>
+    <p class="text-muted text-sm mb-0">Preview the card first — the share link appears at the end.</p>
+  </div>
+  <button class="btn btn-sm btn-primary" type="button" id="wrapped-save">⬇️ Save as image</button>
+</div>
+
+<div style="margin-top:1.25rem;">
+  {% include "partials/wrapped_person_card.html" %}
+</div>
+
+<div class="wrapped-outro">
+  <p>Only {{ data.name }}'s moments appear on this card — nothing about anyone else.</p>
+  <div class="wrapped-actions">
+    <button class="wrapped-primary" type="button" id="wrapped-share-btn">🔗 Share this card</button>
+    <button type="button" id="wrapped-save-2">⬇️ Save as image</button>
+    <form method="post" action="/wrapped/person/{{ data.person_id }}/share" style="margin:0;">
+      <button type="submit">🔄 New link</button>
+    </form>
+  </div>
+  <div class="wrapped-share-box" id="wrapped-share-box" style="display:none;">
+    <input type="text" id="wrapped-share-url" readonly value="{{ share_url }}">
+    <button class="wrapped-primary" type="button" id="wrapped-copy-btn">Copy</button>
+  </div>
+  <p class="text-sm text-muted" style="margin-top:.6rem; color:#a89b86;">Anyone with this link can see this card. It stops working once Kin Wrapped's season ends (about four weeks).</p>
+</div>
+
+<script src="/static/js/wrapped.js" defer></script>
+{% endblock %}

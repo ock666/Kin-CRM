@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Kin Wrapped {{ data.year if data else current_year }} — {{ app_name }}{% endblock %}
+{% block content %}
+{% include "partials/wrapped_styles.html" %}
+<style>
+  /* The deck is full-bleed: negate the app's content padding + width cap on this page so the
+     hero fills the viewport edge to edge and there's no dead space to the right. */
+  .main { padding: 0 !important; max-width: none !important; }
+</style>
+
+{% if card and data %}
+  <button class="wrapped-fab" type="button" id="wrapped-save">⬇️ Save as image</button>
+
+  {% include "partials/wrapped_card.html" %}
+  <p class="text-muted text-sm" style="text-align:center; margin-top:1rem; color:#a89b86;">Generated on {{ card.created_at.strftime('%d %B %Y') }} — shareable for a few weeks.</p>
+{% else %}
+  <div class="empty-state" style="margin-top:3rem;">
+    <span class="empty-emoji">🎉</span>
+    <h1 class="mb-1">Kin Wrapped {{ current_year }}</h1>
+    <p class="mb-0">Around mid-December, Kin quietly gathers the people you were closest to and the moments that mattered, and puts together a warm look back at your year — no hype, no scoreboard.</p>
+    <p class="empty-hint">It arrives on its own and you can share it as a card for a few weeks. It only looks back at the year that's passing — no negative moments, no conflicts, ever.</p>
+  </div>
+{% endif %}
+
+<script src="/static/js/wrapped.js" defer></script>
+{% endblock %}

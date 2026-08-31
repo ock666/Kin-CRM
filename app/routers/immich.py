@@ -37,6 +37,20 @@ def asset_original(asset_id: str, request: Request, db: Session = Depends(get_db
         return Response(status_code=404)
 
 
+@router.get("/asset/{asset_id}/preview")
+def asset_preview(asset_id: str, request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
+    """High-res, web-safe image for the wrapped's standout moments (original with a fallback
+    for non-web formats)."""
+    if not user:
+        return RedirectResponse("/login")
+    try:
+        client = get_client_from_settings(db)
+        content, content_type = client.fetch_asset_preview_bytes(asset_id)
+        return Response(content=content, media_type=content_type)
+    except ImmichError:
+        return Response(status_code=404)
+
+
 @router.get("/person/{immich_person_id}/thumbnail")
 def person_thumbnail(immich_person_id: str, request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
     if not user:

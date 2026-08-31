@@ -1,0 +1,231 @@
+{% macro event_label(et) %}{{ {'hangout':'Hangout','call':'Call','message':'Message','gift':'Gift','milestone':'Milestone','instagram':'Shared','note':'Moment','other':'Moment'}.get(et, 'Moment') }}{% endmacro %}
+
+<div class="wrapped-card" id="wrapped-card" data-img-base="{{ img_base }}">
+
+  <section class="wrapped-section wash-hero">
+    <div class="wrapped-inner">
+      <span class="wrapped-kicker">Kin Wrapped</span>
+      <h1 class="wrapped-title">{{ data.year }}</h1>
+      <p class="wrapped-tagline">A quiet look back at the people and moments that made it yours.</p>
+      {% if data.mosaic %}
+      <div class="wrapped-mosaic">
+        {% for aid in data.mosaic[:8] %}
+          <img src="{{ img_base }}/asset/{{ aid }}/thumbnail" alt="" loading="lazy">
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% set s = data.stats %}
+      <div class="wrapped-hero-stats">
+        {% if s.entries %}<span class="wrapped-hero-stat"><strong>{{ s.entries }}</strong> moments</span>{% endif %}
+        {% if s.people_count %}<span class="wrapped-hero-stat"><strong>{{ s.people_count }}</strong> people</span>{% endif %}
+        {% if s.gifts_given %}<span class="wrapped-hero-stat"><strong>{{ s.gifts_given }}</strong> gifts given</span>{% endif %}
+        {% if s.achievements %}<span class="wrapped-hero-stat"><strong>{{ s.achievements }}</strong> achievements</span>{% endif %}
+        {% if s.photos %}<span class="wrapped-hero-stat"><strong>{{ s.photos }}</strong> photos</span>{% endif %}
+      </div>
+    </div>
+  </section>
+
+  {% if data.stats.entries %}
+  <section class="wrapped-section wash-rhythm">
+    <div class="wrapped-inner">
+      <div class="wrapped-band-head">
+        <span class="wrapped-band-num">01</span>
+        <h2>Your rhythm</h2>
+      </div>
+      {% set labels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] %}
+      <div class="wrapped-chart" role="group" aria-label="Moments logged per month this year — click a month to see what happened">
+        {% set peak = data.rhythm|max %}
+        {% for i in range(12) %}
+          {% set val = data.rhythm[i] %}
+          <div class="wrapped-chart-col {{ 'is-peak' if peak and val == peak and val > 0 else '' }} {{ 'has-moments' if val > 0 else '' }}"
+               role="button" tabindex="0"
+               data-month="{{ i }}"
+               aria-label="{{ labels[i] }} — {{ val }} moment{{ 's' if val != 1 else '' }}. Click to see what happened."
+               title="{{ labels[i] }} — {{ val }} moment{{ 's' if val != 1 else '' }}">
+            <div class="wrapped-chart-bar" data-count="{{ val }}" style="height: {{ (val / peak * 100) if peak else 0 }}%;"></div>
+            <span>{{ labels[i] }}</span>
+          </div>
+        {% endfor %}
+      </div>
+      <div class="wrapped-chart-hint">Click a month to peek at what happened.</div>
+      {% if data.peak_month and data.peak_count %}
+      <p class="wrapped-facts-caption">Your busiest month was <strong>{{ labels[data.peak_month - 1] }}</strong> — {{ data.peak_count }} moment{{ 's' if data.peak_count != 1 else '' }}.</p>
+      {% endif %}
+
+      <div class="wrapped-month-panel" id="wrapped-month-panel" hidden>
+        <div class="wrapped-month-panel-head">
+          <h3 id="wrapped-month-title"></h3>
+          <button type="button" class="wrapped-month-close" id="wrapped-month-close" aria-label="Close month view">✕</button>
+        </div>
+        <div class="wrapped-month-moments" id="wrapped-month-moments"></div>
+        <p class="wrapped-carousel-hint" id="wrapped-carousel-hint" hidden>→ Swipe or scroll for more</p>
+      </div>
+    </div>
+  </section>
+
+  {% set f = data.fun_facts %}
+  <section class="wrapped-section wash-facts">
+    <div class="wrapped-inner">
+      <div class="wrapped-band-head">
+        <span class="wrapped-band-num">02</span>
+        <h2>Little things, remembered</h2>
+      </div>
+      <p class="wrapped-narrative">
+        {% if f.first_date_display %}
+          It started with <strong>{{ f.first_title }}</strong> on <strong>{{ f.first_date_display }}</strong>{% if f.last_date_display %}, and the year closed with <strong>{{ f.last_title }}</strong> on <strong>{{ f.last_date_display }}</strong>.{% else %}.{% endif %}
+        {% endif %}
+      </p>
+      <div class="wrapped-fact-chips">
+        {% if f.total_words %}<span class="wrapped-chip">✍️ {{ f.total_words }} words written</span>{% endif %}
+        {% if f.top_weekday is not none %}<span class="wrapped-chip">📅 {{ ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'][f.top_weekday] }}s were your day</span>{% endif %}
+        {% if f.top_type %}<span class="wrapped-chip">💛 Most often: {{ event_label(f.top_type)|lower }}</span>{% endif %}
+      </div>
+      {% if data.all_photos %}
+      <div class="wrapped-facts-stage" id="wrapped-facts-stage" aria-label="A drifting collage of the year's photos">
+        {% set xs = [14,32,50,68,86,22,40,58,76,30,62,80] %}
+        {% set ys = [22,50,78,28,56,84,38,66,24,46,72,92] %}
+        {% for aid in data.all_photos[:12] %}
+        <div class="wrapped-photo {{ 'is-shown' if loop.index0 == 0 else '' }}"
+             style="--px:{{ xs[loop.index0 % 12] }}%; --py:{{ ys[loop.index0 % 12] }}%; --i:{{ loop.index0 }};">
+          <div class="wrapped-photo-float"
+               style="--float-x:{{ [7,-9,11,-7,4,-5,9,-6][loop.index0 % 8] }}px; --float-y:{{ [-9,7,-7,11,9,-11,6,-8][loop.index0 % 8] }}px; --float-r:{{ [-1.3,1.5,-1.7,1.3,-1,1.6,-1.4,1.1][loop.index0 % 8] }}deg;">
+            <img src="{{ img_base }}/asset/{{ aid }}/thumbnail" alt="" loading="lazy">
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+  {% if data.people %}
+  <section class="wrapped-section wash-people">
+    <div class="wrapped-inner">
+      <div class="wrapped-band-head">
+        <span class="wrapped-band-num">03</span>
+        <h2>People you were closest to</h2>
+      </div>
+      <div class="wrapped-people">
+      {% for p in data.people %}
+      <div class="wrapped-person">
+        {% if p.photo %}
+          {% if p.photo.kind == 'asset' %}
+          <img class="wrapped-person-photo" src="{{ img_base }}/asset/{{ p.photo.id }}/thumbnail"
+               alt="A photo with {{ p.name }}" loading="lazy"
+               {% if p.photo.face_x is defined and p.photo.face_y is defined %}style="object-position:{{ p.photo.face_x }}% {{ p.photo.face_y }}%;"{% endif %}>
+          {% elif p.photo.kind == 'person' %}
+          <img class="wrapped-person-photo wrapped-person-photo-avatar" src="{{ img_base }}/person/{{ p.photo.id }}/thumbnail"
+               alt="{{ p.name }}" loading="lazy">
+          {% endif %}
+        {% endif %}
+        <div class="wrapped-person-top">
+          <span class="wrapped-rank">#{{ loop.index }}</span>
+          <span class="wrapped-person-name">{{ p.name }}</span>
+          <span class="wrapped-person-count">{{ p.moments }} moment{{ 's' if p.moments != 1 else '' }}</span>
+        </div>
+        {% if p.label %}<p class="wrapped-person-sub">{{ p.label }}</p>{% endif %}
+        {% if p.months %}
+        <div class="wrapped-timeline" title="Months you spent together">
+          {% for m in range(1, 13) %}<i class="{{ 'on' if m in p.months else '' }}"></i>{% endfor %}
+        </div>
+        {% endif %}
+        {% if p.blurb %}<p class="wrapped-person-blurb">{{ p.blurb }}</p>{% endif %}
+        <div class="wrapped-person-counts">
+          {% if p.hangouts %}<span>🤝 {{ p.hangouts }} hangout{{ 's' if p.hangouts != 1 else '' }}</span>{% endif %}
+          {% if p.calls %}<span>📞 {{ p.calls }} call{{ 's' if p.calls != 1 else '' }}</span>{% endif %}
+          {% if p.messages %}<span>💬 {{ p.messages }} message{{ 's' if p.messages != 1 else '' }}</span>{% endif %}
+          {% if p.milestones %}<span>⭐ {{ p.milestones }} milestone{{ 's' if p.milestones != 1 else '' }}</span>{% endif %}
+        </div>
+        <div class="wrapped-person-actions">
+          <a class="wrapped-share-link-btn" href="/wrapped/person/{{ p.id }}">🔗 Share our year</a>
+        </div>
+      </div>
+      {% endfor %}
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if data.moments %}
+  <section class="wrapped-section wash-moments">
+    <div class="wrapped-inner">
+      <div class="wrapped-band-head">
+        <span class="wrapped-band-num">04</span>
+        <h2>Standout moments</h2>
+      </div>
+      <div class="wrapped-moments">
+      {% for m in data.moments %}
+      <div class="wrapped-moment">
+        {% if m.asset_id %}
+          <img src="{{ img_base }}/asset/{{ m.asset_id }}/preview" alt="" loading="lazy"
+               {% if m.face_x is defined and m.face_y is defined %}style="object-position:{{ m.face_x }}% {{ m.face_y }}%;"{% endif %}>
+        {% elif m.url %}<img src="{{ m.url }}" alt="" loading="lazy">{% endif %}
+        <div class="wrapped-moment-body">
+          <span class="wrapped-moment-meta">{{ m.date_display or m.date }} · {{ event_label(m.event_type) }}{% if m.people %} · {{ m.people|join(', ') }}{% endif %}</span>
+          {% if m.title %}<h3>{{ m.title }}</h3>{% endif %}
+          {% if m.body_preview %}<p>{{ m.body_preview }}</p>{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if data.badges %}
+  <section class="wrapped-section wash-badges">
+    <div class="wrapped-inner">
+      <div class="wrapped-band-head">
+        <span class="wrapped-band-num">05</span>
+        <h2>Ways you showed up</h2>
+      </div>
+      <div class="wrapped-badges">
+        {% for b in data.badges %}
+          <span class="wrapped-badge" tabindex="0">
+            {{ b.emoji }} {{ b.label }}
+            <span class="wrapped-badge-tip">
+              <strong>{{ b.emoji }} {{ b.label }}</strong>
+              {{ b.desc }}
+              <em>Unlocked {{ b.date_display }}</em>
+            </span>
+          </span>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  {% else %}
+  <section class="wrapped-section wash-empty">
+    <div class="wrapped-inner">
+      <div class="wrapped-empty">
+        <p>Not much was logged this year — and that's okay. This space is here whenever you are.</p>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="wrapped-section wash-outro">
+    <div class="wrapped-inner">
+      <div class="wrapped-outro">
+        <p>Thanks for keeping the people in your life close this year — it adds up to something real.</p>
+        <div class="wrapped-actions">
+          {% if show_share %}
+          <button class="wrapped-primary" type="button" id="wrapped-share-btn">🔗 Share this card</button>
+          {% endif %}
+          <button type="button" id="wrapped-save-2">⬇️ Save as image</button>
+        </div>
+        {% if show_share %}
+        <div class="wrapped-share-box" id="wrapped-share-box" style="display:none;">
+          <input type="text" id="wrapped-share-url" readonly value="{{ share_url }}">
+          <button class="wrapped-primary" type="button" id="wrapped-copy-btn">Copy</button>
+        </div>
+        <p class="wrapped-outro-note">Anyone with this link can see this card. It stops working once the card expires (about four weeks).</p>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script type="application/json" id="wrapped-months-data">{{ data.months_detail|tojson }}</script>

@@ -288,6 +288,43 @@
 </div>
 
 <div class="card mt-2">
+  <h2>📅 Calendar sync</h2>
+  <p class="text-sm text-muted">Subscribe to your birthdays and notable dates in any external calendar (Google, Apple, and so on). Kin serves a private calendar link; keep it secret — anyone with it can see those dates.</p>
+  <form method="post" action="/settings/calendar">
+    <div class="field">
+      <label class="flex-gap" style="justify-content:space-between;">
+        <span>Enable the calendar feed</span>
+        <input type="checkbox" name="calendar_ics_enabled" value="1" id="calendar-enabled-check"
+          {{ 'checked' if cfg.calendar_ics_enabled == '1' else '' }}>
+      </label>
+    </div>
+    {% if cfg.calendar_ics_enabled == '1' and cfg.calendar_ics_token %}
+    <div class="field">
+      <label for="calendar_url">Subscribe URL</label>
+      <input type="text" id="calendar_url" readonly
+             value="{{ request.base_url }}calendar.ics?token={{ cfg.calendar_ics_token }}">
+      <p class="help-text">In your calendar app, choose "Add by URL / Subscribe to calendar" and paste this. Google refreshes roughly daily; Apple and Outlook update faster. To rotate the link, turn the feed off, save, then turn it back on.</p>
+    </div>
+    {% endif %}
+    <div class="field">
+      <label class="flex-gap"><input type="checkbox" name="calendar_sync_birthdays" value="1" {{ 'checked' if cfg.calendar_sync_birthdays != '0' else '' }}> Birthdays</label>
+      <label class="flex-gap"><input type="checkbox" name="calendar_sync_notable_dates" value="1" {{ 'checked' if cfg.calendar_sync_notable_dates != '0' else '' }}> Notable dates</label>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="calendar_birthday_reminder_days">Birthday reminder (days before)</label>
+        <input type="number" id="calendar_birthday_reminder_days" name="calendar_birthday_reminder_days" value="{{ cfg.calendar_birthday_reminder_days or '14' }}" min="0" max="60">
+      </div>
+      <div class="field">
+        <label for="calendar_notable_reminder_days">Notable date reminder (days before)</label>
+        <input type="number" id="calendar_notable_reminder_days" name="calendar_notable_reminder_days" value="{{ cfg.calendar_notable_reminder_days or '1' }}" min="0" max="60">
+      </div>
+    </div>
+    <button class="btn btn-primary btn-sm" type="submit">Save calendar settings</button>
+  </form>
+</div>
+
+<div class="card mt-2">
   <h2>👥 People with access</h2>
   {% for u in users %}
     <div class="flex-between" style="padding:.4rem 0; border-top:1px solid var(--border);">

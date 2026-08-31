@@ -276,6 +276,36 @@ For OpenAI TTS, set Provider to OpenAI and add your API key.
 
 **Mirror my mode** is the single global toggle that controls voice replies. When on, if you send a voice note the bot replies with a voice bubble (plus the text transcript for accessibility). When off, replies are always text. Emoji are stripped from the spoken audio automatically (they stay in the on-screen transcript).
 
+### Calendar sync
+
+Kin can push birthdays and notable dates into any calendar that can subscribe to an ICS link — Google Calendar, Apple Calendar, Outlook, Thunderbird, and most others. Nothing leaves your server except the feed URL.
+
+**How it works:**
+
+- Kin serves a private feed at `GET /calendar.ics?token=…` (the token is generated when you enable the feed in Settings).
+- Birthdays become yearly all-day events (`RRULE:FREQ=YEARLY`); notable dates recur yearly only if you've marked them recurring.
+- All-day `DATE` events are used, so there's no timezone/DST drift regardless of where your calendar lives.
+- Each event carries a `VALARM` reminder: **two weeks before birthdays** (matching the two-week lead time) and one day before notable dates — both configurable.
+
+**Setup:**
+
+1. Go to **Settings → Calendar sync**.
+2. Turn on **Enable the calendar feed** and save — Kin generates a private token.
+3. Copy the **Subscribe URL**.
+4. In your calendar app, choose *Add by URL* / *Subscribe to calendar* and paste it:
+   - **Google Calendar**: Settings → Add from URL.
+   - **Apple Calendar**: File → New Calendar Subscription.
+   - **Outlook**: Add calendar → From internet.
+5. Pick which dates to sync (birthdays / notable dates) and the reminder lead times — all in the same Settings section.
+
+**Notes:**
+
+- The feed is generated fresh from your data on every fetch (stable event UIDs), so edits and new people appear automatically — nothing to reconcile by hand.
+- Refresh timing is up to your calendar client: Apple and Outlook update quickly; Google typically re-checks a subscribed feed roughly daily.
+- **Reminders**: Apple and Outlook honour the `VALARM` triggers. Google Calendar applies its own notification settings to subscribed feeds, so set a default notification there if you want an alert.
+- Keep the token secret — anyone with the link can see the synced dates. Rotate it by turning the feed off, saving, then turning it back on.
+- Only the dates you've chosen to sync are included; archived people are skipped.
+
 ### Instagram integration (use with caution)
 
 Kin includes an optional, unofficial Instagram reader using [instagrapi](https://github.com/subzeroid/instagrapi). It's against Instagram's Terms of Service. Use a throwaway/secondary account only — never your primary account. Nothing is ever posted or messaged. Posts land in the Review Queue for your approval. Leave it disabled if you'd rather not risk it; everything else works fine without it.
@@ -343,6 +373,20 @@ Kin includes an optional, unofficial Instagram reader using [instagrapi](https:/
 - **Reframe**: facts-vs-RSD reality check, the STOP technique, and "name it to tame it" affect labeling
 - **Soothe**: gentle, no-pressure games (no timers, no score pressure, touch + keyboard) — Soft Fall (falling blocks), 2048, Memory, and Minesweeper
 - Inclusive help lines: AU (000, Lifeline, Beyond Blue, QLife), US (988, Trevor Project, Trans Lifeline), UK (999/111, Mind, Switchboard) — secular and queer-affirming only
+
+### Kin Wrapped
+- A private, warm year-in-review that arrives on its own around mid-December and covers the current calendar year
+- Entirely positive: conflicts are never shown — just the people you were closest to, standout moments, and the ways you showed up
+- Interactive deck: full-screen sections with cross-fades, a clickable monthly rhythm chart, a living photo collage, and hover tooltips on badges
+- Optional AI narration (warm and understated); fully functional deterministic-only when AI isn't configured
+- Per-person **"Our year with X"** share cards (only that person's moments — never anyone else's), plus a whole-card share link — both expire after a few weeks
+- Export any card as a PNG image, dependency-free
+
+### Calendar sync
+- Birthdays and notable dates appear in any external calendar (Google, Apple, Outlook…) as all-day, timezone-safe yearly events
+- Gentle reminders: two weeks before birthdays, one day before notable dates (both configurable)
+- Private feed with a token; per-type toggles; stays in sync automatically
+- Full setup guide in [Configuration](#calendar-sync)
 
 ### PWA: install anywhere
 - Install as a standalone app (mobile or desktop) via the PWA manifest

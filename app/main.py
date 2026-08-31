@@ -6,6 +6,7 @@ from pathlib import Path
 
 import markdown2
 from fastapi import FastAPI, Request
+from markupsafe import Markup
 from fastapi.responses import RedirectResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
@@ -77,8 +78,18 @@ templates.env.filters["markdown"] = _render_markdown
 templates.env.filters["initials"] = _initials
 templates.env.filters["parse_json"] = _parse_json
 templates.env.filters["avatar_hue"] = _avatar_hue
+def _script_safe_json(v) -> str:
+    # Script-safe JSON for <script type="application/json"> embeds: escape <, >, & as unicode
+    # escapes (so user content can't break out of the tag or inject HTML) while keeping the
+    # JSON itself valid for JSON.parse.
+    s = json.dumps(v)
+    s = s.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+    return Markup(s)
 
-OPEN_PATHS = {"/login", "/setup", "/health", "/sw.js", "/manifest.webmanifest", "/static/offline.html", "/mfa/verify"}
+
+templates.env.filters["tojson"] = _script_safe_json
+
+OPEN_PATHS = {"/login", "/setup", "/health", "/sw.js", "/manifest.webmanifest", "/static/offline.html", "/mfa/verify", "/calendar.ics"}
 
 
 @app.middleware("http")
@@ -131,7 +142,8 @@ def manifest():
 @app.middleware("http")
 async def auth_gate(request: Request, call_next):
     path = request.url.path
-    if path.startswith("/static") or path.startswith("/api/") or path in OPEN_PATHS or path.startswith("/mfa/"):
+    if (path.startswith("/static") or path.startswith("/api/") or path in OPEN_PATHS
+            or path.startswith("/mfa/") or path.startswith("/wrapped/share")):
         return await call_next(request)
 
     db = SessionLocal()
@@ -206,6 +218,8 @@ from .routers import hangouts as hangouts_router  # noqa: E402
 from .routers import push as push_router  # noqa: E402
 from .routers import data_import as import_router  # noqa: E402
 from .routers import regulation as regulation_router  # noqa: E402
+from .routers import wrapped as wrapped_router  # noqa: E402
+from .routers import calendar as calendar_router  # noqa: E402
 
 app.include_router(auth_router.router)
 app.include_router(dashboard_router.router)
@@ -221,6 +235,8 @@ app.include_router(hangouts_router.router)
 app.include_router(push_router.router)
 app.include_router(import_router.router)
 app.include_router(regulation_router.router)
+app.include_router(wrapped_router.router)
+app.include_router(calendar_router.router)
 
 # API v1
 from .routers.api import routers as api_routers  # noqa: E402

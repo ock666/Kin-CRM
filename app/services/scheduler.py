@@ -5,7 +5,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from ..database import SessionLocal
 from ..settings_store import get_setting
-from . import birthdays, instagram_poll, push as push_service, resolution_plans
+from . import birthdays, instagram_poll, push as push_service, resolution_plans, wrapped as wrapped_service
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +35,28 @@ def run_daily_jobs():
             push_service.send_push_notifications(db)
         except Exception:
             logger.exception("Push notification send failed")
+
+        # Kin Wrapped season: generate the card once when it's due (mid-December), nudge the
+        # user that it's ready, and prune stale cards so nothing accumulates.
+        try:
+            card, generated = wrapped_service.generate_if_due(db)
+            if generated:
+                try:
+                    push_service.push_notification(
+                        db,
+                        title="Kin Wrapped is ready",
+                        body=f"Your {card.year} in review is waiting for you. 🎉",
+                        url="/wrapped",
+                        tag="wrapped",
+                    )
+                except Exception:
+                    logger.exception("Wrapped-ready push failed")
+        except Exception:
+            logger.exception("Wrapped generation failed")
+        try:
+            wrapped_service.cleanup_expired(db)
+        except Exception:
+            logger.exception("Wrapped cleanup failed")
     finally:
         db.close()
 

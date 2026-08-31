@@ -10,7 +10,7 @@ from ..deps import current_user
 from ..models import Person, Tag, NotableDate, ScratchpadItem, NotablePersonRef, ConflictStatus, RelationshipState
 from ..render import render
 from ..services import birthdays as bday_service
-from ..services import checkins, friend_rank, gamification, states as state_service
+from ..services import checkins, friend_rank, gamification, states as state_service, wrapped as wrapped_service
 from ..settings_store import get_setting
 
 router = APIRouter()
@@ -139,11 +139,19 @@ def person_detail(person_id: int, request: Request, db: Session = Depends(get_db
     person_state = state_service.effective_state(person, today)
     suggestions = state_service.suggest_states(db, today=today)
     person_suggestion = next((s for p, s, r in suggestions if p.id == person.id), None)
+
+    # Kin Wrapped season: offer 'share our year with {Name}' while the wrapped is live and this
+    # person has enough shared moments this year.
+    wrapped_share_available = (
+        wrapped_service.season_active(db)
+        and wrapped_service.is_person_share_eligible(db, person, today.year)
+    )
     return render(request, "person_detail.html", db=db, user=user, active="people",
                   person=person, entries=entries, today=today, rank=rank,
                   watermeter=watermeter, open_conflicts=open_conflicts,
                   bday_days=bday_days, bday_lead=bday_lead,
-                  person_state=person_state, person_suggestion=person_suggestion)
+                  person_state=person_state, person_suggestion=person_suggestion,
+                  wrapped_share_available=wrapped_share_available)
 
 
 @router.get("/people/{person_id}/edit")

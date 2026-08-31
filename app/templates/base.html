@@ -28,6 +28,9 @@
       {% if pending_review_count %}<span class="badge">{{ pending_review_count }}</span>{% endif %}
     </a>
     <a class="nav-link {{ 'active' if active=='progress' else '' }}" href="/progress">🏆 Progress</a>
+    {% if wrapped_ready %}
+    <a class="nav-link {{ 'active' if active=='wrapped' else '' }}" href="/wrapped">🎉 Kin Wrapped {{ current_year }}</a>
+    {% endif %}
     <a class="nav-link {{ 'active' if active=='regulation' else '' }}" href="/regulation">🧘 Regulation</a>
     <a class="nav-link {{ 'active' if active=='settings' else '' }}" href="/settings">⚙️ Settings</a>
     <a class="nav-link {{ 'active' if active=='import' else '' }}" href="/import">📥 Import</a>
