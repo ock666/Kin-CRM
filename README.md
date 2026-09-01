@@ -145,7 +145,7 @@ Kin-CRM is published to the Unraid Community Applications store from this reposi
 - The official template points at `ghcr.io/ock666/kin-crm:latest` and installs with app data in `/mnt/user/appdata/kin-crm` mapped to `/data` inside the container.
 - If a listing built by a third party shows up first, prefer the one whose **Support/Project** links point to `github.com/ock666/Kin-CRM` — the author's listing is the source of truth.
 
-Your data lives in the Docker volume at `/mnt/user/appdata/personal-crm_kin_data` mapped to `/data` inside the container — a SQLite database plus any cached Instagram session files. Back it up like any other volume, or export from the in-app Export page anytime.
+Your data lives in the Docker volume at `/mnt/user/appdata/personal-crm_kin_data` mapped to `/data` inside the container — a SQLite database. Back it up like any other volume, or export from the in-app Export page anytime.
 
 ### Development
 
@@ -306,10 +306,6 @@ Kin can push birthdays and notable dates into any calendar that can subscribe to
 - Keep the token secret — anyone with the link can see the synced dates. Rotate it by turning the feed off, saving, then turning it back on.
 - Only the dates you've chosen to sync are included; archived people are skipped.
 
-### Instagram integration (use with caution)
-
-Kin includes an optional, unofficial Instagram reader using [instagrapi](https://github.com/subzeroid/instagrapi). It's against Instagram's Terms of Service. Use a throwaway/secondary account only — never your primary account. Nothing is ever posted or messaged. Posts land in the Review Queue for your approval. Leave it disabled if you'd rather not risk it; everything else works fine without it.
-
 <p align="right">(<a href="#top">back to top</a>)</p>
 
 
@@ -334,7 +330,7 @@ Kin includes an optional, unofficial Instagram reader using [instagrapi](https:/
 - **Scratchpad**: fleeting "bring up next time" reminders pinned on the person's profile
 - **Notable people**: lightweight references to people in their life without full CRM profiles
 - **Notable dates**: anniversaries, kids' birthdays, recurring dates
-- **In-page photo viewer**: click any photo thumbnail (memories, timeline, gallery, Instagram) to dim the page and view the full-size image — dismiss with ✕, Esc, or a click on the backdrop
+- **In-page photo viewer**: click any photo thumbnail (memories, timeline, gallery) to dim the page and view the full-size image — dismiss with ✕, Esc, or a click on the backdrop
 
 ### Journal: quick-capture logging
 - One text box. Optional title, date, location, energy cost (low/medium/high), event type
@@ -394,7 +390,7 @@ Kin includes an optional, unofficial Instagram reader using [instagrapi](https:/
 - Offline-first: app shell caches and works without a connection
 
 ### Data ownership
-- Full JSON export (people, journal, tags, conflicts, chat transcripts, resolution plans, gift ideas, Instagram posts, settings)
+- Full JSON export (people, journal, tags, conflicts, chat transcripts, resolution plans, gift ideas, settings)
 - CSV export (people + journal)
 - JSON/CSV import (get-or-create by name, non-destructive)
 - All data in a local SQLite database (or Postgres if you prefer)

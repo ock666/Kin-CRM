@@ -173,8 +173,7 @@ def person_update(
     birthday_year: str = Form(""), how_we_met: str = Form(""), met_date: str = Form(""),
     location: str = Form(""), phone: str = Form(""), email: str = Form(""), notes: str = Form(""),
     occupation: str = Form(""), hobbies: str = Form(""), bio: str = Form(""),
-    checkin_cadence_days: str = Form(""), instagram_username: str = Form(""),
-    instagram_enabled: str = Form(""),
+    checkin_cadence_days: str = Form(""),
 ):
     if not user:
         return RedirectResponse("/login")
@@ -199,8 +198,6 @@ def person_update(
     person.hobbies = hobbies.strip() or None
     person.bio = bio.strip() or None
     person.checkin_cadence_days = _safe_int(checkin_cadence_days)
-    person.instagram_username = instagram_username.strip().lstrip("@") or None
-    person.instagram_enabled = bool(instagram_enabled)
     db.commit()
     gamification.award_and_flash(request, db, "PROFILE_UPDATED")
     return RedirectResponse(f"/people/{person.id}", status_code=303)

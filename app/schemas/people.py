@@ -20,8 +20,6 @@ class PersonCreate(BaseModel):
     hobbies: str | None = None
     bio: str | None = None
     checkin_cadence_days: int | None = None
-    instagram_username: str | None = None
-    instagram_enabled: bool = False
     archived: bool = False
 
 
@@ -51,8 +49,6 @@ class PersonResponse(BaseModel):
     checkin_cadence_days: int | None = None
     last_contact_date: str | None = None
     relationship_state: str | None = None
-    instagram_username: str | None = None
-    instagram_enabled: bool = False
     archived: bool = False
     tags: list[str] = []
     friend_rank: int | None = None

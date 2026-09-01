@@ -53,7 +53,7 @@ def compute_friend_rank(person) -> dict:
         (bool(person.how_we_met), "how you met"),
         (bool(person.occupation), "their occupation"),
         (bool(person.hobbies), "their hobbies/interests"),
-        (bool(person.email or person.phone or person.instagram_username), "contact info"),
+        (bool(person.email or person.phone), "contact info"),
         (bool(person.notable_dates), "a notable date (anniversary, etc.)"),
         (bool(person.notable_people_refs), "notable people in their life"),
         (bool(person.immich_person_id), "a linked photo"),

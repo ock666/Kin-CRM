@@ -53,8 +53,6 @@ def _person_response(p: Person) -> dict:
         "checkin_cadence_days": p.checkin_cadence_days,
         "last_contact_date": p.last_contact_date.isoformat() if p.last_contact_date else None,
         "relationship_state": p.relationship_state.value if p.relationship_state else "none",
-        "instagram_username": p.instagram_username,
-        "instagram_enabled": p.instagram_enabled,
         "archived": p.archived,
         "tags": [t.name for t in p.tags],
         "friend_rank": rank.get("score", 0),
@@ -98,8 +96,6 @@ def create_person(body: PersonCreate, db: Session = Depends(get_db), user=Depend
         hobbies=body.hobbies,
         bio=body.bio,
         checkin_cadence_days=_safe_int(body.checkin_cadence_days),
-        instagram_username=body.instagram_username,
-        instagram_enabled=body.instagram_enabled,
         archived=body.archived,
     )
     db.add(p)

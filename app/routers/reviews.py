@@ -7,12 +7,10 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..deps import current_user
 from ..models import (
-    InstagramPost, BirthdayMessageDraft, GiftIdea, GiftStatus, ReviewStatus,
-    JournalEntry, JournalImage, EventType,
+    BirthdayMessageDraft, GiftIdea, GiftStatus, ReviewStatus,
 )
 from ..render import render
 from ..services import birthdays as bday_service
-from ..services import instagram_poll
 from ..services.ai_client import get_client_from_settings, build_person_context, AIError
 
 router = APIRouter()
@@ -22,7 +20,6 @@ router = APIRouter()
 def reviews_page(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
     if not user:
         return RedirectResponse("/login")
-    ig_posts = db.query(InstagramPost).filter_by(status=ReviewStatus.pending).order_by(InstagramPost.posted_at.desc()).all()
     bday_drafts = db.query(BirthdayMessageDraft).filter_by(status=ReviewStatus.pending).all()
     approved_bday = db.query(BirthdayMessageDraft).filter_by(status=ReviewStatus.approved).all()
 
@@ -32,46 +29,13 @@ def reviews_page(request: Request, db: Session = Depends(get_db), user=Depends(c
     gifts_by_key = {(g.person_id, g.year): g for g in gift_ideas}
 
     return render(request, "reviews.html", db=db, user=user, active="reviews",
-                  ig_posts=ig_posts, bday_drafts=bday_drafts, approved_bday=approved_bday,
+                  bday_drafts=bday_drafts, approved_bday=approved_bday,
                   gifts_by_key=gifts_by_key)
 
 
 @router.post("/reviews/run-now")
 def run_now(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
     bday_service.generate_birthday_drafts(db)
-    instagram_poll.poll_all(db)
-    return RedirectResponse("/reviews", status_code=303)
-
-
-@router.post("/reviews/instagram/{post_id}/approve")
-def approve_instagram(post_id: int, db: Session = Depends(get_db), user=Depends(current_user)):
-    post = db.get(InstagramPost, post_id)
-    if post:
-        entry = JournalEntry(
-            author_user_id=user.id if user else None,
-            title=f"Instagram post from @{post.person.instagram_username}",
-            body=post.caption or "(no caption)",
-            entry_date=post.posted_at.date() if post.posted_at else dt.date.today(),
-            event_type=EventType.instagram,
-            source="instagram",
-        )
-        entry.people.append(post.person)
-        db.add(entry)
-        db.flush()
-        if post.media_url:
-            db.add(JournalImage(journal_entry_id=entry.id, upload_path=post.media_url, caption="From Instagram"))
-        post.status = ReviewStatus.approved
-        post.imported_as_journal_entry_id = entry.id
-        db.commit()
-    return RedirectResponse("/reviews", status_code=303)
-
-
-@router.post("/reviews/instagram/{post_id}/dismiss")
-def dismiss_instagram(post_id: int, db: Session = Depends(get_db), user=Depends(current_user)):
-    post = db.get(InstagramPost, post_id)
-    if post:
-        post.status = ReviewStatus.dismissed
-        db.commit()
     return RedirectResponse("/reviews", status_code=303)
 
 

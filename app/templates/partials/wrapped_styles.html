@@ -9,6 +9,7 @@
     max-width: none;
     margin: 0;
     padding: 0;
+    overflow-x: clip;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
     color: #f3ecdf;
     line-height: 1.55;
@@ -288,7 +289,7 @@
   /* ---- People ---- */
   .wrapped-people {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
     gap: .8rem;
   }
   .wrapped-person {
@@ -366,7 +367,7 @@
   /* ---- Moments ---- */
   .wrapped-moments {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
     gap: .8rem;
   }
   .wrapped-moments .wrapped-moment { flex-direction: column; margin: 0; }
@@ -619,10 +620,55 @@
   .wrapped-reveal { opacity: 0; transform: translateY(14px); transition: opacity .5s ease, transform .5s ease; }
   .wrapped-reveal.is-in { opacity: 1; transform: translateY(0); }
 
-  @media (max-width: 560px) {
+  @media (max-width: 720px) {
+    .wrapped-section { padding: 1.75rem 0; }
+
+    /* Tall sections (people, moments) get their own internal scroll on phones so nothing is
+       clipped and you can see everyone: scroll inside the section first, then keep scrolling
+       past its bottom to reach the next section. */
+    .wrapped-section.wrapped-scroll {
+      height: 100vh;
+      height: 100svh;
+      min-height: 100vh;
+      min-height: 100svh;
+      overflow: hidden;
+      padding: 0;
+      align-items: stretch;
+    }
+    .wrapped-section.wrapped-scroll .wrapped-inner {
+      height: 100vh;
+      height: 100svh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 2rem 1.25rem 3.5rem;
+      scrollbar-width: thin;
+      scrollbar-color: #6a5aa0 transparent;
+    }
+    .wrapped-section.wrapped-scroll .wrapped-inner::-webkit-scrollbar { width: 6px; }
+    .wrapped-section.wrapped-scroll .wrapped-inner::-webkit-scrollbar-thumb { background: #6a5aa0; border-radius: 999px; }
+    .wrapped-section.wrapped-scroll .wrapped-inner::after {
+      content: "↓ keep scrolling";
+      display: block;
+      text-align: center;
+      color: #a89b86;
+      font-size: .78rem;
+      padding: .9rem 0 .2rem;
+    }
+
     .wrapped-moment { flex-direction: column; }
     .wrapped-moment img { width: 100%; height: auto; flex: none; }
     .wrapped-dots { display: none; }
+
+    .wrapped-chart { gap: 3px; height: 120px; }
+    .wrapped-chart-bar { max-width: 16px; }
+    .wrapped-chart-col span { font-size: .55rem; }
+  }
+
+  @media (max-width: 560px) {
+    .wrapped-title { font-size: clamp(2.6rem, 14vw, 3.4rem); }
+    .wrapped-hero-stats { gap: .4rem; }
+    .wrapped-hero-stat { font-size: .78rem; padding: .35rem .7rem; }
+    .wrapped-band-head h2 { font-size: 1.2rem; }
   }
 
   @media (prefers-reduced-motion: reduce) {

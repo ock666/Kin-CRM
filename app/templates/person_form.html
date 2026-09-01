@@ -97,14 +97,6 @@
       <p class="help-text">You'll get a gentle nudge on the Today page when it's been this long since you last logged contact.</p>
     </div>
 
-    {% if person %}
-    <div class="field">
-      <label class="flex-gap"><input type="checkbox" name="instagram_enabled" value="1" style="width:auto;" {{ "checked" if person.instagram_enabled else "" }}> Check Instagram for new posts</label>
-      <input type="text" name="instagram_username" placeholder="Instagram username (without @)" value="{{ person.instagram_username or '' }}">
-      <p class="help-text">Requires Instagram credentials configured in <a href="/settings">Settings</a>. New posts land in your review queue - nothing is automatic.</p>
-    </div>
-    {% endif %}
-
     <button class="btn btn-primary" type="submit">{{ "Save changes" if person else "Add person" }}</button>
     <a class="btn" href="{{ '/people/' ~ person.id if person else '/people' }}">Cancel</a>
   </form>

@@ -253,18 +253,6 @@
   {% endif %}
 </div>
 
-{% if person.instagram_enabled %}
-<div class="card mt-2">
-  <h3>📱 Instagram</h3>
-  <p class="text-sm text-muted">
-    Tracking @{{ person.instagram_username }}.
-    {% if person.instagram_last_checked %}Last checked {{ person.instagram_last_checked.strftime('%Y-%m-%d %H:%M') }} UTC.{% endif %}
-    {% if person.instagram_last_error %}<br><span style="color:var(--danger);">{{ person.instagram_last_error }}</span>{% endif %}
-  </p>
-  <a class="btn btn-sm" href="/reviews">Check review queue for new posts</a>
-</div>
-{% endif %}
-
 <div class="card mt-2">
   <div class="flex-between">
     <h3 class="mb-0">📓 Timeline</h3>

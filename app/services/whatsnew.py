@@ -27,6 +27,15 @@ To set it up: Settings → Calendar sync → turn it on → copy the subscribe l
 ### 🎂 Two weeks to plan
 Birthday reminders (drafts, nudges, and calendar alerts) now start two weeks out instead of three days, so there's more grace to sort a card or gift without the scramble.
 
+### 🧹 Instagram, gone
+The unofficial Instagram reader never quite worked and kept making "check now" hang, so it's been removed. Nothing else changes — your people, journal, and reviews all stay exactly as they are.
+
+### 🎂 Birthday drafts, sooner
+Birthday message drafts now also generate the moment a container starts up, not just at the daily morning run — so a restart, or a birthday you've just added or edited, always has a draft ready instead of waiting up to a day.
+
+### 📱 Wrapped on the go
+Kin Wrapped now scrolls properly on phones: the people and standout-moments sections have their own scroll area, and the cross-fade never hides a section that's taller than the screen.
+
 That's everything for now. Thank you for being here — don't let the bastards get you down~ — Skye
 """.strip(),
 }

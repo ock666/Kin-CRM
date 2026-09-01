@@ -27,7 +27,6 @@ class _Person:
         self.hobbies = kw.get("hobbies")
         self.email = kw.get("email")
         self.phone = kw.get("phone")
-        self.instagram_username = kw.get("instagram_username")
         self.notable_dates = kw.get("notable_dates", [])
         self.notable_people_refs = kw.get("notable_people_refs", [])
         self.immich_person_id = kw.get("immich_person_id")
