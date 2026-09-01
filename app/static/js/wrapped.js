@@ -74,20 +74,34 @@
     }
   }
 
-  // Cross-fade: a section is opaque while centred and fades as its centre leaves the middle of
-  // the viewport, so the outgoing fades as the next fades in. The last section stays visible.
+  // Cross-fade: a section is opaque while it substantially fills the viewport and fades out as it
+  // leaves, so the outgoing fades as the next fades in. Opacity is driven by how much of the
+  // section is VISIBLE (not its centre distance), so sections taller than the viewport - e.g. the
+  // people/moments grids on mobile - are never hidden while on screen. The last section stays
+  // visible at the bottom.
   function updateFade() {
     if (!sections.length || reducedMotion) return;
     var vh = window.innerHeight;
     var last = sections.length - 1;
     for (var i = 0; i < sections.length; i++) {
       var rect = sections[i].getBoundingClientRect();
-      var pos = (rect.top + rect.height / 2) / vh; // 0=top edge, 0.5=centre, 1=bottom edge
-      var opacity = 1 - Math.abs(pos - 0.5) * 2.2;
-      opacity = Math.max(0, Math.min(1, opacity));
-      if (i === last && pos <= 0.5) opacity = 1;
+      var visibleTop = Math.max(rect.top, 0);
+      var visibleBottom = Math.min(rect.bottom, vh);
+      var visible = Math.max(0, visibleBottom - visibleTop);
+      var denom = Math.min(rect.height, vh);
+      var fraction = denom > 0 ? visible / denom : 0;
+      // Small threshold so barely-entering/leaving sections stay faded, but anything substantially
+      // on screen is fully opaque.
+      var opacity = Math.max(0, Math.min(1, fraction * 1.25 - 0.1));
+      if (i === last && rect.top <= 0) opacity = 1;
       sections[i].style.opacity = opacity.toFixed(3);
-      sections[i].style.transform = 'translateY(' + ((pos - 0.5) * vh * 0.06).toFixed(1) + 'px)';
+      // Subtle parallax for viewport-height sections; skip for tall ones (would shift hugely).
+      if (rect.height <= vh * 1.2) {
+        var pos = (rect.top + rect.height / 2) / vh;
+        sections[i].style.transform = 'translateY(' + ((pos - 0.5) * vh * 0.06).toFixed(1) + 'px)';
+      } else {
+        sections[i].style.transform = '';
+      }
     }
   }
 

@@ -83,7 +83,7 @@
       {% if data.all_photos %}
       <div class="wrapped-facts-stage" id="wrapped-facts-stage" aria-label="A drifting collage of the year's photos">
         {% set xs = [14,32,50,68,86,22,40,58,76,30,62,80] %}
-        {% set ys = [22,50,78,28,56,84,38,66,24,46,72,92] %}
+        {% set ys = [22,50,76,28,54,78,36,64,24,44,70,78] %}
         {% for aid in data.all_photos[:12] %}
         <div class="wrapped-photo {{ 'is-shown' if loop.index0 == 0 else '' }}"
              style="--px:{{ xs[loop.index0 % 12] }}%; --py:{{ ys[loop.index0 % 12] }}%; --i:{{ loop.index0 }};">
@@ -99,7 +99,7 @@
   </section>
 
   {% if data.people %}
-  <section class="wrapped-section wash-people">
+  <section class="wrapped-section wash-people wrapped-scroll">
     <div class="wrapped-inner">
       <div class="wrapped-band-head">
         <span class="wrapped-band-num">03</span>
@@ -147,7 +147,7 @@
   {% endif %}
 
   {% if data.moments %}
-  <section class="wrapped-section wash-moments">
+  <section class="wrapped-section wash-moments wrapped-scroll">
     <div class="wrapped-inner">
       <div class="wrapped-band-head">
         <span class="wrapped-band-num">04</span>
