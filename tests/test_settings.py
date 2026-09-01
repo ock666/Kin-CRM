@@ -10,7 +10,7 @@ def test_settings_page_has_whats_new(logged_in_client):
     resp = logged_in_client.get("/settings")
     assert resp.status_code == 200
     assert "new in Kin" in resp.text
-    assert "2026.09.3" in resp.text
+    assert "2026.09.4" in resp.text
     assert "don't let the bastards get you down" in resp.text.lower()
     assert "Kin Wrapped" in resp.text
     assert "Calendar sync" in resp.text

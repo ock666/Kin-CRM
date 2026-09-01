@@ -31,7 +31,7 @@ def _load_or_create_secret() -> str:
 
 class Settings:
     APP_NAME = "Kin — Personal Relationship Manager"
-    APP_VERSION = "2026.09.3"  # date-based: YYYY.MM.N (N = release within the month)
+    APP_VERSION = "2026.09.4"  # date-based: YYYY.MM.N (N = release within the month)
     DATABASE_URL: str = (os.environ.get("DATABASE_URL") or f"sqlite:///{DATA_DIR}/app.db")
     SESSION_SECRET: str = _load_or_create_secret()
     DATA_DIR: Path = DATA_DIR
