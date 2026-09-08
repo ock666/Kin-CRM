@@ -14,7 +14,7 @@ import tempfile
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, Request, UploadFile, File
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, JSONResponse
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
@@ -95,6 +95,27 @@ def social_import_page(request: Request, db: Session = Depends(get_db), user=Dep
                   ms_display=_ms_display, FIELD_LABELS=FIELD_LABELS)
 
 
+def _wants_json(request: Request) -> bool:
+    return request.headers.get("x-kin-json") == "1"
+
+
+def _upload_error(request: Request, db: Session, user, msg: str):
+    """Render the error either as a page (plain form) or as JSON (progress-bar upload)."""
+    if _wants_json(request):
+        return JSONResponse({"ok": False, "error": msg}, status_code=400)
+    return render(request, "social_import.html", db=db, user=user, active="import",
+                  threads=db.query(SocialThread).order_by(SocialThread.created_at.desc()).all(),
+                  pending=[],
+                  ig_data_page=IG_DATA_PAGE, ms_display=_ms_display, FIELD_LABELS=FIELD_LABELS,
+                  error=msg)
+
+
+def _upload_success(request: Request, redirect_to: str):
+    if _wants_json(request):
+        return JSONResponse({"ok": True, "redirect": redirect_to})
+    return RedirectResponse(redirect_to, status_code=303)
+
+
 @router.post("/import/social/upload")
 async def social_import_upload(request: Request, db: Session = Depends(get_db), user=Depends(current_user),
                                file: UploadFile = File(...)):
@@ -102,12 +123,10 @@ async def social_import_upload(request: Request, db: Session = Depends(get_db), 
         return RedirectResponse("/login")
     filename = (file.filename or "").lower()
     if not filename.endswith(".zip"):
-        return render(request, "social_import.html", db=db, user=user, active="import",
-                      threads=db.query(SocialThread).order_by(SocialThread.created_at.desc()).all(),
-                      pending=[],
-                      ig_data_page=IG_DATA_PAGE, ms_display=_ms_display, FIELD_LABELS=FIELD_LABELS,
-                      error="Please upload the Instagram data zip (it ends in .zip). "
-                            "Remember to choose the JSON format when you download your data.")
+        return _upload_error(
+            request, db, user,
+            "Please upload the Instagram data zip (it ends in .zip). "
+            "Remember to choose the JSON format when you download your data.")
 
     # Stream the upload to a temp file in chunks rather than buffering it in RAM - exports
     # can be multi-GB (they bundle photos/videos), and reading the whole thing into memory
@@ -130,23 +149,19 @@ async def social_import_upload(request: Request, db: Session = Depends(get_db), 
                 Path(tmp_path).unlink(missing_ok=True)
             except OSError:
                 pass
-            return render(request, "social_import.html", db=db, user=user, active="import",
-                          threads=db.query(SocialThread).order_by(SocialThread.created_at.desc()).all(),
-                          pending=[],
-                          ig_data_page=IG_DATA_PAGE, ms_display=_ms_display, FIELD_LABELS=FIELD_LABELS,
-                          error="The upload was interrupted (it may be too large for your connection). "
-                                "For very big exports, open Kin over your home network instead.")
+            return _upload_error(
+                request, db, user,
+                "The upload was interrupted (it may be too large for your connection). "
+                "For very big exports, open Kin over your home network instead.")
         tmp.flush()
     try:
         parsed = svc.parse_instagram_zip(tmp_path)
     except Exception as e:
         logger.warning("Social zip parse failed: %s", e)
-        return render(request, "social_import.html", db=db, user=user, active="import",
-                      threads=db.query(SocialThread).order_by(SocialThread.created_at.desc()).all(),
-                      pending=[],
-                      ig_data_page=IG_DATA_PAGE, ms_display=_ms_display, FIELD_LABELS=FIELD_LABELS,
-                      error="Couldn't read that zip. It doesn't look like an Instagram export "
-                            "(choose the JSON format when you download).")
+        return _upload_error(
+            request, db, user,
+            "Couldn't read that zip. It doesn't look like an Instagram export "
+            "(choose the JSON format when you download).")
     finally:
         try:
             Path(tmp_path).unlink(missing_ok=True)
@@ -160,7 +175,7 @@ async def social_import_upload(request: Request, db: Session = Depends(get_db), 
         request.session["notice_flash"] = (
             "This export didn't contain any new conversations. If you've already imported "
             "this data before, everything's up to date.")
-        return RedirectResponse("/import/social", status_code=303)
+        return _upload_success(request, "/import/social")
 
     parts = [f"Found {summary['updated']} conversation(s) in this export"]
     if parsed.get("account_handle"):
@@ -170,9 +185,7 @@ async def social_import_upload(request: Request, db: Session = Depends(get_db), 
     parts.append(f"with {summary['new_messages']} new message(s).")
     request.session["notice_flash"] = " ".join(parts)
     pending = db.query(SocialThread).filter_by(status=SocialImportStatus.pending).count()
-    if pending:
-        return RedirectResponse("/import/social/matches", status_code=303)
-    return RedirectResponse("/import/social", status_code=303)
+    return _upload_success(request, "/import/social/matches" if pending else "/import/social")
 
 
 @router.get("/import/social/matches")

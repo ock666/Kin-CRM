@@ -240,3 +240,28 @@ def test_pages_render_after_import(logged_in_client):
     # Review page with nothing linked yet.
     review = logged_in_client.get("/import/social/review")
     assert review.status_code == 200
+
+
+def test_upload_json_progress_contract(logged_in_client):
+    """The progress-bar upload path returns JSON when it asks for it (X-Kin-Json header)."""
+    headers = {"X-Kin-Json": "1"}
+
+    ok = logged_in_client.post(
+        "/import/social/upload",
+        headers=headers,
+        files={"file": ("instagram-x.zip", make_zip(FIXTURE_CONVS), "application/zip")},
+    )
+    assert ok.status_code == 200
+    payload = ok.json()
+    assert payload["ok"] is True
+    assert payload["redirect"] == "/import/social/matches"
+
+    bad = logged_in_client.post(
+        "/import/social/upload",
+        headers=headers,
+        files={"file": ("not-a-zip.zip", b"this is not a zip", "application/zip")},
+    )
+    assert bad.status_code == 400
+    payload = bad.json()
+    assert payload["ok"] is False
+    assert payload["error"]

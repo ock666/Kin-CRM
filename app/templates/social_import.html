@@ -18,16 +18,94 @@
 <div class="card">
   <h2>📸 Upload your Instagram data</h2>
   <p class="text-sm text-muted mb-1">In Instagram, go to <strong>Accounts Center → Your information and permissions → Download your information</strong>, request Instagram data, and pick the <strong>JSON</strong> format. You'll get an <code>instagram-….zip</code> file.</p>
-  <form method="post" action="/import/social/upload" enctype="multipart/form-data">
+  <form id="social-upload-form" method="post" action="/import/social/upload" enctype="multipart/form-data">
     <div class="field">
       <input type="file" name="file" accept=".zip" required>
       <p class="help-text">The zip stays on your own server and only your messages are read (photos are skipped). Re-uploading a fresh export only adds new messages — nothing is ever duplicated.</p>
       <p class="help-text">💡 <strong>Very large export (100 MB+)?</strong> Instagram bundles lots of photos. If the upload cuts out, open Kin over your home network instead of the public web address — public tunnels cap file uploads far below that.</p>
     </div>
+
+    <div id="upload-progress" hidden style="margin:.5rem 0;">
+      <div style="height:10px; border-radius:6px; background:var(--border); overflow:hidden;">
+        <div id="upload-progress-fill" style="height:100%; width:0%; background:var(--accent); transition:width .15s ease;"></div>
+      </div>
+      <p id="upload-progress-label" class="text-sm text-muted mb-0 mt-1">Uploading…</p>
+    </div>
+    <p id="upload-msg" class="notice notice-danger" hidden></p>
+
     <button class="btn btn-primary" type="submit">Import conversations</button>
     <a class="btn btn-sm" href="{{ ig_data_page }}" target="_blank" rel="noopener noreferrer">Open Instagram download page ↗</a>
   </form>
 </div>
+
+<script>
+(function () {
+  var form = document.getElementById('social-upload-form');
+  if (!form) return;
+  var fileInput = form.querySelector('input[type=file]');
+  var submitBtn = form.querySelector('button[type=submit]');
+  var barWrap = document.getElementById('upload-progress');
+  var barFill = document.getElementById('upload-progress-fill');
+  var barLabel = document.getElementById('upload-progress-label');
+  var uploadMsg = document.getElementById('upload-msg');
+
+  function setProgress(pct, label) {
+    barWrap.hidden = false;
+    barFill.style.width = pct + '%';
+    barLabel.textContent = label;
+  }
+  function showError(text) {
+    uploadMsg.textContent = text;
+    uploadMsg.hidden = false;
+  }
+  function resetButton() {
+    submitBtn.disabled = false;
+    fileInput.disabled = false;
+    submitBtn.textContent = 'Import conversations';
+  }
+
+  form.addEventListener('submit', function (e) {
+    if (!fileInput.files.length) return;
+    e.preventDefault();
+    uploadMsg.hidden = true;
+    submitBtn.disabled = true;
+    fileInput.disabled = true;
+    submitBtn.textContent = 'Uploading…';
+
+    var xhr = new XMLHttpRequest();
+    var fd = new FormData(form);
+    xhr.open('POST', form.action);
+    xhr.setRequestHeader('X-Kin-JSON', '1');
+    xhr.upload.addEventListener('progress', function (ev) {
+      if (ev.lengthComputable) {
+        var pct = Math.round(ev.loaded / ev.total * 100);
+        var sentMB = (ev.loaded / 1048576).toFixed(0);
+        var totalMB = (ev.total / 1048576).toFixed(0);
+        setProgress(pct, 'Uploading ' + sentMB + ' of ' + totalMB + ' MB (' + pct + '%)');
+      }
+    });
+    xhr.addEventListener('load', function () {
+      var resp = null;
+      try { resp = JSON.parse(xhr.responseText); } catch (err) { resp = null; }
+      if (resp && resp.ok && resp.redirect) {
+        setProgress(100, 'Uploaded — just a moment…');
+        window.location.assign(resp.redirect);
+        return;
+      }
+      resetButton();
+      barWrap.hidden = true;
+      showError(resp && resp.error ? resp.error : 'Something went wrong — please try again.');
+    });
+    xhr.addEventListener('error', function () {
+      resetButton();
+      barWrap.hidden = true;
+      showError('The upload failed to connect. If the file is very large, try opening Kin over your home network instead.');
+    });
+    setProgress(0, 'Starting upload…');
+    xhr.send(fd);
+  });
+})();
+</script>
 
 {% if threads %}
 <div class="card mt-2">
