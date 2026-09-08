@@ -79,7 +79,7 @@ def update_immich(body: ImmichSettingsUpdate, db: Session = Depends(get_db), use
     updates = {}
     if body.immich_url is not None:
         updates["immich_url"] = body.immich_url.strip()
-    if body.immich_api_key is not None:
+    if body.immich_api_key:  # empty = keep the existing key (never wipe a stored secret)
         updates["immich_api_key"] = body.immich_api_key.strip()
     if updates:
         set_many(db, updates)
@@ -91,7 +91,7 @@ def update_ai(body: AiSettingsUpdate, db: Session = Depends(get_db), user=Depend
     updates = {}
     if body.ai_base_url is not None:
         updates["ai_base_url"] = body.ai_base_url.strip()
-    if body.ai_api_key is not None:
+    if body.ai_api_key:  # empty = keep the existing key (never wipe a stored secret)
         updates["ai_api_key"] = body.ai_api_key.strip()
     if body.ai_model is not None:
         updates["ai_model"] = body.ai_model.strip()

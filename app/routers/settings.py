@@ -36,7 +36,12 @@ def settings_page(request: Request, db: Session = Depends(get_db), user=Depends(
 @router.post("/settings/immich")
 def save_immich(request: Request, db: Session = Depends(get_db), user=Depends(current_user),
                  immich_url: str = Form(""), immich_api_key: str = Form("")):
-    set_many(db, {"immich_url": immich_url.strip(), "immich_api_key": immich_api_key.strip()})
+    values = {"immich_url": immich_url.strip()}
+    # The password field is blank when the user wants to keep the existing key - never wipe a
+    # stored secret with an empty submission.
+    if immich_api_key:
+        values["immich_api_key"] = immich_api_key.strip()
+    set_many(db, values)
     return RedirectResponse("/settings", status_code=303)
 
 
@@ -59,12 +64,16 @@ def test_immich(request: Request, db: Session = Depends(get_db), user=Depends(cu
 def save_ai(request: Request, db: Session = Depends(get_db), user=Depends(current_user),
             ai_base_url: str = Form(...), ai_api_key: str = Form(""), ai_model: str = Form(...),
             support_chat_model: str = Form("gpt-4o")):
-    set_many(db, {
+    values = {
         "ai_base_url": ai_base_url.strip(),
-        "ai_api_key": ai_api_key.strip(),
         "ai_model": ai_model.strip(),
         "support_chat_model": support_chat_model.strip() or "gpt-4o",
-    })
+    }
+    # The API-key field is blank when the user wants to keep the existing key - never wipe a
+    # stored secret with an empty submission.
+    if ai_api_key:
+        values["ai_api_key"] = ai_api_key.strip()
+    set_many(db, values)
     return RedirectResponse("/settings", status_code=303)
 
 
