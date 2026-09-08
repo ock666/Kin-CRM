@@ -21,7 +21,8 @@
   <form method="post" action="/import/social/upload" enctype="multipart/form-data">
     <div class="field">
       <input type="file" name="file" accept=".zip" required>
-      <p class="help-text">The zip stays on your own server. Re-uploading a fresh export only adds new messages — nothing is ever duplicated.</p>
+      <p class="help-text">The zip stays on your own server and only your messages are read (photos are skipped). Re-uploading a fresh export only adds new messages — nothing is ever duplicated.</p>
+      <p class="help-text">💡 <strong>Very large export (100 MB+)?</strong> Instagram bundles lots of photos. If the upload cuts out, open Kin over your home network instead of the public web address — public tunnels cap file uploads far below that.</p>
     </div>
     <button class="btn btn-primary" type="submit">Import conversations</button>
     <a class="btn btn-sm" href="{{ ig_data_page }}" target="_blank" rel="noopener noreferrer">Open Instagram download page ↗</a>

@@ -108,10 +108,35 @@ async def social_import_upload(request: Request, db: Session = Depends(get_db), 
                       ig_data_page=IG_DATA_PAGE, ms_display=_ms_display, FIELD_LABELS=FIELD_LABELS,
                       error="Please upload the Instagram data zip (it ends in .zip). "
                             "Remember to choose the JSON format when you download your data.")
-    raw = await file.read()
+
+    # Stream the upload to a temp file in chunks rather than buffering it in RAM - exports
+    # can be multi-GB (they bundle photos/videos), and reading the whole thing into memory
+    # would OOM the container. The zip is then parsed from disk; only its message JSON
+    # entries are ever decompressed (media entries are skipped), so a giant archive with a
+    # few MB of DMs parses quickly.
+    total = 0
     with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp:
-        tmp.write(raw)
         tmp_path = tmp.name
+        try:
+            while True:
+                chunk = await file.read(1024 * 1024)
+                if not chunk:
+                    break
+                tmp.write(chunk)
+                total += len(chunk)
+        except Exception as e:
+            logger.warning("Social upload stream failed at %s bytes: %s", total, e)
+            try:
+                Path(tmp_path).unlink(missing_ok=True)
+            except OSError:
+                pass
+            return render(request, "social_import.html", db=db, user=user, active="import",
+                          threads=db.query(SocialThread).order_by(SocialThread.created_at.desc()).all(),
+                          pending=[],
+                          ig_data_page=IG_DATA_PAGE, ms_display=_ms_display, FIELD_LABELS=FIELD_LABELS,
+                          error="The upload was interrupted (it may be too large for your connection). "
+                                "For very big exports, open Kin over your home network instead.")
+        tmp.flush()
     try:
         parsed = svc.parse_instagram_zip(tmp_path)
     except Exception as e:
