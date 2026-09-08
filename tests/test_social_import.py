@@ -292,3 +292,76 @@ def test_import_from_server_drop_folder(logged_in_client):
     db = SessionLocal()
     assert db.query(SocialThread).filter_by(peer_handle="alex_johnson").count() == 1
     db.close()
+
+
+def make_folderless_zip():
+    """Mirrors the real Accounts-Center export: no `instagram-<user>` root folder, participants
+    are objects like {"name": "…"}, and the owner ("skye~") appears in every 2-person thread."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        base = "your_instagram_activity/messages/inbox"
+        convs = [
+            ("paige_1", [{"name": "skye~"}, {"name": "paige"}], [
+                ("paige", _ts(2025, 6, 1), "the rescue cat is settling in!"),
+                ("skye~", _ts(2025, 6, 1), "omg so happy for you"),
+            ]),
+            ("milo_1", [{"name": "skye~"}, {"name": "Milo Green"}], [
+                ("Milo Green", _ts(2026, 2, 14), "started the pottery class"),
+            ]),
+            ("gang_1", [{"name": "skye~"}, {"name": "paige"}, {"name": "Milo Green"}], [
+                ("paige", _ts(2026, 3, 1), "weekend plans?"),
+            ]),
+        ]
+        for thread, parts, msgs in convs:
+            payload = {
+                "participants": parts,
+                "title": parts[1]["name"] if len(parts) == 2 else "Gang",
+                "thread_path": thread,
+                "messages": [
+                    {"sender_name": s, "timestamp_ms": ts, "content": c}
+                    for s, ts, c in msgs
+                ],
+            }
+            zf.writestr(f"{base}/{thread}/message_1.json", json.dumps(payload))
+    return buf.getvalue()
+
+
+def test_parse_recent_folderless_export_style(app):
+    """The current IG export (no root folder, object participants) must still resolve the owner
+    by majority presence and stage 1:1 conversations only."""
+    import tempfile
+    from pathlib import Path
+    from app.services import social_import as svc
+
+    with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp:
+        tmp.write(make_folderless_zip())
+        tmp_path = tmp.name
+    try:
+        parsed = svc.parse_instagram_zip(tmp_path)
+    finally:
+        Path(tmp_path).unlink(missing_ok=True)
+
+    assert parsed["account_handle"] == "skye~"
+    assert parsed["group_chats"] == 1
+    by_peer = {c["peer_handle"]: c for c in parsed["conversations"]}
+    assert set(by_peer) == {"paige", "Milo Green"}
+    assert by_peer["paige"]["msg_count"] == 2
+
+
+def test_folderless_export_ui_flow(logged_in_client):
+    resp = logged_in_client.post(
+        "/import/social/upload",
+        files={"file": ("instagram-skye_j.io.zip", make_folderless_zip(), "application/zip")},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/import/social/matches"
+
+    from app.database import SessionLocal
+    from app.models import SocialThread
+
+    db = SessionLocal()
+    peers = {t.peer_handle for t in db.query(SocialThread).all()}
+    assert {"paige", "Milo Green"} <= peers
+    assert db.query(SocialThread).filter_by(peer_handle=None).count() == 0
+    db.close()

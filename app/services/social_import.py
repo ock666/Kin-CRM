@@ -117,6 +117,49 @@ def _detect_own_handle(zf: zipfile.ZipFile) -> str | None:
     return None
 
 
+def _dm_entry_names(zf: zipfile.ZipFile) -> list:
+    return [i for i in zf.infolist()
+            if not i.is_dir() and i.filename.lower().endswith(".json")
+            and _looks_like_dm_path(i.filename)]
+
+
+def _participant_name(p) -> str | None:
+    """Participants can be plain strings (older exports) or objects like {"name": "…"}."""
+    if isinstance(p, dict):
+        name = p.get("name")
+        return str(name).strip() if name is not None else None
+    return str(p).strip() or None
+
+
+def _detect_own_participant(zf: zipfile.ZipFile, entries: list) -> str | None:
+    """Fallback when there's no `instagram-<handle>-…` root folder: in a personal export the
+    account owner is the participant present in (nearly) every two-person thread, so take the
+    most common participant name across all of them."""
+    import collections
+    counts: collections.Counter = collections.Counter()
+    for info in entries:
+        try:
+            data = json.loads(zf.read(info).decode("utf-8", errors="replace"))
+        except (ValueError, UnicodeDecodeError, OSError):
+            continue
+        for g in _iter_group_dicts(data):
+            if len(g.get("participants", []) or []) != 2:
+                continue
+            if not isinstance(g.get("messages", []), list):
+                continue
+            names = [(_participant_name(p) or "").lower() for p in g["participants"]]
+            for nm in names:
+                if nm:
+                    counts[nm] += 1
+    if not counts:
+        return None
+    top, n_top = counts.most_common(1)[0]
+    # A tie (e.g. a single two-person conversation) is genuinely ambiguous -> don't guess.
+    if len(counts) >= 2 and counts.most_common(2)[1][1] == n_top:
+        return None
+    return top
+
+
 def _msg_epoch_ms(ts_ms) -> int | None:
     try:
         return int(ts_ms)
@@ -134,11 +177,12 @@ def parse_instagram_zip(zip_path: str | Path) -> dict:
     unrecognised = 0
     with zipfile.ZipFile(zip_path) as zf:
         account_handle = _detect_own_handle(zf)
-        for info in zf.infolist():
-            if info.is_dir() or not info.filename.lower().endswith(".json"):
-                continue
-            if not _looks_like_dm_path(info.filename):
-                continue
+        dm_entries = _dm_entry_names(zf)
+        # No `instagram-<handle>-…` root folder (recent Accounts-Center exports don't have one),
+        # so infer the account owner as the participant present in nearly every 2-person thread.
+        if not account_handle and dm_entries:
+            account_handle = _detect_own_participant(zf, dm_entries)
+        for info in dm_entries:
             try:
                 raw = zf.read(info)
             except (zipfile.BadZipFile, OSError, RuntimeError):
@@ -180,12 +224,14 @@ def _group_summary(g: dict, rel_dir: str, participants: list[str]) -> dict:
 
 
 def _normalise_group(g: dict, rel_dir: str, own_handle: str | None) -> dict | None:
-    participants = [str(p).strip() for p in g.get("participants", []) if str(p).strip()]
+    participants = [_participant_name(p) for p in g.get("participants", []) or []]
+    participants = [p for p in participants if p]
     messages = g.get("messages", []) or []
     if not participants or not isinstance(messages, list):
         return None
 
-    peers = [p for p in participants if p.lower() != (own_handle or "").lower()]
+    own = (own_handle or "").lower()
+    peers = [p for p in participants if p.lower() != own]
 
     # Group chats: skip content mining for now (counting only). We only ever stage
     # 1:1 conversations where attribution ("who said what") is unambiguous.
@@ -269,9 +315,12 @@ def upsert_conversations(db: Session, platform: str, account_handle: str | None,
     for conv in conversations:
         if conv["kind"] != "direct":
             continue
+        # Look threads up by thread_key alone: exports sometimes change how the owner handle
+        # is spelled ("skye~" display name vs "skye_j.io" username), which must never double up
+        # or orphan a conversation.
         row = (
             db.query(SocialThread)
-            .filter_by(platform=platform, account_handle=account_handle, thread_key=conv["key"])
+            .filter_by(platform=platform, thread_key=conv["key"])
             .first()
         )
         if row is None:
