@@ -8,6 +8,7 @@ feature or shows a friendly note instead of crashing.
 """
 from __future__ import annotations
 
+import datetime as dt
 import json
 import logging
 import re
@@ -100,6 +101,49 @@ class AIClient:
         )
         user = f"Person: {person_name}\n\nJournal entry:\n{journal_text}"
         raw = self._chat(system, user, max_tokens=500, temperature=0.2)
+        return _safe_json(raw)
+
+    def extract_instagram_facts(self, peer_handle: str, transcript: list[dict]) -> dict:
+        """Given a private Instagram DM conversation with one person, extract profile facts
+        worth remembering about *them*. Human-in-the-loop: results are staged as pending
+        suggestions the user accepts/rejects - never auto-applied.
+
+        Prompt rules mirror the app's ethics: only include things actually stated or
+        strongly implied, never invent, and skip anything sensitive, negative, or
+        conflict-related - small talk is the default, not a fact source."""
+        system = (
+            "You help someone gently enrich a personal relationship manager from their own "
+            "private Instagram DMs. Read the conversation and extract a few facts about the "
+            "other participant (never the speaker) worth remembering later.\n"
+            "Rules:\n"
+            "- Only include things actually stated or strongly implied by either person. "
+            "Never invent or guess details.\n"
+            "- Prefer recent, current-life facts (current job/city/plans) over stale ones.\n"
+            "- Skip small talk, plans, logistics, emoji strings, and anything flirtatious.\n"
+            "- Never extract anything sensitive, negative, or conflict-related, and never "
+            "reproduce messages verbatim in 'notes'.\n"
+            "- 'notable_people' = people in THEIR life (e.g. their partner, kids, mum) with "
+            "the relation as they described it.\n"
+            "- 'notable_dates' = recurring things they stated (e.g. \"my birthday is 12 "
+            "March\") - only include when a specific month/day was given. year may be null.\n"
+            "- If the field is unknown or not mentioned, use empty string / empty list. "
+            "Better to suggest nothing than to guess.\n"
+            "Respond ONLY with valid JSON matching this schema:\n"
+            '{"occupation": string, "hobbies": string, "location": string, '
+            '"how_we_met": string, "notable_people": [{"name": string, "relation": string}], '
+            '"notable_dates": [{"label": string, "month": int, "day": int, "year": int|null}], '
+            '"notes": string}'
+        )
+        digest = "\n".join(
+            f"[{dt.datetime.fromtimestamp(m.get('ts', 0) / 1000, tz=dt.timezone.utc).strftime('%Y-%m-%d')}] "
+            f"{m.get('sender', '')}: {m.get('text', '')}"
+            for m in transcript[-120:]
+        )
+        user = (
+            f"@peer: {peer_handle}\n\n"
+            f"Conversation (most recent last, oldest first in the log):\n{digest}"
+        )
+        raw = self._chat(system, user, max_tokens=600, temperature=0.2)
         return _safe_json(raw)
 
     def draft_birthday_message(self, person_name: str, relationship_label: str,

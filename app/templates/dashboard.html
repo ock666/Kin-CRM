@@ -34,6 +34,21 @@
 </div>
 {% endif %}
 
+{% if show_import_offer %}
+<div class="card" style="border-left:4px solid var(--accent);">
+  <div class="flex-gap" style="justify-content:space-between; flex-wrap:wrap;">
+    <div>
+      <h2 class="mb-0">🌱 Let's fill in your people</h2>
+      <p class="text-muted mb-0 text-sm">If you'd like a head start, Kin can learn about the people you talk to from your own Instagram data — you decide who matches whom, and nothing is saved without your OK.</p>
+    </div>
+    <div class="flex-gap">
+      <a class="btn btn-sm btn-primary" href="/import/social">Import from Instagram</a>
+      <form method="post" action="/import/social/dismiss-offer"><button class="btn btn-sm" type="submit">Not now</button></form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 {% if unresolved_conflicts %}
 <div class="card">
   <h2>🕊️ A few things sitting open</h2>

@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Who is this? — {{ app_name }}{% endblock %}
+{% block content %}
+<div class="topbar">
+  <h1 class="mb-0">Who is this? 👀</h1>
+</div>
+<p class="text-muted text-sm mb-2">These are conversations Kin found in your data. Match each one to a person (or create them) — that's all this step does. Kin only reads a conversation for suggestions <em>after</em> you've matched it here, on the next screen.</p>
+
+{% if not cards %}
+<div class="card">
+  <p class="mb-1">No conversations waiting to be matched. 🎉</p>
+  <a class="btn btn-sm btn-primary" href="/import/social">Back to social import</a>
+</div>
+{% endif %}
+
+{% for card in cards %}
+{% set t = card.thread %}
+<div class="card mt-2">
+  <div class="flex-between mb-1">
+    <div>
+      <strong>@{{ card.peer }}</strong>
+      {% if card.last_active %}<span class="text-muted text-sm"> · last active {{ card.last_active }}</span>{% endif %}
+      <span class="text-muted text-sm"> · {{ t.msg_count or 0 }} messages</span>
+      {% if t.new_count and t.new_count > 0 %}<span class="tag" style="background: var(--accent-soft); color: var(--accent);">+{{ t.new_count }} new</span>{% endif %}
+    </div>
+    {% if card.first_active %}<span class="text-muted text-sm">since {{ card.first_active }}</span>{% endif %}
+  </div>
+
+  {% if card.samples %}
+  <div class="text-sm text-muted" style="padding:.3rem .6rem; background: var(--bg); border-radius:8px;">
+    {% for s in card.samples %}
+    <div class="text-truncate" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+      {% if s.sender|lower == (t.peer_handle or '')|lower %}<strong>{{ t.peer_handle }}</strong>{% else %}you{% endif %}:
+      {{ s.text }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if card.signals and (card.signals.media or card.signals.reactions or card.signals.call_minutes) %}
+  <p class="text-xs text-muted mt-1 mb-1" style="font-size:.8rem;">
+    {% if card.signals.media %}{{ card.signals.media }} photo{{ 's' if card.signals.media != 1 else '' }}{% endif %}
+    {% if card.signals.reactions %} · {{ card.signals.reactions }} reaction{{ 's' if card.signals.reactions != 1 else '' }}{% endif %}
+    {% if card.signals.call_minutes %} · {{ '%.0f'|format(card.signals.call_minutes) }} min calls{% endif %}
+  </p>
+  {% endif %}
+
+  {% if card.candidates %}
+  <div class="flex-gap mb-1">
+    <span class="text-sm text-muted" style="padding-top:.3rem;">Matches someone already in Kin:</span>
+    {% for c in card.candidates %}
+    <form method="post" action="/import/social/thread/{{ t.id }}/link" style="display:inline;">
+      <input type="hidden" name="person_id" value="{{ c.person_id }}">
+      <button class="btn btn-sm btn-primary" type="submit">✓ {{ c.name }}{% if c.label %} ({{ c.label }}){% endif %}</button>
+    </form>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <form method="post" action="/import/social/thread/{{ t.id }}/link" class="flex-gap" style="flex-wrap:wrap;">
+    <select name="person_id" aria-label="Existing person">
+      <option value="">— choose an existing person —</option>
+      {% for p in people %}<option value="{{ p.id }}">{{ p.name }}{% if p.nickname and p.nickname != p.name %} ({{ p.nickname }}){% endif %}</option>{% endfor %}
+    </select>
+    <input type="text" name="new_name" placeholder="…or a new person's name" style="flex:1; min-width:200px;">
+    <button class="btn btn-sm btn-primary" type="submit">Link this person</button>
+    <button class="btn btn-sm" type="submit" formaction="/import/social/thread/{{ t.id }}/skip">Skip for now</button>
+  </form>
+  <p class="help-text">Tip: if you don't recognise the username, the recent messages above usually give it away.</p>
+</div>
+{% endfor %}
+
+{% if cards %}
+<div class="card mt-2">
+  <p class="mb-0 text-sm text-muted">Done matching? <a href="/import/social/review">Go to suggestions →</a></p>
+</div>
+{% endif %}
+{% endblock %}

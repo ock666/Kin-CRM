@@ -303,6 +303,26 @@
   </form>
 </div>
 
+{% set social = social if social is defined else {'total': 0, 'linked': 0, 'pending': 0} %}
+<div class="card mt-2">
+  <h2>📥 Imported social data</h2>
+  <p class="text-sm text-muted">Kin can learn about your people from your own Instagram data. Conversations are matched to people by you, and suggestions are only ever saved after you accept them.</p>
+  {% if social.total %}
+    <p class="text-sm mb-1"><strong>{{ social.total }}</strong> conversation{{ 's' if social.total != 1 else '' }} imported ·
+      {{ social.linked }} matched · {{ social.pending }} waiting to be matched</p>
+    <div class="flex-gap">
+      {% if social.pending %}<a class="btn btn-sm btn-primary" href="/import/social/matches">Match {{ social.pending }} conversation{{ 's' if social.pending != 1 else '' }}</a>{% endif %}
+      <a class="btn btn-sm" href="/import/social/review">Suggestions</a>
+      <a class="btn btn-sm" href="/import/social">Manage conversations</a>
+    </div>
+    <p class="help-text mb-0">To refresh: request a fresh download from Instagram and re-upload it on the <a href="/import/social">import page</a> — only new messages are added, so nothing gets duplicated.</p>
+  {% else %}
+    <div class="flex-gap">
+      <a class="btn btn-sm btn-primary" href="/import/social">Import from Instagram</a>
+    </div>
+  {% endif %}
+</div>
+
 <div class="card mt-2">
   <h2>👥 People with access</h2>
   {% for u in users %}

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..deps import current_user
-from ..models import User
+from ..models import User, SocialThread, SocialImportStatus
 from ..render import render
 from ..settings_store import get_all_settings, set_many, get_setting_sensitive
 from ..auth import hash_password, _strong_enough, verify_password
@@ -30,7 +30,13 @@ def settings_page(request: Request, db: Session = Depends(get_db), user=Depends(
     cfg = get_all_settings(db)
     users = db.query(User).order_by(User.id).all()
     user_mfa = db.get(User, user.id)
-    return render(request, "settings.html", db=db, user=user_mfa, active="settings", cfg=cfg, users=users)
+    social = {
+        "total": db.query(SocialThread).count(),
+        "linked": db.query(SocialThread).filter_by(status=SocialImportStatus.linked).count(),
+        "pending": db.query(SocialThread).filter_by(status=SocialImportStatus.pending).count(),
+    }
+    return render(request, "settings.html", db=db, user=user_mfa, active="settings",
+                  cfg=cfg, users=users, social=social)
 
 
 @router.post("/settings/immich")

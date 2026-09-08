@@ -445,3 +445,82 @@ class PushSubscription(Base):
     auth = Column(Text, nullable=False)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
     created_at = Column(DateTime, default=utcnow)
+
+
+# ---------------------------------------------------------------------------
+# Social-data import (v1: Instagram direct messages) - a gentle, staged pipeline.
+# Raw messages are never stored in full; only a compact recent transcript per
+# thread lives on disk under DATA_DIR/social_import/, plus signals + samples in
+# the DB. Nothing writes to a Person until the user explicitly links a thread,
+# and AI suggestions are staged as facts the user accepts/rejects individually.
+# ---------------------------------------------------------------------------
+
+class SocialImportStatus(str, enum.Enum):
+    pending = "pending"   # parsed, awaiting the user's "who is this?" decision
+    linked = "linked"     # matched to a Person; can generate suggestions
+    skipped = "skipped"   # user chose not to import this thread
+    errored = "errored"
+
+
+class SocialFactStatus(str, enum.Enum):
+    pending = "pending"
+    accepted = "accepted"
+    rejected = "rejected"
+
+
+class SocialThread(Base):
+    __tablename__ = "social_threads"
+    __table_args__ = (
+        UniqueConstraint("platform", "account_handle", "thread_key", name="uq_social_thread"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    platform = Column(String(30), nullable=False, index=True)  # "instagram"
+    account_handle = Column(String(100), nullable=True, index=True)  # the user's own IG handle
+    thread_key = Column(String(500), nullable=False)  # stable per-thread id within a platform
+    thread_title = Column(String(255), nullable=True)  # for group chats
+    peer_handle = Column(String(100), nullable=True, index=True)  # the other person's username
+    kind = Column(String(10), default="direct", nullable=False)  # direct | group
+
+    first_ts_ms = Column(Integer, nullable=True)
+    last_ts_ms = Column(Integer, nullable=True)
+    msg_count = Column(Integer, default=0)
+    new_count = Column(Integer, default=0)  # messages newer than the last import
+
+    signals_json = Column(Text, nullable=True)  # volume/reactions/calls/media summary
+    sample_json = Column(Text, nullable=True)   # a few recent messages, for "who is this?"
+    transcript_path = Column(String(500), nullable=True)  # compact transcript on disk (recent only)
+
+    status = Column(Enum(SocialImportStatus), default=SocialImportStatus.pending)
+    person_id = Column(Integer, ForeignKey("people.id", ondelete="SET NULL"), nullable=True)
+
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+    person = relationship("Person")
+    facts = relationship(
+        "SocialFact", back_populates="thread", cascade="all, delete-orphan",
+        order_by="SocialFact.created_at",
+    )
+
+
+class SocialFact(Base):
+    """A single staged, human-approve-before-apply suggestion derived from a social thread.
+    `field` names a Person column ('occupation', 'hobbies', ...) or a nested entity
+    ('notable_person', 'notable_date', 'scratchpad'); `value_json` holds the payload."""
+    __tablename__ = "social_facts"
+
+    id = Column(Integer, primary_key=True)
+    thread_id = Column(Integer, ForeignKey("social_threads.id", ondelete="CASCADE"), nullable=False, index=True)
+    person_id = Column(Integer, ForeignKey("people.id", ondelete="CASCADE"), nullable=False, index=True)
+    field = Column(String(50), nullable=False)
+    value_text = Column(Text, nullable=True)
+    value_json = Column(Text, nullable=True)  # extra payload (e.g. {"month": 3, "day": 12, ...})
+    source_excerpt = Column(Text, nullable=True)  # the message/snippet that backs the suggestion
+    kind = Column(String(20), default="ai")  # ai | derived
+    status = Column(Enum(SocialFactStatus), default=SocialFactStatus.pending)
+
+    created_at = Column(DateTime, default=utcnow)
+
+    thread = relationship("SocialThread", back_populates="facts")
+    person = relationship("Person")

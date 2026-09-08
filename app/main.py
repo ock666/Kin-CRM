@@ -220,6 +220,7 @@ from .routers import data_import as import_router  # noqa: E402
 from .routers import regulation as regulation_router  # noqa: E402
 from .routers import wrapped as wrapped_router  # noqa: E402
 from .routers import calendar as calendar_router  # noqa: E402
+from .routers import social_import as social_import_router  # noqa: E402
 
 app.include_router(auth_router.router)
 app.include_router(dashboard_router.router)
@@ -237,6 +238,7 @@ app.include_router(import_router.router)
 app.include_router(regulation_router.router)
 app.include_router(wrapped_router.router)
 app.include_router(calendar_router.router)
+app.include_router(social_import_router.router)
 
 # API v1
 from .routers.api import routers as api_routers  # noqa: E402

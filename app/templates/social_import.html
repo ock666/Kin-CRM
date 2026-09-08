@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Import from socials — {{ app_name }}{% endblock %}
+{% block content %}
+<div class="topbar">
+  <h1 class="mb-0">📥 Import from socials</h1>
+</div>
+<p class="text-muted text-sm mb-2">Bring your people into Kin from a copy of your own Instagram data. Conversations are matched to people and read <em>only after you confirm who each person is</em>, and AI suggestions wait for your OK before anything touches a profile. Nothing here is automatic.</p>
+
+{% if error %}<div class="notice notice-danger">{{ error }}</div>{% endif %}
+
+{% if pending %}
+<div class="notice notice-info">
+  You have <strong>{{ pending|length }}</strong> conversation{{ 's' if pending|length != 1 else '' }} to match to a person.
+  <a class="btn btn-sm btn-primary" style="margin-left:.5rem;" href="/import/social/matches">Review who each person is →</a>
+</div>
+{% endif %}
+
+<div class="card">
+  <h2>📸 Upload your Instagram data</h2>
+  <p class="text-sm text-muted mb-1">In Instagram, go to <strong>Accounts Center → Your information and permissions → Download your information</strong>, request Instagram data, and pick the <strong>JSON</strong> format. You'll get an <code>instagram-….zip</code> file.</p>
+  <form method="post" action="/import/social/upload" enctype="multipart/form-data">
+    <div class="field">
+      <input type="file" name="file" accept=".zip" required>
+      <p class="help-text">The zip stays on your own server. Re-uploading a fresh export only adds new messages — nothing is ever duplicated.</p>
+    </div>
+    <button class="btn btn-primary" type="submit">Import conversations</button>
+    <a class="btn btn-sm" href="{{ ig_data_page }}" target="_blank" rel="noopener noreferrer">Open Instagram download page ↗</a>
+  </form>
+</div>
+
+{% if threads %}
+<div class="card mt-2">
+  <h2>Your imported conversations</h2>
+  {% set pending_t = threads | selectattr('status.value', 'equalto', 'pending') | list %}
+  {% set linked_t = threads | selectattr('status.value', 'equalto', 'linked') | list %}
+  {% set skipped_t = threads | selectattr('status.value', 'equalto', 'skipped') | list %}
+
+  {% if not linked_t and not skipped_t and not pending_t %}
+    <p class="text-muted text-sm">Nothing imported yet.</p>
+  {% endif %}
+
+  {% if linked_t %}
+    <h3 class="text-sm mt-2 mb-1">Matched to a person</h3>
+    {% for t in linked_t %}
+    <div class="flex-between" style="padding:.5rem 0; border-top:1px solid var(--border);">
+      <span>
+        <strong>{{ t.person.name if t.person else (t.peer_handle or 'Unlinked') }}</strong>
+        <span class="text-muted text-sm"> · @{{ t.peer_handle }}</span>
+        {% if t.new_count and t.new_count > 0 %}
+          <span class="tag" style="background: var(--accent-soft); color: var(--accent);">+{{ t.new_count }} new</span>
+        {% endif %}
+      </span>
+      <span class="flex-gap">
+        <span class="text-muted text-sm">last {{ ms_display(t.last_ts_ms) }}</span>
+        <a class="btn btn-sm" href="/import/social/review">Suggestions</a>
+        <form method="post" action="/import/social/thread/{{ t.id }}/delete"><button class="btn btn-sm btn-danger" type="submit" title="Remove this conversation (keeps anything already saved)">✕</button></form>
+      </span>
+    </div>
+    {% endfor %}
+  {% endif %}
+
+  {% if pending_t %}
+    <h3 class="text-sm mt-2 mb-1">Waiting to be matched</h3>
+    {% for t in pending_t %}
+    <div class="flex-between" style="padding:.5rem 0; border-top:1px solid var(--border);">
+      <span><strong>{{ t.peer_handle or t.thread_title or 'Unknown' }}</strong>
+        <span class="text-muted text-sm"> · {{ t.msg_count or 0 }} messages</span></span>
+      <span class="flex-gap">
+        <a class="btn btn-sm btn-primary" href="/import/social/matches">Who is this?</a>
+        <form method="post" action="/import/social/thread/{{ t.id }}/skip"><button class="btn btn-sm" type="submit">Skip</button></form>
+        <form method="post" action="/import/social/thread/{{ t.id }}/delete"><button class="btn btn-sm btn-danger" type="submit">✕</button></form>
+      </span>
+    </div>
+    {% endfor %}
+  {% endif %}
+
+  {% if skipped_t %}
+    <h3 class="text-sm mt-2 mb-1">Skipped</h3>
+    {% for t in skipped_t %}
+    <div class="flex-between" style="padding:.5rem 0; border-top:1px solid var(--border);">
+      <span><strong>{{ t.peer_handle or t.thread_title or 'Unknown' }}</strong>
+        <span class="text-muted text-sm"> · {{ t.msg_count or 0 }} messages</span></span>
+      <form method="post" action="/import/social/thread/{{ t.id }}/restore"><button class="btn btn-sm" type="submit">↩ Un-skip</button></form>
+    </div>
+    {% endfor %}
+  {% endif %}
+{% endif %}
+</div>
+
+<div class="card mt-2">
+  <h2>How it works</h2>
+  <ol class="text-sm mb-0">
+    <li><strong>You upload</strong> your Instagram JSON zip. Kin finds your 1:1 conversations (group chats are counted but skipped for now).</li>
+    <li><strong>You say who each person is</strong> — link them to someone already in Kin, or create a new person. Only linking ever updates your data, and only the date you last talked.</li>
+    <li><strong>You can ask for suggestions</strong>. Kin reads a short slice of the conversation and proposes profile details (job, interests, people in their life…). Each suggestion is shown with the reason and saved only when you tap <strong>Accept</strong>.</li>
+  </ol>
+</div>
+{% endblock %}

@@ -6,7 +6,10 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..deps import current_user
-from ..models import Person, NotableDate, ConflictLog, ConflictStatus, UnlockedAchievement, RelationshipState
+from ..models import (
+    Person, NotableDate, ConflictLog, ConflictStatus, UnlockedAchievement, RelationshipState,
+    SocialThread,
+)
 from ..render import render
 from ..services import birthdays as bday_service
 from ..services import checkins as checkin_service
@@ -162,8 +165,17 @@ def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(curr
             recent_badges.append({"emoji": meta[0], "label": meta[1]})
     reassurance_note = get_setting(db, "reassurance_note", "")
 
+    # Fresh-install offer: only shown while there's genuinely nothing here yet (no people and no
+    # imported conversations), so it never nags an existing setup. Dismissable.
+    show_import_offer = (
+        not get_setting(db, "social_offer_dismissed", "")
+        and db.query(Person).count() == 0
+        and db.query(SocialThread).count() == 0
+    )
+
     return render(
         request, "dashboard.html", db=db, user=user, active="dashboard",
+        show_import_offer=show_import_offer,
         upcoming_birthdays=upcoming_birthdays,
         upcoming_notable=upcoming_notable,
         overdue=overdue,

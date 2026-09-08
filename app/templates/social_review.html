@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Suggestions — {{ app_name }}{% endblock %}
+{% block content %}
+{% set months = ['January','February','March','April','May','June','July','August','September','October','November','December'] %}
+<div class="topbar">
+  <h1 class="mb-0">✨ Profile suggestions</h1>
+  <div class="nav-spacer"></div>
+  <a class="btn" href="/import/social">← Import home</a>
+</div>
+<p class="text-muted text-sm mb-2">For each matched person you can ask Kin to read a short slice of your conversation and suggest profile details. Every suggestion appears here <em>pending</em> and is only saved when you tap <strong>Accept</strong> — you can also edit your person's profile yourself instead. This screen never changes anything on its own.</p>
+
+{% if not ai_ok %}
+<div class="notice notice-info">
+  💡 AI isn't configured yet, so suggestions can't be generated. Add an API key in <a href="/settings">Settings</a> — or just edit people by hand.
+</div>
+{% endif %}
+
+{% if linked %}
+<div class="card">
+  <h2>👥 Matched conversations</h2>
+  {% for t in linked %}
+  <div class="flex-between" style="padding:.5rem 0; border-top:1px solid var(--border);">
+    <span>
+      <strong>{{ t.person.name if t.person else 'Unlinked' }}</strong>
+      {% if t.peer_handle %}<span class="text-muted text-sm"> · @{{ t.peer_handle }}</span>{% endif %}
+      {% if t.new_count and t.new_count > 0 %}<span class="tag" style="background: var(--accent-soft); color: var(--accent);">+{{ t.new_count }} new since last read</span>{% endif %}
+    </span>
+    <span class="flex-gap">
+      <span class="text-muted text-sm">last {{ ms_display(t.last_ts_ms) }}</span>
+      <a class="btn btn-sm" href="/people/{{ t.person.id }}">Profile</a>
+      <form method="post" action="/import/social/thread/{{ t.id }}/suggest">
+        <button class="btn btn-sm btn-primary" type="submit" {% if not ai_ok %}disabled title="Add an AI key in Settings to use this"{% endif %}>✨ Suggest profile details</button>
+      </form>
+    </span>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if facts %}
+<div class="card mt-2">
+  <div class="flex-between">
+    <h2>📝 Pending suggestions ({{ facts|length }})</h2>
+    <form method="post" action="/import/social/facts/accept-all">
+      <button class="btn btn-sm btn-primary" type="submit">✓ Accept all</button>
+    </form>
+  </div>
+  {% for fact in facts %}
+  {% set pj = fact.value_json|parse_json or {} %}
+  <div class="card mt-1" style="border-color: var(--border);">
+    <div class="flex-between mb-1">
+      <strong>{{ fact.person.name if fact.person else 'Person' }}</strong>
+      <span class="tag" style="background: var(--accent-soft); color: var(--accent);">{{ FIELD_LABELS.get(fact.field, fact.field) }}</span>
+    </div>
+    <p class="mb-1" style="white-space:pre-wrap;">
+      {% if fact.field == 'notable_date' %}
+        {% if pj.label and pj.label != 'Notable date' %}<strong>{{ pj.label }}</strong>{% else %}<strong>A date worth remembering</strong>{% endif %}
+        — {{ months[pj.month - 1] if pj.month and pj.month >= 1 and pj.month <= 12 else pj.month }}/{{ pj.day }}
+      {% elif fact.field == 'notable_person' %}
+        <strong>{{ pj.name or fact.value_text }}</strong>{% if pj.relation %} ({{ pj.relation }}){% endif %}
+      {% else %}
+        {{ fact.value_text }}
+      {% endif %}
+    </p>
+    <div class="flex-gap">
+      <form method="post" action="/import/social/facts/{{ fact.id }}/accept" style="display:inline;">
+        <button class="btn btn-sm btn-primary" type="submit">✓ Accept</button>
+      </form>
+      <form method="post" action="/import/social/facts/{{ fact.id }}/reject" style="display:inline;">
+        <button class="btn btn-sm btn-danger" type="submit">Not quite</button>
+      </form>
+    </div>
+    <p class="help-text mb-0 mt-1">Suggested from a recent slice of your conversation. Accepting adds it to {{ fact.person.name if fact.person else 'their' }} profile (or their notable people/dates).</p>
+  </div>
+  {% endfor %}
+</div>
+{% elif linked %}
+<div class="card mt-2">
+  <p class="mb-0">Nothing pending. Tap <strong>✨ Suggest profile details</strong> next to a person above to ask Kin to draft suggestions from a conversation.</p>
+</div>
+{% else %}
+<div class="card mt-2">
+  <p class="mb-0">No matched conversations yet. <a href="/import/social/matches">Match some conversations to people first</a>.</p>
+</div>
+{% endif %}
+{% endblock %}
