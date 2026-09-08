@@ -265,3 +265,30 @@ def test_upload_json_progress_contract(logged_in_client):
     payload = bad.json()
     assert payload["ok"] is False
     assert payload["error"]
+
+
+def test_import_from_server_drop_folder(logged_in_client):
+    """A zip placed in DATA_DIR/social_incoming can be imported without an upload."""
+    from pathlib import Path
+
+    from app.config import settings as kin_settings
+
+    drop = Path(kin_settings.DATA_DIR) / "social_incoming"
+    drop.mkdir(parents=True, exist_ok=True)
+    (drop / "instagram-local.zip").write_bytes(make_zip(FIXTURE_CONVS))
+
+    # Landing page advertises the file.
+    page = logged_in_client.get("/import/social")
+    assert page.status_code == 200
+    assert "instagram-local.zip" in page.text
+
+    resp = logged_in_client.post("/import/social/import-local", data={"filename": "instagram-local.zip"},
+                                 follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/import/social/matches"
+
+    from app.database import SessionLocal
+    from app.models import SocialThread
+    db = SessionLocal()
+    assert db.query(SocialThread).filter_by(peer_handle="alex_johnson").count() == 1
+    db.close()

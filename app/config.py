@@ -38,6 +38,8 @@ class Settings:
     UPLOAD_DIR: Path = DATA_DIR / "uploads"
     TIMEZONE: str = os.environ.get("TZ", "UTC")
     DISABLE_SCHEDULER: bool = os.environ.get("DISABLE_SCHEDULER", "0") == "1"
+    # Host-visible path of the social drop-folder (for copy-paste guidance in the UI).
+    SOCIAL_INCOMING_HOST_PATH: str = os.environ.get("SOCIAL_INCOMING_HOST_PATH", "")
 
 
 settings = Settings()

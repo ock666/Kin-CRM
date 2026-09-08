@@ -58,6 +58,21 @@ def _social_dir() -> Path:
     return d
 
 
+def incoming_dir() -> Path:
+    """A drop-folder for very large exports: drop instagram-*.zip here (no upload needed)."""
+    d = settings.DATA_DIR / "social_incoming"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def list_incoming_zips() -> list[str]:
+    try:
+        files = sorted(incoming_dir().glob("*.zip"), key=lambda p: p.stat().st_mtime, reverse=True)
+    except OSError:
+        return []
+    return [p.name for p in files]
+
+
 def _transcript_path(thread_id: int) -> Path:
     return _social_dir() / f"thread_{thread_id}.jsonl"
 

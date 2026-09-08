@@ -25,6 +25,7 @@ from ..models import (
     Person, SocialThread, SocialFact, SocialImportStatus, SocialFactStatus,
 )
 from ..render import render
+from ..config import settings
 from ..services import social_import as svc
 from ..services import checkins as checkin_service
 from ..services.ai_client import get_client_from_settings
@@ -92,7 +93,9 @@ def social_import_page(request: Request, db: Session = Depends(get_db), user=Dep
     pending = [t for t in threads if t.status == SocialImportStatus.pending]
     return render(request, "social_import.html", db=db, user=user, active="import",
                   threads=threads, pending=pending, ig_data_page=IG_DATA_PAGE,
-                  ms_display=_ms_display, FIELD_LABELS=FIELD_LABELS)
+                  ms_display=_ms_display, FIELD_LABELS=FIELD_LABELS,
+                  incoming=svc.list_incoming_zips(),
+                  incoming_host=settings.SOCIAL_INCOMING_HOST_PATH)
 
 
 def _wants_json(request: Request) -> bool:
@@ -116,57 +119,16 @@ def _upload_success(request: Request, redirect_to: str):
     return RedirectResponse(redirect_to, status_code=303)
 
 
-@router.post("/import/social/upload")
-async def social_import_upload(request: Request, db: Session = Depends(get_db), user=Depends(current_user),
-                               file: UploadFile = File(...)):
-    if not user:
-        return RedirectResponse("/login")
-    filename = (file.filename or "").lower()
-    if not filename.endswith(".zip"):
-        return _upload_error(
-            request, db, user,
-            "Please upload the Instagram data zip (it ends in .zip). "
-            "Remember to choose the JSON format when you download your data.")
-
-    # Stream the upload to a temp file in chunks rather than buffering it in RAM - exports
-    # can be multi-GB (they bundle photos/videos), and reading the whole thing into memory
-    # would OOM the container. The zip is then parsed from disk; only its message JSON
-    # entries are ever decompressed (media entries are skipped), so a giant archive with a
-    # few MB of DMs parses quickly.
-    total = 0
-    with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp:
-        tmp_path = tmp.name
-        try:
-            while True:
-                chunk = await file.read(1024 * 1024)
-                if not chunk:
-                    break
-                tmp.write(chunk)
-                total += len(chunk)
-        except Exception as e:
-            logger.warning("Social upload stream failed at %s bytes: %s", total, e)
-            try:
-                Path(tmp_path).unlink(missing_ok=True)
-            except OSError:
-                pass
-            return _upload_error(
-                request, db, user,
-                "The upload was interrupted (it may be too large for your connection). "
-                "For very big exports, open Kin over your home network instead.")
-        tmp.flush()
+def _process_zip(request: Request, db: Session, user, zip_path: str):
+    """Parse + stage an Instagram zip already on disk; shared by upload and local import."""
     try:
-        parsed = svc.parse_instagram_zip(tmp_path)
+        parsed = svc.parse_instagram_zip(zip_path)
     except Exception as e:
         logger.warning("Social zip parse failed: %s", e)
         return _upload_error(
             request, db, user,
-            "Couldn't read that zip. It doesn't look like an Instagram export "
+            "Couldn't read that file. It doesn't look like an Instagram export "
             "(choose the JSON format when you download).")
-    finally:
-        try:
-            Path(tmp_path).unlink(missing_ok=True)
-        except OSError:
-            pass
 
     account_handle = parsed.get("account_handle")
     summary = svc.upsert_conversations(db, svc.PLATFORM_INSTAGRAM, account_handle,
@@ -186,6 +148,75 @@ async def social_import_upload(request: Request, db: Session = Depends(get_db), 
     request.session["notice_flash"] = " ".join(parts)
     pending = db.query(SocialThread).filter_by(status=SocialImportStatus.pending).count()
     return _upload_success(request, "/import/social/matches" if pending else "/import/social")
+
+
+@router.post("/import/social/upload")
+async def social_import_upload(request: Request, db: Session = Depends(get_db), user=Depends(current_user),
+                               file: UploadFile = File(...)):
+    if not user:
+        return RedirectResponse("/login")
+    filename = (file.filename or "").lower()
+    if not filename.endswith(".zip"):
+        return _upload_error(
+            request, db, user,
+            "Please upload the Instagram data zip (it ends in .zip). "
+            "Remember to choose the JSON format when you download your data.")
+
+    # Stream the upload to a temp file in chunks rather than buffering it in RAM - exports
+    # can be multi-GB (they bundle photos/videos), and reading the whole thing into memory
+    # would OOM the container. The zip is then parsed from disk; only its message JSON
+    # entries are ever decompressed (media entries are skipped), so a giant archive with a
+    # few MB of DMs parses quickly.
+    tmp_path = None
+    total = 0
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp:
+            tmp_path = tmp.name
+            while True:
+                chunk = await file.read(1024 * 1024)
+                if not chunk:
+                    break
+                tmp.write(chunk)
+                total += len(chunk)
+            tmp.flush()
+    except Exception as e:
+        logger.warning("Social upload stream failed at %s bytes: %s", total, e)
+        if tmp_path:
+            try:
+                Path(tmp_path).unlink(missing_ok=True)
+            except OSError:
+                pass
+        return _upload_error(
+            request, db, user,
+            "The upload was interrupted part-way. This usually means the file is still "
+            "too large for this web address (tunnels cap uploads around 100 MB) - try "
+            "the 'already on this server' option below instead.")
+    try:
+        return _process_zip(request, db, user, tmp_path)
+    finally:
+        try:
+            if tmp_path:
+                Path(tmp_path).unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+@router.post("/import/social/import-local")
+def social_import_local(request: Request, db: Session = Depends(get_db), user=Depends(current_user),
+                        filename: str = Form("")):
+    """Import an Instagram zip that's already sitting in Kin's drop-folder - for the very large
+    exports that can't cross the public tunnel. The file never leaves the server."""
+    if not user:
+        return RedirectResponse("/login")
+    name = Path(filename or "").name
+    if not name or name != filename or not name.lower().endswith(".zip"):
+        request.session["notice_flash"] = "Pick a zip from the list to import."
+        return RedirectResponse("/import/social", status_code=303)
+    zip_path = svc.incoming_dir() / name
+    if not zip_path.exists():
+        request.session["notice_flash"] = f"Couldn't find {name} in the import folder yet."
+        return RedirectResponse("/import/social", status_code=303)
+    return _process_zip(request, db, user, str(zip_path))
 
 
 @router.get("/import/social/matches")

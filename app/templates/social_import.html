@@ -94,18 +94,49 @@
       }
       resetButton();
       barWrap.hidden = true;
-      showError(resp && resp.error ? resp.error : 'Something went wrong — please try again.');
+      if (resp && resp.error) {
+        showError(resp.error);
+      } else {
+        // Server (or proxy) returned something that isn't our JSON - usually the upload was
+        // cut off before Kin could read it (public tunnels cap uploads ~100 MB).
+        showError('The upload was cut off before it finished (HTTP ' + xhr.status + '). This usually means the file is too large for this web address — use the “no upload needed” option above instead, or shrink the download.');
+      }
     });
     xhr.addEventListener('error', function () {
       resetButton();
       barWrap.hidden = true;
-      showError('The upload failed to connect. If the file is very large, try opening Kin over your home network instead.');
+      showError('The upload failed to connect. For large files, use the “no upload needed” option above (drop the zip in Kin\u2019s import folder) or open Kin over your home network.');
     });
     setProgress(0, 'Starting upload…');
     xhr.send(fd);
   });
 })();
 </script>
+
+{% set incoming = incoming if incoming is defined else [] %}
+{% set incoming_host = incoming_host if incoming_host is defined else '' %}
+<div class="card mt-2" style="border-left:4px solid var(--accent);">
+  <h2>🐌 For very large files — no upload needed</h2>
+  <p class="text-sm text-muted mb-1">If your export is huge (photos make them hundreds of MB+), the public web address can't carry it. Instead, drop the <code>instagram-*.zip</code> into Kin's import folder, then import it here — the file never leaves your server.</p>
+  {% if incoming_host %}
+    <p class="text-sm mb-1">📁 Drop the file here on this machine: <code>{{ incoming_host }}</code></p>
+  {% else %}
+    <p class="text-sm mb-1">📁 Drop the file into the <code>social_incoming/</code> folder next to your Kin data (where <code>app.db</code> lives).</p>
+  {% endif %}
+  <form method="post" action="/import/social/import-local">
+    <div class="field">
+      {% if incoming %}
+      <select name="filename" required>
+        <option value="">— choose a zip from the folder —</option>
+        {% for f in incoming %}<option value="{{ f }}">{{ f }}</option>{% endfor %}
+      </select>
+      <button class="btn btn-primary" type="submit">Import from server</button>
+      {% else %}
+      <p class="text-muted text-sm mb-1">No <code>.zip</code> files in the folder yet. Put one there, then reload this page.</p>
+      {% endif %}
+    </div>
+  </form>
+</div>
 
 {% if threads %}
 <div class="card mt-2">

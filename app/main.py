@@ -7,7 +7,7 @@ from pathlib import Path
 import markdown2
 from fastapi import FastAPI, Request
 from markupsafe import Markup
-from fastapi.responses import RedirectResponse, FileResponse, Response
+from fastapi.responses import RedirectResponse, FileResponse, Response, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
@@ -244,6 +244,31 @@ app.include_router(social_import_router.router)
 from .routers.api import routers as api_routers  # noqa: E402
 for r in api_routers:
     app.include_router(r)
+
+
+@app.middleware("http")
+async def json_errors_for_xhr(request: Request, call_next):
+    """When the social-import progress bar uploads with `X-Kin-Json: 1`, turn any non-JSON
+    error (e.g. the framework rejecting a truncated multipart body before our handler runs)
+    into a readable JSON error instead of an HTML page the UI can't parse."""
+    if request.headers.get("x-kin-json") != "1":
+        return await call_next(request)
+    resp = await call_next(request)
+    if resp.status_code < 400 or "application/json" in (resp.headers.get("content-type") or ""):
+        return resp
+    chunks = []
+    async for chunk in resp.body_iterator:
+        chunks.append(chunk)
+    text = b"".join(chunks).decode("utf-8", "replace")
+    plain = re.sub(r"<[^>]+>", " ", text)
+    plain = re.sub(r"\s+", " ", plain).strip()[:280]
+    if resp.status_code == 400 and ("parsing the body" in plain.lower() or "boundary" in plain.lower()):
+        msg = ("The upload was cut off before it was fully received - the file is likely too "
+               "large for this web address. Use the 'no upload needed' option (drop the zip "
+               "in Kin's import folder) or open Kin over your home network.")
+    else:
+        msg = plain or f"The upload failed (HTTP {resp.status_code})."
+    return JSONResponse({"ok": False, "error": msg}, status_code=resp.status_code)
 
 
 # Calm, on-brand error pages - never a bare stack trace, never more alarming than the moment
