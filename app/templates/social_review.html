@@ -21,16 +21,20 @@
   {% for t in linked %}
   <div class="flex-between" style="padding:.5rem 0; border-top:1px solid var(--border);">
     <span>
-      <strong>{{ t.person.name if t.person else 'Unlinked' }}</strong>
+      <strong>{{ t.person.name if t.person else 'Unlinked person' }}</strong>
       {% if t.peer_handle %}<span class="text-muted text-sm"> · @{{ t.peer_handle }}</span>{% endif %}
       {% if t.new_count and t.new_count > 0 %}<span class="tag" style="background: var(--accent-soft); color: var(--accent);">+{{ t.new_count }} new since last read</span>{% endif %}
     </span>
     <span class="flex-gap">
       <span class="text-muted text-sm">last {{ ms_display(t.last_ts_ms) }}</span>
-      <a class="btn btn-sm" href="/people/{{ t.person.id }}">Profile</a>
-      <form method="post" action="/import/social/thread/{{ t.id }}/suggest">
-        <button class="btn btn-sm btn-primary" type="submit" {% if not ai_ok %}disabled title="Add an AI key in Settings to use this"{% endif %}>✨ Suggest profile details</button>
-      </form>
+      {% if t.person %}
+        <a class="btn btn-sm" href="/people/{{ t.person.id }}">Profile</a>
+        <form method="post" action="/import/social/thread/{{ t.id }}/suggest">
+          <button class="btn btn-sm btn-primary" type="submit" {% if not ai_ok %}disabled title="Add an AI key in Settings to use this"{% endif %}>✨ Suggest profile details</button>
+        </form>
+      {% else %}
+        <form method="post" action="/import/social/thread/{{ t.id }}/restore"><button class="btn btn-sm" type="submit">↩ Match again</button></form>
+      {% endif %}
     </span>
   </div>
   {% endfor %}

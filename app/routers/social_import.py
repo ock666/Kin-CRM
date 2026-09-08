@@ -249,7 +249,10 @@ def social_link(thread_id: int, request: Request, db: Session = Depends(get_db),
 
     person = None
     if person_id:
-        person = db.get(Person, int(person_id))
+        try:
+            person = db.get(Person, int(person_id))
+        except (TypeError, ValueError):
+            person = None
     elif new_name.strip():
         clean = new_name.strip()
         existing = db.query(Person).filter(Person.name == clean).first()
@@ -328,8 +331,18 @@ def social_review(request: Request, db: Session = Depends(get_db), user=Depends(
         .order_by(SocialFact.created_at.asc())
         .all()
     )
+    # A person may have been deleted since a fact was staged (SQLite FKs aren't enforced here,
+    # so the id can go stale). Never leave those cluttering the queue - quietly retire them.
+    alive_facts = []
+    for f in facts:
+        if f.person is None:
+            f.status = SocialFactStatus.rejected
+        else:
+            alive_facts.append(f)
+    if len(alive_facts) != len(facts):
+        db.commit()
     return render(request, "social_review.html", db=db, user=user, active="import",
-                  linked=linked, facts=facts, ai_ok=ai_ok,
+                  linked=linked, facts=alive_facts, ai_ok=ai_ok,
                   ms_display=_ms_display, FIELD_LABELS=FIELD_LABELS,
                   ig_data_page=IG_DATA_PAGE)
 
@@ -442,10 +455,14 @@ def fact_accept(fact_id: int, request: Request, db: Session = Depends(get_db),
     if not user:
         return RedirectResponse("/login")
     fact = db.get(SocialFact, fact_id)
-    if fact and fact.person:
-        svc.apply_fact(db, fact.thread, fact.person, fact)
+    if fact:
+        if fact.person:
+            svc.apply_fact(db, fact.thread, fact.person, fact)
+            request.session["notice_flash"] = f"Saved to {fact.person.name}."
+        else:
+            # The person this fact pointed at is gone - retire it rather than leaving a stub.
+            fact.status = SocialFactStatus.rejected
         db.commit()
-        request.session["notice_flash"] = f"Saved to {fact.person.name}."
     return RedirectResponse("/import/social/review", status_code=303)
 
 

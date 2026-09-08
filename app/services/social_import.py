@@ -453,7 +453,7 @@ def suggest_matches(db: Session, peer_handle: str, thread_title: str | None,
         if c["name"] not in seen:
             seen.add(c["name"])
             out.append({"person_id": c["person_id"], "name": c["name"],
-                        "nickname": c["nickname"], "label": c["relationship_label"]})
+                        "nickname": c.get("nickname"), "label": c.get("label")})
         if len(out) >= limit:
             break
     return out

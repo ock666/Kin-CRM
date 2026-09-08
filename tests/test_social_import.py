@@ -365,3 +365,75 @@ def test_folderless_export_ui_flow(logged_in_client):
     assert {"paige", "Milo Green"} <= peers
     assert db.query(SocialThread).filter_by(peer_handle=None).count() == 0
     db.close()
+
+
+def test_matches_page_with_candidate_suggestion(logged_in_client):
+    """When a conversation peer matches someone already in Kin, the matches page must render
+    (this previously raised KeyError: 'relationship_label') and allow a one-click link."""
+    from app.database import SessionLocal
+    from app.models import Person, SocialThread
+
+    db = SessionLocal()
+    db.add(Person(name="Paige"))
+    db.commit()
+    db.close()
+
+    resp = logged_in_client.post(
+        "/import/social/upload",
+        files={"file": ("instagram-skye_j.io.zip", make_folderless_zip(), "application/zip")},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+
+    page = logged_in_client.get("/import/social/matches")
+    assert page.status_code == 200
+    assert "✓ Paige" in page.text  # the suggested one-click link
+
+    db = SessionLocal()
+    t = db.query(SocialThread).filter_by(peer_handle="paige").first()
+    p = db.query(Person).filter(Person.name == "Paige").first()
+    tid, pid = t.id, p.id
+    db.close()
+
+    r = logged_in_client.post(f"/import/social/thread/{tid}/link", data={"person_id": str(pid)},
+                              follow_redirects=False)
+    assert r.status_code == 303
+    db = SessionLocal()
+    assert db.get(SocialThread, tid).person_id == pid
+    db.close()
+
+
+def test_person_deleted_keeps_review_healthy(logged_in_client):
+    """Deleting a person after facts were staged must not break the review page."""
+    from app.database import SessionLocal
+    from app.models import Person, SocialThread, SocialFact, SocialFactStatus
+
+    logged_in_client.post(
+        "/import/social/upload",
+        files={"file": ("instagram-skye_j.io.zip", make_folderless_zip(), "application/zip")},
+        follow_redirects=False,
+    )
+    db = SessionLocal()
+    t = db.query(SocialThread).filter_by(peer_handle="paige").first()
+    tid = t.id
+    p = Person(name="Paige")
+    db.add(p)
+    db.flush()
+    t.person_id = p.id
+    t.status = "linked"
+    db.add(SocialFact(thread_id=tid, person_id=p.id, field="occupation",
+                      value_text="vet nurse", kind="ai"))
+    db.commit()
+    pid = p.id
+    db.close()
+
+    deleted = logged_in_client.post(f"/people/{pid}/delete", follow_redirects=False)
+    assert deleted.status_code == 303
+
+    review = logged_in_client.get("/import/social/review")
+    assert review.status_code == 200
+    assert "vet nurse" not in review.text  # orphaned suggestion quietly retired
+
+    db = SessionLocal()
+    assert db.query(SocialFact).filter_by(status=SocialFactStatus.rejected).count() == 1
+    db.close()
