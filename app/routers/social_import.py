@@ -333,16 +333,17 @@ def social_review(request: Request, db: Session = Depends(get_db), user=Depends(
     )
     # A person may have been deleted since a fact was staged (SQLite FKs aren't enforced here,
     # so the id can go stale). Never leave those cluttering the queue - quietly retire them.
-    alive_facts = []
+    alive = []
     for f in facts:
         if f.person is None:
             f.status = SocialFactStatus.rejected
         else:
-            alive_facts.append(f)
-    if len(alive_facts) != len(facts):
+            alive.append(f)
+    if len(alive) != len(facts):
         db.commit()
+    rows = [svc.fact_display(f) for f in alive]
     return render(request, "social_review.html", db=db, user=user, active="import",
-                  linked=linked, facts=alive_facts, ai_ok=ai_ok,
+                  linked=linked, facts=rows, ai_ok=ai_ok,
                   ms_display=_ms_display, FIELD_LABELS=FIELD_LABELS,
                   ig_data_page=IG_DATA_PAGE)
 
@@ -370,88 +371,36 @@ def social_suggest(thread_id: int, request: Request, db: Session = Depends(get_d
         return RedirectResponse("/import/social/review", status_code=303)
 
     try:
-        data = client.extract_instagram_facts(thread.peer_handle or "", transcript)
+        data = client.extract_instagram_facts(
+            thread.peer_handle or "", transcript,
+            known_context=svc.build_known_context(thread.person),
+        )
     except Exception as e:
         logger.warning("Social suggestion AI call failed: %s", e)
         request.session["notice_flash"] = (
             "The AI couldn't be reached just now. Nothing was changed - you can try again in a moment.")
         return RedirectResponse("/import/social/review", status_code=303)
 
-    created = _stage_facts(db, thread, data)
+    created = svc.stage_facts(db, thread, data)
     db.commit()
     if created:
         request.session["notice_flash"] = f"Added {created} suggestion{'' if created == 1 else 's'} for review."
     else:
         request.session["notice_flash"] = "No new suggestions came back - take a look and try again if you'd like."
-    return RedirectResponse("/import/social/review", status_code=303)
+    # Suggestions live in the Review queue, so land there - that's where they'll be reviewed.
+    return RedirectResponse("/reviews", status_code=303)
 
 
-def _stage_facts(db: Session, thread: SocialThread, data: dict) -> int:
-    """Turn AI output into pending SocialFact rows, skipping anything already staged."""
-    person_id = thread.person_id
-    created = 0
-    simple = [
-        ("occupation", "occupation"), ("hobbies", "hobbies"), ("location", "location"),
-        ("how_we_met", "how_we_met"),
-    ]
-    for field, key in simple:
-        val = str(data.get(key) or "").strip()
-        if not val:
-            continue
-        if _has_fact(db, thread.id, person_id, field, val):
-            continue
-        db.add(SocialFact(thread_id=thread.id, person_id=person_id, field=field,
-                          value_text=val, kind="ai"))
-        created += 1
-
-    notes = str(data.get("notes") or "").strip()
-    if notes and not _has_fact(db, thread.id, person_id, "scratchpad", notes):
-        db.add(SocialFact(thread_id=thread.id, person_id=person_id, field="scratchpad",
-                          value_text=notes, kind="ai"))
-        created += 1
-
-    for np in data.get("notable_people", []) or []:
-        name = str(np.get("name") or "").strip()
-        if not name:
-            continue
-        payload = json.dumps({"name": name, "relation": str(np.get("relation") or "").strip()})
-        if _has_fact(db, thread.id, person_id, "notable_person", name):
-            continue
-        db.add(SocialFact(thread_id=thread.id, person_id=person_id, field="notable_person",
-                          value_text=name, value_json=payload, kind="ai"))
-        created += 1
-
-    for nd in data.get("notable_dates", []) or []:
-        label = str(nd.get("label") or "").strip()
-        month, day = nd.get("month"), nd.get("day")
-        try:
-            dt.date(2000, int(month), int(day))
-        except (TypeError, ValueError):
-            continue
-        payload = json.dumps({"label": label or "Notable date", "month": int(month),
-                              "day": int(day), "year": nd.get("year")})
-        if _has_fact(db, thread.id, person_id, "notable_date", f"{month}-{day}-{label}"):
-            continue
-        db.add(SocialFact(thread_id=thread.id, person_id=person_id, field="notable_date",
-                          value_text=label or "Notable date", value_json=payload, kind="ai"))
-        created += 1
-
-    return created
-
-
-def _has_fact(db: Session, thread_id: int, person_id: int, field: str, value: str) -> bool:
-    return (
-        db.query(SocialFact.id)
-        .filter(SocialFact.thread_id == thread_id, SocialFact.person_id == person_id,
-                SocialFact.field == field, SocialFact.value_text == value)
-        .first()
-        is not None
-    )
+def _safe_next(next_url: str) -> str:
+    """Only ever redirect back to an internal Kin path (never an open redirect)."""
+    if next_url and next_url.startswith("/") and not next_url.startswith("//"):
+        return next_url
+    return "/import/social/review"
 
 
 @router.post("/import/social/facts/{fact_id}/accept")
 def fact_accept(fact_id: int, request: Request, db: Session = Depends(get_db),
-                 user=Depends(current_user)):
+                 user=Depends(current_user), next: str = Form("")):
     if not user:
         return RedirectResponse("/login")
     fact = db.get(SocialFact, fact_id)
@@ -463,19 +412,19 @@ def fact_accept(fact_id: int, request: Request, db: Session = Depends(get_db),
             # The person this fact pointed at is gone - retire it rather than leaving a stub.
             fact.status = SocialFactStatus.rejected
         db.commit()
-    return RedirectResponse("/import/social/review", status_code=303)
+    return RedirectResponse(_safe_next(next), status_code=303)
 
 
 @router.post("/import/social/facts/{fact_id}/reject")
 def fact_reject(fact_id: int, request: Request, db: Session = Depends(get_db),
-                 user=Depends(current_user)):
+                 user=Depends(current_user), next: str = Form("")):
     if not user:
         return RedirectResponse("/login")
     fact = db.get(SocialFact, fact_id)
     if fact:
         fact.status = SocialFactStatus.rejected
         db.commit()
-    return RedirectResponse("/import/social/review", status_code=303)
+    return RedirectResponse(_safe_next(next), status_code=303)
 
 
 @router.post("/import/social/facts/accept-all")
@@ -485,8 +434,11 @@ def fact_accept_all(request: Request, db: Session = Depends(get_db), user=Depend
     facts = db.query(SocialFact).filter_by(status=SocialFactStatus.pending).all()
     accepted = 0
     for fact in facts:
-        if fact.person and svc.apply_fact(db, fact.thread, fact.person, fact):
-            accepted += 1
+        if fact.person:
+            if svc.apply_fact(db, fact.thread, fact.person, fact):
+                accepted += 1
+        else:
+            fact.status = SocialFactStatus.rejected
     db.commit()
     request.session["notice_flash"] = f"Accepted {accepted} suggestions."
     return RedirectResponse("/import/social/review", status_code=303)

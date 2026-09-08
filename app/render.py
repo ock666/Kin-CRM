@@ -10,7 +10,7 @@ from starlette.requests import Request
 from sqlalchemy.orm import Session
 
 from .config import settings
-from .models import BirthdayMessageDraft, ReviewStatus
+from .models import BirthdayMessageDraft, ReviewStatus, SocialFact, SocialFactStatus, Person
 from .services import whatsnew
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
@@ -21,7 +21,13 @@ def _pending_review_count(db: Session | None) -> int:
     if db is None:
         return 0
     bd = db.query(BirthdayMessageDraft).filter_by(status=ReviewStatus.pending).count()
-    return bd
+    social = (
+        db.query(SocialFact)
+        .join(Person, SocialFact.person_id == Person.id)
+        .filter(SocialFact.status == SocialFactStatus.pending)
+        .count()
+    )
+    return bd + social
 
 
 def _wrapped_ready(db: Session | None) -> bool:

@@ -1,0 +1,33 @@
+{% set _row = row %}
+<div class="card mt-1" style="border-color: var(--border);">
+  <div class="flex-between mb-1">
+    <strong><a href="/people/{{ _row.person_id }}">{{ _row.person_name or 'Person' }}</a></strong>
+    <span class="tag" style="background: var(--accent-soft); color: var(--accent);">{{ _row.field_label }}</span>
+  </div>
+  <p class="mb-1" style="white-space:pre-wrap;">
+    {% if _row.field == 'notable_person' %}
+      <strong>{{ _row.value }}</strong>{% if _row.payload.relation %} ({{ _row.payload.relation }}){% endif %}
+    {% elif _row.field == 'notable_date' %}
+      {% if _row.value and _row.value != 'Notable date' %}<strong>{{ _row.value }}</strong>{% else %}<strong>A date worth remembering</strong>{% endif %}
+      — {{ _row.date_display }}
+    {% else %}
+      {{ _row.value }}
+    {% endif %}
+  </p>
+  {% if _row.changed and _row.current %}
+    <div class="notice notice-warn mb-1">
+      <span class="text-sm">This looks different from what's saved — currently “{{ _row.current }}”. Accepting will update it.</span>
+    </div>
+  {% endif %}
+  <div class="flex-gap">
+    <form method="post" action="/import/social/facts/{{ _row.id }}/accept" style="display:inline;">
+      {% if fact_next %}<input type="hidden" name="next" value="{{ fact_next }}">{% endif %}
+      <button class="btn btn-sm btn-primary" type="submit">✓ Accept</button>
+    </form>
+    <form method="post" action="/import/social/facts/{{ _row.id }}/reject" style="display:inline;">
+      {% if fact_next %}<input type="hidden" name="next" value="{{ fact_next }}">{% endif %}
+      <button class="btn btn-sm btn-danger" type="submit">Not quite</button>
+    </form>
+  </div>
+  <p class="help-text mb-0 mt-1">Suggested from a recent slice of your conversation. Accepting adds it to {{ _row.person_name or 'their' }} profile.</p>
+</div>

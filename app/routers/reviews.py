@@ -8,9 +8,11 @@ from ..database import get_db
 from ..deps import current_user
 from ..models import (
     BirthdayMessageDraft, GiftIdea, GiftStatus, ReviewStatus,
+    SocialFact, SocialFactStatus,
 )
 from ..render import render
 from ..services import birthdays as bday_service
+from ..services import social_import as social_svc
 from ..services.ai_client import get_client_from_settings, build_person_context, AIError
 
 router = APIRouter()
@@ -28,9 +30,23 @@ def reviews_page(request: Request, db: Session = Depends(get_db), user=Depends(c
     gift_ideas = db.query(GiftIdea).filter_by(status=GiftStatus.suggested).all()
     gifts_by_key = {(g.person_id, g.year): g for g in gift_ideas}
 
+    # Social-import suggestions also land here. If a person was deleted after a fact was staged,
+    # retire the orphan quietly rather than leaving it stuck in the queue.
+    social_rows = []
+    changed = False
+    social_facts = db.query(SocialFact).filter_by(status=SocialFactStatus.pending).all()
+    for f in social_facts:
+        if f.person is None:
+            f.status = SocialFactStatus.rejected
+            changed = True
+        else:
+            social_rows.append(social_svc.fact_display(f))
+    if changed:
+        db.commit()
+
     return render(request, "reviews.html", db=db, user=user, active="reviews",
                   bday_drafts=bday_drafts, approved_bday=approved_bday,
-                  gifts_by_key=gifts_by_key)
+                  gifts_by_key=gifts_by_key, social_rows=social_rows)
 
 
 @router.post("/reviews/run-now")

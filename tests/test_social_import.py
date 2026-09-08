@@ -437,3 +437,135 @@ def test_person_deleted_keeps_review_healthy(logged_in_client):
     db = SessionLocal()
     assert db.query(SocialFact).filter_by(status=SocialFactStatus.rejected).count() == 1
     db.close()
+
+
+def _stage_scaffold(db, name="Stage Tester", peer="stage_peer"):
+    from app.models import SocialThread, Person
+    p = Person(name=name)
+    db.add(p)
+    db.flush()
+    t = SocialThread(platform="instagram", thread_key=f"stage/{peer}/{p.id}",
+                     peer_handle=peer, kind="direct", status="pending")
+    t.person_id = p.id
+    db.add(t)
+    db.flush()
+    return db, t, p
+
+
+def test_stage_skips_saved_fields_and_flags_changes(app):
+    """Profile-aware staging: never re-suggest what's already saved; a changed value is staged
+    with the current value noted so the UI can flag it as an update."""
+    from app.database import SessionLocal
+    from app.services import social_import as svc
+    from app.models import SocialFact
+
+    db = SessionLocal()
+    db, t, p = _stage_scaffold(db)
+    p.occupation = "nurse"
+    db.commit()
+
+    data = {"occupation": "veterinary nurse", "hobbies": "climbing"}
+    assert svc.stage_facts(db, t, data) == 2
+    db.commit()
+
+    rows = db.query(SocialFact).filter_by(person_id=p.id).all()
+    occ = next(r for r in rows if r.field == "occupation")
+    hob = next(r for r in rows if r.field == "hobbies")
+    assert occ.value_json and '"nurse"' in occ.value_json
+    view = svc.fact_display(occ)
+    assert view["changed"] is True and view["current"] == "nurse"
+    assert svc.fact_display(hob)["changed"] is False
+
+    # An identical re-run stages nothing (same value already staged + equal to saved).
+    again = svc.stage_facts(db, t, {"occupation": "NURSE", "hobbies": "climbing"})
+    assert again == 0
+    db.close()
+
+
+def test_stage_drops_duplicate_birthday_and_kinship(app):
+    """Birthdays already on the profile are never re-staged as notable dates, and 'mum'/'mother'
+    style duplicates collapse into one suggestion."""
+    from app.database import SessionLocal
+    from app.services import social_import as svc
+    from app.models import SocialFact, NotablePersonRef
+
+    db = SessionLocal()
+    db, t, p = _stage_scaffold(db)
+    p.birthday_month, p.birthday_day = 6, 1
+    db.add(NotablePersonRef(person_id=p.id, name="Mum"))
+    db.commit()
+
+    data = {
+        "notable_dates": [
+            {"label": "Birthday", "month": 6, "day": 1},
+            {"label": "Milo's birthday", "month": 3, "day": 5},
+        ],
+        "notable_people": [
+            {"name": "Dad", "relation": "father"},   # different parent - allowed
+            {"name": "Mother"},                       # = Mum already saved - skipped
+            {"name": "Sister", "relation": "sister"},
+        ],
+    }
+    assert svc.stage_facts(db, t, data) == 3
+    db.commit()
+
+    facts = db.query(SocialFact).filter_by(person_id=p.id).all()
+    dates = [f.value_text for f in facts if f.field == "notable_date"]
+    people = [f.value_text for f in facts if f.field == "notable_person"]
+    assert dates == ["Milo's birthday"]  # 6/1 birthday (saved on profile) not staged
+    assert people == ["Dad", "Sister"]  # mum/mother duplicate suppressed, father is separate
+    db.close()
+
+
+def test_stage_suppresses_kinship_synonyms_within_one_batch(app):
+    from app.database import SessionLocal
+    from app.services import social_import as svc
+    from app.models import SocialFact
+
+    db = SessionLocal()
+    db, t, p = _stage_scaffold(db)
+    data = {"notable_people": [{"name": "Dad"}, {"name": "Father", "relation": "dad"}]}
+    assert svc.stage_facts(db, t, data) == 1
+    db.commit()
+    people = [f.value_text for f in db.query(SocialFact).filter_by(person_id=p.id, field="notable_person")]
+    assert people == ["Dad"]
+    db.close()
+
+
+def test_review_queue_shows_and_accepts_social_fact(logged_in_client):
+    """Pending social suggestions appear in the Review queue and can be accepted from there,
+    returning to the queue afterwards."""
+    from app.database import SessionLocal
+    from app.models import Person, SocialThread, SocialFact
+
+    db = SessionLocal()
+    p = Person(name="Mia")
+    db.add(p)
+    db.flush()
+    t = SocialThread(platform="instagram", thread_key="queue/mia", peer_handle="mia",
+                     kind="direct", status="linked", person_id=p.id)
+    db.add(t)
+    db.flush()
+    db.add(SocialFact(thread_id=t.id, person_id=p.id, field="occupation",
+                      value_text="florist", kind="ai"))
+    db.commit()
+    db.close()
+
+    queue = logged_in_client.get("/reviews")
+    assert queue.status_code == 200
+    assert "From your Instagram chats" in queue.text
+    assert "florist" in queue.text
+
+    db = SessionLocal()
+    fid = db.query(SocialFact).filter_by(field="occupation").first().id
+    db.close()
+    accept = logged_in_client.post(
+        f"/import/social/facts/{fid}/accept", data={"next": "/reviews"},
+        follow_redirects=False,
+    )
+    assert accept.status_code == 303
+    assert accept.headers["location"] == "/reviews"
+
+    db = SessionLocal()
+    assert db.query(Person).filter(Person.name == "Mia").first().occupation == "florist"
+    db.close()

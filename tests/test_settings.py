@@ -10,10 +10,10 @@ def test_settings_page_has_whats_new(logged_in_client):
     resp = logged_in_client.get("/settings")
     assert resp.status_code == 200
     assert "new in Kin" in resp.text
-    assert "2026.09.4" in resp.text
+    assert "2026.09.5" in resp.text
     assert "don't let the bastards get you down" in resp.text.lower()
-    assert "Kin Wrapped" in resp.text
-    assert "Calendar sync" in resp.text
+    assert "Import from Instagram" in resp.text
+    assert "Review queue" in resp.text
     assert "Voice replies" not in resp.text  # prior release's notes are not in this one
 
 

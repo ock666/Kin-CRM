@@ -103,14 +103,18 @@ class AIClient:
         raw = self._chat(system, user, max_tokens=500, temperature=0.2)
         return _safe_json(raw)
 
-    def extract_instagram_facts(self, peer_handle: str, transcript: list[dict]) -> dict:
+    def extract_instagram_facts(self, peer_handle: str, transcript: list[dict],
+                                known_context: str = "") -> dict:
         """Given a private Instagram DM conversation with one person, extract profile facts
         worth remembering about *them*. Human-in-the-loop: results are staged as pending
         suggestions the user accepts/rejects - never auto-applied.
 
-        Prompt rules mirror the app's ethics: only include things actually stated or
-        strongly implied, never invent, and skip anything sensitive, negative, or
-        conflict-related - small talk is the default, not a fact source."""
+        Two safeguards that matter:
+        - `known_context` lists what the profile already knows, and the model is told never to
+          repeat it - so we don't re-suggest birthdays/jobs already saved.
+        - Sensitive material is only ever captured in the most general terms (a health issue
+          may be noted broadly, never a diagnosis or the details), and never as verbatim text.
+        """
         system = (
             "You help someone gently enrich a personal relationship manager from their own "
             "private Instagram DMs. Read the conversation and extract a few facts about the "
@@ -118,14 +122,25 @@ class AIClient:
             "Rules:\n"
             "- Only include things actually stated or strongly implied by either person. "
             "Never invent or guess details.\n"
+            "- NEVER repeat anything already listed under 'Already known' below - birthdays, "
+            "jobs and people already saved are the user's own notes and should not be "
+            "suggested again.\n"
             "- Prefer recent, current-life facts (current job/city/plans) over stale ones.\n"
             "- Skip small talk, plans, logistics, emoji strings, and anything flirtatious.\n"
-            "- Never extract anything sensitive, negative, or conflict-related, and never "
-            "reproduce messages verbatim in 'notes'.\n"
+            "- Sensitive material: never extract diagnoses, medications, treatment or medical "
+            "detail, mental-health history, past conflicts, finances, or anything that would "
+            "feel exposing. If someone mentions a health issue in passing you may note it in "
+            "the most general terms (e.g. 'living with a long-term health condition - check in "
+            "gently'), otherwise leave it out. Never reproduce messages verbatim in 'notes'.\n"
+            "- 'notes' must be ONE short, actionable line to bring up next time - never a "
+            "biography or multi-sentence history.\n"
             "- 'notable_people' = people in THEIR life (e.g. their partner, kids, mum) with "
-            "the relation as they described it.\n"
+            "the relation as they described it. Only list people NOT already known, and never "
+            "list the same person twice under different words (e.g. if you listed 'mum', do "
+            "not also list 'mother').\n"
             "- 'notable_dates' = recurring things they stated (e.g. \"my birthday is 12 "
-            "March\") - only include when a specific month/day was given. year may be null.\n"
+            "March\") - only include when a specific month/day was given, and never when that "
+            "date is already known (a saved birthday). year may be null.\n"
             "- If the field is unknown or not mentioned, use empty string / empty list. "
             "Better to suggest nothing than to guess.\n"
             "Respond ONLY with valid JSON matching this schema:\n"
@@ -141,6 +156,7 @@ class AIClient:
         )
         user = (
             f"@peer: {peer_handle}\n\n"
+            f"Already known about them (never repeat these):\n{known_context or '(nothing saved yet)'}\n\n"
             f"Conversation (most recent last, oldest first in the log):\n{digest}"
         )
         raw = self._chat(system, user, max_tokens=600, temperature=0.2)

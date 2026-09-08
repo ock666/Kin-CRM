@@ -29,7 +29,8 @@ from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..models import (
-    SocialThread, SocialImportStatus, SocialFactStatus, Person, NotablePersonRef, NotableDate,
+    SocialThread, SocialImportStatus, SocialFact, SocialFactStatus, Person,
+    NotablePersonRef, NotableDate,
 )
 
 logger = logging.getLogger(__name__)
@@ -527,3 +528,215 @@ def apply_fact(db: Session, thread: SocialThread, person: Person, fact) -> bool:
     if changed:
         fact.status = SocialFactStatus.accepted
     return changed
+
+
+# ---------------------------------------------------------------------------
+# Staging AI output as profile-aware, de-duplicated suggestions
+# ---------------------------------------------------------------------------
+
+MONTH_NAMES = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+]
+
+_KINSHIP_GROUPS = {
+    # Different words for the same person - dad/father, mum/mother, etc. Suggesting both for
+    # one parent is noise (people call their parents mum & dad in chat), so these collapse to
+    # one canonical key and a duplicate is never staged.
+    "father": {"dad", "daddy", "father", "pa", "papa", "pops", "pop", "stepdad", "stepfather"},
+    "mother": {"mum", "mummy", "mom", "mommy", "mother", "mama", "ma", "mumma", "momma",
+               "stepmum", "stepmom", "stepmother"},
+    "grandfather": {"grandpa", "grandfather", "granddad", "grandad", "gramps", "poppy"},
+    "grandmother": {"grandma", "grandmother", "granny", "gran", "nana", "nanna", "nan"},
+    "brother": {"brother", "bro", "bruv", "brother-in-law"},
+    "sister": {"sister", "sis", "sister-in-law"},
+}
+
+
+def _name_key(text: str) -> str:
+    """Lowercased, punctuation-stripped key for name comparisons."""
+    return re.sub(r"[^a-z0-9]+", "", (text or "").lower())
+
+
+def kinship_key(text: str) -> str:
+    """Canonical identity for kinship labels so 'dad' and 'father' are seen as one person."""
+    key = _name_key(text)
+    for canon, syns in _KINSHIP_GROUPS.items():
+        if key in syns:
+            return canon
+    return key
+
+
+def _same_text(a: str, b: str) -> bool:
+    return bool(a and b and _name_key(a) == _name_key(b))
+
+
+def build_known_context(person) -> str:
+    """A compact summary of what a profile already knows, fed to the AI so it never re-suggests
+    an existing fact (birthday, job, people already saved, and so on)."""
+    lines = []
+    for attr in ("occupation", "hobbies", "location", "how_we_met"):
+        v = getattr(person, attr, None)
+        if v:
+            lines.append(f"{attr.replace('_', ' ').title()}: {v}")
+    if person.birthday_month and person.birthday_day:
+        try:
+            name = MONTH_NAMES[person.birthday_month - 1]
+            lines.append(f"Birthday: {person.birthday_day} {name}"
+                         + (f" {person.birthday_year}" if person.birthday_year else ""))
+        except IndexError:
+            pass
+    for nd in getattr(person, "notable_dates", []) or []:
+        try:
+            month_name = MONTH_NAMES[nd.month - 1]
+        except IndexError:
+            month_name = str(nd.month)
+        lines.append(f"Notable date - {nd.label}: {nd.day} {month_name}")
+    for ref in getattr(person, "notable_people_refs", []) or []:
+        lines.append(f"Someone in their life: {ref.name}"
+                     + (f" ({ref.relation})" if ref.relation else ""))
+    return "\n".join(lines)
+
+
+def fact_display(fact) -> dict:
+    """Render a SocialFact as a flat dict templates can show without re-parsing JSON."""
+    payload = {}
+    if fact.value_json:
+        try:
+            payload = json.loads(fact.value_json)
+        except ValueError:
+            payload = {}
+    field = fact.field
+    label = fact.field.replace("_", " ").title()
+    if field == "notable_date":
+        label = "Notable date"
+    elif field == "notable_person":
+        label = "Someone in their life"
+    elif field == "scratchpad":
+        label = "Something to bring up"
+    value = fact.value_text or ""
+    current = payload.get("current") if isinstance(payload, dict) else None
+    date_display = None
+    if field == "notable_date":
+        m, d = payload.get("month"), payload.get("day")
+        try:
+            date_display = f"{d} {MONTH_NAMES[int(m) - 1]}"
+        except (TypeError, ValueError, IndexError):
+            date_display = f"{m}/{d}" if m and d else None
+    return {
+        "id": fact.id,
+        "field": field,
+        "field_label": label,
+        "kind": fact.kind,
+        "person_id": fact.person_id,
+        "person_name": fact.person.name if fact.person else None,
+        "value": value,
+        "current": current,
+        "changed": bool(current) and not _same_text(str(fact.value_text or ""), str(current)),
+        "date_display": date_display,
+        "payload": payload,
+    }
+
+
+def stage_facts(db: Session, thread: SocialThread, data: dict) -> int:
+    """Turn AI output into pending SocialFact rows, honouring what's already on the profile:
+    - A field already saved is never re-suggested (unless it looks *changed*, which is staged
+      with a note of the current value so the UI can flag it as an update).
+    - A birthday matching the saved birthday, or a notable date/person already present, is
+      skipped. 'dad' vs 'father' style duplicates collapse to one suggestion.
+    """
+    person = thread.person
+    if person is None:
+        return 0
+    created = 0
+    pid = person.id
+
+    for field in ("occupation", "hobbies", "location", "how_we_met"):
+        val = str(data.get(field) or "").strip()
+        if not val:
+            continue
+        existing = (getattr(person, field, None) or "").strip()
+        if existing and _same_text(existing, val):
+            continue  # already known - never re-suggest
+        if _has_staged(db, thread.id, pid, field, val):
+            continue
+        payload = json.dumps({"current": existing}) if existing else None
+        db.add(SocialFact(thread_id=thread.id, person_id=pid, field=field,
+                          value_text=val, value_json=payload, kind="ai"))
+        created += 1
+
+    notes = str(data.get("notes") or "").strip()
+    notes = (notes.splitlines() or [notes])[0][:260].strip()  # one short line only
+    if notes and not _has_staged(db, thread.id, pid, "scratchpad", notes):
+        db.add(SocialFact(thread_id=thread.id, person_id=pid, field="scratchpad",
+                          value_text=notes, kind="ai"))
+        created += 1
+
+    known_names = {_name_key(r.name) for r in person.notable_people_refs}
+    known_kins: set[str] = set()
+    for _ref in person.notable_people_refs:
+        known_kins.add(kinship_key(_ref.name))
+        if _ref.relation:
+            known_kins.add(kinship_key(_ref.relation))
+    batch_names: set[str] = set()
+    batch_kins: set[str] = set()
+    for np in data.get("notable_people", []) or []:
+        name = str(np.get("name") or "").strip()
+        relation = str(np.get("relation") or "").strip()
+        if not name:
+            continue
+        key = _name_key(name)
+        kin_name = kinship_key(name)
+        kin_rel = kinship_key(relation) if relation else ""
+        if key in known_names or kin_name in known_kins or (kin_rel and kin_rel in known_kins):
+            continue  # already saved, possibly under another word (mum/mother)
+        if key in batch_names or kin_name in batch_kins or (kin_rel and kin_rel in batch_kins):
+            continue
+        batch_names.add(key)
+        batch_kins.add(kin_name)
+        if kin_rel:
+            batch_kins.add(kin_rel)
+        if _has_staged(db, thread.id, pid, "notable_person", name):
+            continue
+        payload = json.dumps({"name": name, "relation": relation})
+        db.add(SocialFact(thread_id=thread.id, person_id=pid, field="notable_person",
+                          value_text=name, value_json=payload, kind="ai"))
+        created += 1
+
+    seen_dates: set[tuple] = set()
+    existing_dates = {(nd.month, nd.day, _name_key(nd.label)) for nd in person.notable_dates}
+    for nd in data.get("notable_dates", []) or []:
+        label = str(nd.get("label") or "").strip()
+        month, day = nd.get("month"), nd.get("day")
+        try:
+            dt.date(2000, int(month), int(day))
+        except (TypeError, ValueError):
+            continue
+        month, day = int(month), int(day)
+        # The birthday already lives in its own field - don't re-stage it as a notable date.
+        if person.birthday_month and person.birthday_day \
+                and (month, day) == (person.birthday_month, person.birthday_day):
+            continue
+        pair = (month, day, _name_key(label or "notable date"))
+        if pair in seen_dates or (month, day, _name_key(label or "notable date")) in existing_dates:
+            continue
+        seen_dates.add(pair)
+        if _has_staged(db, thread.id, pid, "notable_date", label or "Notable date"):
+            continue
+        payload = json.dumps({"label": label or "Notable date", "month": month,
+                              "day": day, "year": nd.get("year")})
+        db.add(SocialFact(thread_id=thread.id, person_id=pid, field="notable_date",
+                          value_text=label or "Notable date", value_json=payload, kind="ai"))
+        created += 1
+
+    return created
+
+
+def _has_staged(db: Session, thread_id: int, person_id: int, field: str, value: str) -> bool:
+    return (
+        db.query(SocialFact.id)
+        .filter(SocialFact.thread_id == thread_id, SocialFact.person_id == person_id,
+                SocialFact.field == field, SocialFact.value_text == value)
+        .first()
+        is not None
+    )

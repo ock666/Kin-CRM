@@ -61,4 +61,18 @@
     </div>
   {% endfor %}
 </div>
+
+{% if social_rows %}
+<div class="card mt-2">
+  <div class="flex-between">
+    <h2>🧠 From your Instagram chats</h2>
+    <a class="btn btn-sm" href="/import/social/review">Manage imports →</a>
+  </div>
+  <p class="text-muted text-sm mb-1">Suggested from a recent slice of each conversation. Only saved when you tap <strong>Accept</strong>.</p>
+  {% set fact_next = '/reviews' %}
+  {% for row in social_rows %}
+    {% include "partials/social_fact_row.html" %}
+  {% endfor %}
+</div>
+{% endif %}
 {% endblock %}
