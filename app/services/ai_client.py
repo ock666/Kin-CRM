@@ -104,24 +104,36 @@ class AIClient:
         return _safe_json(raw)
 
     def extract_instagram_facts(self, peer_handle: str, transcript: list[dict],
-                                known_context: str = "") -> dict:
+                                known_context: str = "", owner_handle: str = "") -> dict:
         """Given a private Instagram DM conversation with one person, extract profile facts
-        worth remembering about *them*. Human-in-the-loop: results are staged as pending
-        suggestions the user accepts/rejects - never auto-applied.
+        worth remembering about *them* - never about the account owner. Human-in-the-loop:
+        results are staged as pending suggestions the user accepts/rejects - never auto-applied.
 
-        Two safeguards that matter:
-        - `known_context` lists what the profile already knows, and the model is told never to
-          repeat it - so we don't re-suggest birthdays/jobs already saved.
-        - Sensitive material is only ever captured in the most general terms (a health issue
-          may be noted broadly, never a diagnosis or the details), and never as verbatim text.
+        Three safeguards that matter:
+        - `owner_handle` + `peer_handle` let the log be role-labelled (YOU vs PEER) so the model
+          can't confuse the account owner's "I/my" with the peer's.
+        - The owner's own self-talk (messages about themselves that don't address the peer) is
+          filtered out before the AI ever sees it - the usual source of mis-attribution.
+        - `known_context` lists what the profile already knows, so nothing is repeated, and
+          sensitive material is only ever captured in the most general terms.
         """
         system = (
             "You help someone gently enrich a personal relationship manager from their own "
-            "private Instagram DMs. Read the conversation and extract a few facts about the "
-            "other participant (never the speaker) worth remembering later.\n"
-            "Rules:\n"
-            "- Only include things actually stated or strongly implied by either person. "
-            "Never invent or guess details.\n"
+            "private Instagram DMs. The conversation is between YOU (the account owner whose "
+            "data this is - never the subject of these notes) and PEER (the person whose "
+            "profile you are enriching). Every message in the log is labelled 'YOU:' or "
+            "'PEER:' so attribution is unambiguous.\n"
+            "Attribution rules:\n"
+            "- PEER saying 'I / me / my / mine' => about PEER. You may extract it.\n"
+            "- PEER referring to 'you / your' => about YOU (the account owner). Never put it "
+            "on PEER's profile.\n"
+            "- YOU saying 'I / me / my' => about YOU. Never treat it as PEER's fact, even if "
+            "PEER replies warmly or says 'congrats'.\n"
+            "- YOU addressing PEER as 'you / your' (e.g. 'so glad you got the job') => about "
+            "PEER. You may extract it.\n"
+            "- If you cannot tell who something is about, leave it out.\n"
+            "General rules:\n"
+            "- Only include things actually stated or strongly implied. Never invent.\n"
             "- NEVER repeat anything already listed under 'Already known' below - birthdays, "
             "jobs and people already saved are the user's own notes and should not be "
             "suggested again.\n"
@@ -134,14 +146,14 @@ class AIClient:
             "gently'), otherwise leave it out. Never reproduce messages verbatim in 'notes'.\n"
             "- 'notes' must be ONE short, actionable line to bring up next time - never a "
             "biography or multi-sentence history.\n"
-            "- 'notable_people' = people in THEIR life (e.g. their partner, kids, mum) with "
+            "- 'notable_people' = people in PEER's life (e.g. their partner, kids, mum) with "
             "the relation as they described it. Only list people NOT already known, and never "
             "list the same person twice under different words (e.g. if you listed 'mum', do "
             "not also list 'mother').\n"
             "- 'notable_dates' = recurring things they stated (e.g. \"my birthday is 12 "
             "March\") - only include when a specific month/day was given, and never when that "
             "date is already known (a saved birthday). year may be null.\n"
-            "- If the field is unknown or not mentioned, use empty string / empty list. "
+            "- If a field is unknown or not mentioned, use empty string / empty list. "
             "Better to suggest nothing than to guess.\n"
             "Respond ONLY with valid JSON matching this schema:\n"
             '{"occupation": string, "hobbies": string, "location": string, '
@@ -149,11 +161,7 @@ class AIClient:
             '"notable_dates": [{"label": string, "month": int, "day": int, "year": int|null}], '
             '"notes": string}'
         )
-        digest = "\n".join(
-            f"[{dt.datetime.fromtimestamp(m.get('ts', 0) / 1000, tz=dt.timezone.utc).strftime('%Y-%m-%d')}] "
-            f"{m.get('sender', '')}: {m.get('text', '')}"
-            for m in transcript[-120:]
-        )
+        digest = _instagram_digest(transcript, peer_handle, owner_handle)
         user = (
             f"@peer: {peer_handle}\n\n"
             f"Already known about them (never repeat these):\n{known_context or '(nothing saved yet)'}\n\n"
@@ -539,6 +547,52 @@ def build_person_context(person) -> str:
     parts.append(f"Relationship register (match this warmth/familiarity): {register}")
 
     return "\n".join(parts)
+
+
+_PEER_ADDRESS_RE = re.compile(r"\b(you're|your|yours|yourself|you|ur|ya)\b", re.IGNORECASE)
+
+
+def _sender_key(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", (name or "").lower())
+
+
+def _instagram_digest(transcript: list[dict], peer_handle: str, owner_handle: str) -> str:
+    """Build the conversation digest the model sees, with every message labelled YOU:/PEER:.
+
+    Attribution is the whole game here: a DM is two people both saying "I/my", and the model
+    must never mistake the account owner's life for the peer's. We anchor YOU to the owner's
+    known name, treat any other sender in the two-person chat as PEER, and drop the owner's
+    own self-talk (messages about themselves that don't address the peer at all)."""
+    peer_key = _sender_key(peer_handle)
+    owner_key = _sender_key(owner_handle)
+    lines: list[str] = []
+    for m in transcript[-120:]:
+        sender = (m.get("sender") or "").strip()
+        text = (m.get("text") or "").strip()
+        if not text:
+            continue
+        skey = _sender_key(sender)
+        if owner_key and skey == owner_key:
+            role = "YOU"
+        elif peer_key and skey == peer_key:
+            role = "PEER"
+        elif owner_key:
+            # Only two people ever appear in a 1:1 thread - an unrecognised sender is the peer
+            # under a display-name variant.
+            role = "PEER"
+        else:
+            role = "YOU"
+        # Owner's messages about themselves, with no second-person address to the peer, are the
+        # usual source of mis-attribution. Keep them out entirely.
+        if role == "YOU" and not _PEER_ADDRESS_RE.search(text):
+            continue
+        try:
+            stamp = dt.datetime.fromtimestamp(
+                m.get("ts", 0) / 1000, tz=dt.timezone.utc).strftime("%Y-%m-%d")
+        except (OverflowError, OSError, ValueError, TypeError):
+            stamp = ""
+        lines.append(f"[{stamp}] {role}: {text}")
+    return "\n".join(lines)
 
 
 def _safe_json(raw: str):

@@ -374,6 +374,7 @@ def social_suggest(thread_id: int, request: Request, db: Session = Depends(get_d
         data = client.extract_instagram_facts(
             thread.peer_handle or "", transcript,
             known_context=svc.build_known_context(thread.person),
+            owner_handle=thread.account_handle or "",
         )
     except Exception as e:
         logger.warning("Social suggestion AI call failed: %s", e)

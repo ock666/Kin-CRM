@@ -569,3 +569,29 @@ def test_review_queue_shows_and_accepts_social_fact(logged_in_client):
     db = SessionLocal()
     assert db.query(Person).filter(Person.name == "Mia").first().occupation == "florist"
     db.close()
+
+
+def test_instagram_digest_drops_owner_selftalk_and_labels_roles():
+    """The owner's own 'I got a job' messages must never reach the model (that's the source of
+    mis-attribution), while the peer's first-person statements and the owner's 'you/your'
+    messages about the peer are kept and clearly role-labelled."""
+    from app.services.ai_client import _instagram_digest
+
+    def msg(sender, text, ts=1700000000000):
+        return {"ts": ts, "sender": sender, "text": text}
+
+    transcript = [
+        msg("skye~", "just started a new job as a nurse today!!", 1700000001000),
+        msg("Paige", "omg congrats!! i got a new puppy btw", 1700000002000),
+        msg("skye~", "aww, hope your new job is going well", 1700000003000),
+        msg("skye~", "feeling tired from my shift", 1700000004000),
+        msg("paige.reid", "yeah it is! the hours are long though", 1700000005000),
+    ]
+    digest = _instagram_digest(transcript, peer_handle="Paige", owner_handle="skye~")
+
+    assert "nurse" not in digest  # owner's own job never suggested as the peer's
+    assert "feeling tired from my shift" not in digest  # owner self-talk filtered
+    assert "PEER: omg congrats!! i got a new puppy btw" in digest
+    assert "YOU: aww, hope your new job is going well" in digest
+    # An unrecognised sender in a two-person chat is treated as the peer (display-name variant).
+    assert "PEER: yeah it is! the hours are long though" in digest
