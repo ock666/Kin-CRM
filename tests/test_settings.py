@@ -43,6 +43,54 @@ def test_save_ai_settings_persist(logged_in_client):
     assert "llama3.1" in page.text
 
 
+def test_save_ai_with_blank_key_keeps_existing(logged_in_client):
+    # Saving the AI form with a blank key (the "unchanged" password field) must NOT wipe the
+    # stored key - previously it silently cleared it, silently disabling AI.
+    from app.database import SessionLocal
+    from app.settings_store import set_many, get_setting
+
+    db = SessionLocal()
+    try:
+        set_many(db, {"ai_base_url": "https://api.openai.com/v1", "ai_api_key": "sk-existing-secret",
+                      "ai_model": "gpt-4o-mini", "support_chat_model": "gpt-4o"})
+    finally:
+        db.close()
+
+    logged_in_client.post(
+        "/settings/ai",
+        data={"ai_base_url": "https://api.openai.com/v1", "ai_api_key": "",
+              "ai_model": "gpt-4o-mini", "support_chat_model": "gpt-4o"},
+        follow_redirects=False,
+    )
+    db = SessionLocal()
+    try:
+        assert get_setting(db, "ai_api_key") == "sk-existing-secret"
+    finally:
+        db.close()
+
+
+def test_save_immich_with_blank_key_keeps_existing(logged_in_client):
+    from app.database import SessionLocal
+    from app.settings_store import set_many, get_setting
+
+    db = SessionLocal()
+    try:
+        set_many(db, {"immich_url": "http://immich.local", "immich_api_key": "immich-secret"})
+    finally:
+        db.close()
+
+    logged_in_client.post(
+        "/settings/immich",
+        data={"immich_url": "http://immich.local", "immich_api_key": ""},
+        follow_redirects=False,
+    )
+    db = SessionLocal()
+    try:
+        assert get_setting(db, "immich_api_key") == "immich-secret"
+    finally:
+        db.close()
+
+
 def test_add_second_user(logged_in_client):
     resp = logged_in_client.post(
         "/settings/users/new",

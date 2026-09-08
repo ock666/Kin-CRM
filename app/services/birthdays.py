@@ -62,9 +62,11 @@ def people_with_upcoming_birthdays(db: Session, lead_days: int) -> list[tuple[Pe
 
 
 def generate_birthday_drafts(db: Session) -> int:
-    """Create pending BirthdayMessageDraft rows for people whose birthday is coming up
-    soon, if one doesn't already exist for this year. Always human-in-the-loop -
-    nothing is sent automatically. Returns number of drafts created."""
+    """Create pending BirthdayMessageDraft rows for people whose birthday is coming up soon, if one
+    doesn't already exist for this year, and (when AI is available) suggest a gift idea alongside
+    an active draft. Gifts are attempted even when the draft already exists, so a draft created
+    while AI was down isn't left permanently without a gift. Always human-in-the-loop - nothing is
+    sent or bought automatically. Returns the number of drafts created."""
     lead_days = _safe_int(get_setting(db, "birthday_lead_days", "3"), 3)
     today = dt.date.today()
     created = 0
@@ -77,37 +79,37 @@ def generate_birthday_drafts(db: Session) -> int:
 
     for person, days_until in people_with_upcoming_birthdays(db, lead_days):
         target_year = (today + dt.timedelta(days=days_until)).year
-        existing = db.query(BirthdayMessageDraft).filter_by(person_id=person.id, year=target_year).first()
-        if existing:
-            continue
+        draft = db.query(BirthdayMessageDraft).filter_by(person_id=person.id, year=target_year).first()
 
-        context = build_person_context(person)
-        text = None
-        if ai:
-            try:
-                text = ai.draft_birthday_message(person.name, person.relationship_label or "", context)
-            except AIError as e:
-                logger.info("AI birthday draft failed for %s: %s", person.name, e)
+        if draft is None:
+            context = build_person_context(person)
+            text = None
+            if ai:
+                try:
+                    text = ai.draft_birthday_message(person.name, person.relationship_label or "", context)
+                except AIError as e:
+                    logger.info("AI birthday draft failed for %s: %s", person.name, e)
 
-        if not text:
-            text = (
-                f"Happy birthday, {person.nickname or person.name}! 🎉 Hope you have a wonderful day - "
-                f"thinking of you and would love to catch up soon."
+            if not text:
+                text = (
+                    f"Happy birthday, {person.nickname or person.name}! 🎉 Hope you have a wonderful day - "
+                    f"thinking of you and would love to catch up soon."
+                )
+
+            draft = BirthdayMessageDraft(
+                person_id=person.id, year=target_year, draft_text=text, status=ReviewStatus.pending
             )
+            db.add(draft)
+            created += 1
 
-        draft = BirthdayMessageDraft(
-            person_id=person.id, year=target_year, draft_text=text, status=ReviewStatus.pending
-        )
-        db.add(draft)
-        created += 1
-
-        # Gift suggestion (<$40) alongside the birthday draft - only when AI is configured,
-        # since there's no sensible non-AI fallback for a *specific* gift idea. Always lands as
-        # a pending suggestion for review, never auto-bought/sent, and avoids repeating anything
-        # already suggested/given to this person before.
-        if ai:
+        # Gift suggestion (<$40) alongside an ACTIVE draft (pending/approved). Only when AI is
+        # configured - there's no sensible non-AI fallback for a *specific* gift idea. Always lands
+        # as a pending suggestion for review, never auto-bought/sent. Runs even when the draft
+        # already existed, so a gift is never permanently skipped just because the draft predates it.
+        if ai and draft.status in (ReviewStatus.pending, ReviewStatus.approved):
             existing_gift = db.query(GiftIdea).filter_by(person_id=person.id, year=target_year).first()
             if not existing_gift:
+                context = build_person_context(person)
                 previous = [g.description for g in person.gift_ideas]
                 try:
                     gift_text = ai.suggest_gift(person.name, context, previous)
