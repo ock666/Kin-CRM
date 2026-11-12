@@ -12,30 +12,15 @@ from ..config import settings
 WHATS_NEW = {
     "version": settings.APP_VERSION,
     "title": "What's new in Kin",
-    "date": "September 2026",
+    "date": "November 2026",
     "body": """
-Hi, it's Skye. Thanks for trusting Kin with your relationships — this one's a big one, all built to make keeping in touch feel lighter, not heavier.
+Hi, it's Skye. A small, cosy one this time — something for the moments when your thoughts are looping and you just need your eyes and hands busy for a minute.
 
-### 🎉 Kin Wrapped
-Around mid-December Kin quietly puts together a warm, private year-in-review — the people you were closest to, your standout moments, and the small ways you showed up. No hype, no scoreboard, just a gentle look back. It arrives on its own, and you can share the whole card — or just your year with one person — for a few weeks.
+### 🟡 Dot Muncher
+There's a new game in the Regulation toolkit, under 🧱 Soothe: Dot Muncher — a warm, Pac-Man-style maze chase. Gobble the dots and dodge the four ghosts (Blinky chases, Pinky ambushes, Inky flanks, Clyde's a bit shy), then grab a power pellet to turn the tables and chase them right back. It's a proper little arcade game — score, three lives, levels that gently pick up the pace, a cherry bonus, and a wrap-around tunnel. Play with the keyboard or the on-screen buttons, and pause whenever you need a breath.
 
-### 📅 Calendar sync
-Birthdays and notable dates now live in any calendar you use — Google, Apple, Outlook, or anything that can subscribe to a link.
-How it works: Kin serves a private calendar just for you. Birthdays and recurring notable dates appear as yearly all-day events (no timezone fuss), each with a gentle reminder — two weeks ahead for birthdays, so there's room to sort a card or gift.
-To set it up: Settings → Calendar sync → turn it on → copy the subscribe link → add it to your calendar app by URL. It stays in sync on its own, and only ever shows the dates you've chosen to sync.
+The four quieter games are still there too — Soft Fall, 2048, Memory, and Minesweeper — no clocks, no pressure, as always.
 
-### 🎂 Two weeks to plan
-Birthday reminders (drafts, nudges, and calendar alerts) now start two weeks out instead of three days, so there's more grace to sort a card or gift without the scramble.
-
-### 🧹 Instagram, gone
-The unofficial Instagram reader never quite worked and kept making "check now" hang, so it's been removed. Nothing else changes — your people, journal, and reviews all stay exactly as they are.
-
-### 🎂 Birthday drafts, sooner
-Birthday message drafts now also generate the moment a container starts up, not just at the daily morning run — so a restart, or a birthday you've just added or edited, always has a draft ready instead of waiting up to a day.
-
-### 📱 Wrapped on the go
-Kin Wrapped now scrolls properly on phones: the people and standout-moments sections have their own scroll area, and the cross-fade never hides a section that's taller than the screen.
-
-That's everything for now. Thank you for being here — don't let the bastards get you down~ — Skye
+That's everything for now. Be gentle with yourself — Skye 💛
 """.strip(),
 }
