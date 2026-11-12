@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from ...database import get_db
-from ...scoping import get_person, owned_people, owned_tags
+from ...scoping import get_person as scoped_get_person, owned_people, owned_tags
 from ...models import Person, Tag, JournalEntry, ConflictLog
 from ...schemas.people import PersonCreate, PersonUpdate, PersonResponse, TagResponse
 from ...services import friend_rank, checkins
@@ -107,7 +107,7 @@ def create_person(body: PersonCreate, db: Session = Depends(get_db), user=Depend
 
 @router.get("/{person_id}")
 def get_person(person_id: int, db: Session = Depends(get_db), user=Depends(get_current_api_user)):
-    p = get_person(db, user, person_id)
+    p = scoped_get_person(db, user, person_id)
     if not p:
         raise HTTPException(status_code=404, detail="Person not found")
     return _person_response(p)
@@ -115,7 +115,7 @@ def get_person(person_id: int, db: Session = Depends(get_db), user=Depends(get_c
 
 @router.put("/{person_id}")
 def update_person(person_id: int, body: PersonUpdate, db: Session = Depends(get_db), user=Depends(get_current_api_user)):
-    p = get_person(db, user, person_id)
+    p = scoped_get_person(db, user, person_id)
     if not p:
         raise HTTPException(status_code=404, detail="Person not found")
     for k, v in body.model_dump(exclude_unset=True).items():
@@ -134,7 +134,7 @@ def update_person(person_id: int, body: PersonUpdate, db: Session = Depends(get_
 
 @router.delete("/{person_id}", status_code=204)
 def delete_person(person_id: int, db: Session = Depends(get_db), user=Depends(get_current_api_user)):
-    p = get_person(db, user, person_id)
+    p = scoped_get_person(db, user, person_id)
     if not p:
         raise HTTPException(status_code=404, detail="Person not found")
     db.delete(p)
@@ -148,7 +148,7 @@ def list_tags(db: Session = Depends(get_db), user=Depends(get_current_api_user))
 
 @router.get("/{person_id}/journal")
 def get_person_journal(person_id: int, db: Session = Depends(get_db), user=Depends(get_current_api_user)):
-    p = get_person(db, user, person_id)
+    p = scoped_get_person(db, user, person_id)
     if not p:
         raise HTTPException(status_code=404, detail="Person not found")
     entries = sorted(p.journal_entries, key=lambda e: e.entry_date or dt.date.min, reverse=True)
@@ -165,7 +165,7 @@ def get_person_journal(person_id: int, db: Session = Depends(get_db), user=Depen
 
 @router.get("/{person_id}/conflicts")
 def get_person_conflicts(person_id: int, db: Session = Depends(get_db), user=Depends(get_current_api_user)):
-    p = get_person(db, user, person_id)
+    p = scoped_get_person(db, user, person_id)
     if not p:
         raise HTTPException(status_code=404, detail="Person not found")
     return [{
@@ -179,7 +179,7 @@ def get_person_conflicts(person_id: int, db: Session = Depends(get_db), user=Dep
 
 @router.get("/{person_id}/notable-dates")
 def get_person_notable_dates(person_id: int, db: Session = Depends(get_db), user=Depends(get_current_api_user)):
-    p = get_person(db, user, person_id)
+    p = scoped_get_person(db, user, person_id)
     if not p:
         raise HTTPException(status_code=404, detail="Person not found")
     return {

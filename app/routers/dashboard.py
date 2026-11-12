@@ -16,7 +16,7 @@ from ..services import grace as grace_service
 from ..services.gamification import ACHIEVEMENTS
 from ..services.hangouts import get_recent_hangouts_cached
 from ..services.immich_client import get_client_from_settings as immich_from_settings, ImmichError
-from ..settings_store import get_setting, set_setting, get_user_setting, set_user_setting
+from ..settings_store import get_user_setting, set_user_setting
 
 router = APIRouter()
 

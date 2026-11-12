@@ -28,7 +28,7 @@ from ..models import (
     WrappedCard, WrappedPersonShare, Person, JournalEntry, JournalImage,
     GiftIdea, GiftStatus, UnlockedAchievement, EventType,
 )
-from ..settings_store import get_setting, set_setting, get_user_setting, set_user_setting
+from ..settings_store import get_user_setting, set_user_setting
 
 logger = logging.getLogger(__name__)
 

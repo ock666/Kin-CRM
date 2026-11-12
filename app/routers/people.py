@@ -12,7 +12,7 @@ from ..models import Person, Tag, NotableDate, ScratchpadItem, NotablePersonRef,
 from ..render import render
 from ..services import birthdays as bday_service
 from ..services import checkins, friend_rank, gamification, states as state_service, wrapped as wrapped_service
-from ..settings_store import get_setting, get_user_setting
+from ..settings_store import get_user_setting
 
 router = APIRouter()
 

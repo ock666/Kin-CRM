@@ -7,10 +7,11 @@ import json
 from app.models import Person, JournalEntry, Tag, ConflictLog, ConflictStatus, NotableDate
 from app.services import birthdays as bday_service
 from app.services import checkins as checkin_service
+from app.services import gamification
 
 
 def make_person(db, **kwargs):
-    p = Person(**kwargs)
+    p = Person(user_id=1, **kwargs)
     db.add(p)
     db.commit()
     return p
@@ -33,7 +34,9 @@ def test_mark_contacted_awards_micro_xp(logged_in_client):
     assert resp.status_code == 303
     db = SessionLocal()
     try:
-        stats = db.get(UserStats, 1)
+        from app.models import User
+        admin = db.get(User, 1)
+        stats = gamification._get_or_create_stats(db, admin)
         assert stats is not None and stats.total_xp >= 10
     finally:
         db.close()
@@ -56,7 +59,9 @@ def test_micro_checkin_only_counts_once_per_day(logged_in_client):
     assert resp.status_code == 303
     db = SessionLocal()
     try:
-        stats = db.get(UserStats, 1)
+        from app.models import User
+        admin = db.get(User, 1)
+        gamification._get_or_create_stats(db, admin)
         # No XP if it was already today (guarded) - just confirm no crash and still marked today.
         p2 = db.get(Person, pid)
         assert p2.last_contact_date == dt.date.today()
@@ -91,28 +96,28 @@ def test_bio_roundtrip_via_edit(logged_in_client):
 
 # --- #43: birthday countdown helper ---
 
-def test_days_until_birthday():
+def test_days_until_birthday(user):
     today = dt.date(2026, 6, 1)
-    p = Person(name="Bday", birthday_month=6, birthday_day=15)
+    p = Person(user_id=1, name="Bday", birthday_month=6, birthday_day=15)
     assert bday_service.days_until_birthday(p, today=today) == 14
     # Already passed this year -> rolls to next year.
-    p2 = Person(name="Past", birthday_month=1, birthday_day=1)
+    p2 = Person(user_id=1, name="Past", birthday_month=1, birthday_day=1)
     assert bday_service.days_until_birthday(p2, today=today) is not None
     # No birthday -> None
-    p3 = Person(name="NoBday")
+    p3 = Person(user_id=1, name="NoBday")
     assert bday_service.days_until_birthday(p3, today=today) is None
 
 
 # --- #25 + #27: full JSON export / import round-trip ---
 
-def test_export_import_roundtrip(logged_in_client):
+def test_export_import_roundtrip(logged_in_client, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
         p = make_person(db, name="ExAmy", bio="Surf instructor", checkin_cadence_days=45)
         p.tags.append(Tag(name="work"))
         db.add(NotableDate(person_id=p.id, label="Gig", month=7, day=4))
-        entry = JournalEntry(title="Lunch", body="Great catch up over tacos.",
+        entry = JournalEntry(author_user_id=1, title="Lunch", body="Great catch up over tacos.",
                              entry_date=dt.date.today())
         entry.people.append(p)
         db.add(entry)

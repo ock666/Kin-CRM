@@ -4,7 +4,7 @@ import logging
 from sqlalchemy.orm import Session
 
 from ..models import Person, BirthdayMessageDraft, GiftIdea, GiftStatus, ReviewStatus
-from ..settings_store import get_setting, get_user_setting
+from ..settings_store import get_user_setting
 from .ai_client import get_client_from_settings, build_person_context, AIError
 
 logger = logging.getLogger(__name__)

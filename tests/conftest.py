@@ -68,3 +68,47 @@ def logged_in_client(client, admin_credentials):
     assert resp.status_code == 303, resp.text
     assert resp.headers["location"] == "/"
     return client
+
+
+@pytest.fixture()
+def user(app):
+    """A persisted User for unit tests that call scoped services directly.
+
+    Returns the *first* existing user (e.g. the admin created by `logged_in_client`) when one is
+    already present, so `user.id` is stable at 1 across both pure unit tests and integration
+    tests that mix `logged_in_client` with this fixture."""
+    from app.database import SessionLocal
+    from app.models import User
+    from app.auth import hash_password
+    db = SessionLocal()
+    try:
+        u = db.query(User).first()
+        if u is None:
+            u = User(name="Unit User", email="unit@example.com",
+                     hashed_password=hash_password("Password123!"), is_admin=True)
+            db.add(u)
+            db.commit()
+            db.refresh(u)
+        return u
+    finally:
+        db.close()
+
+
+@pytest.fixture()
+def make_person(user):
+    """Factory returning a persisted Person owned by `user` (id refreshed)."""
+    from app.database import SessionLocal
+    from app.models import Person
+    db = SessionLocal()
+
+    def _make(**kwargs):
+        defaults = dict(name="Test Person", user_id=user.id)
+        defaults.update(kwargs)
+        p = Person(**defaults)
+        db.add(p)
+        db.commit()
+        db.refresh(p)
+        return p
+
+    yield _make
+    db.close()

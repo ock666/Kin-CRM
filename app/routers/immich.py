@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..scoping import get_person
 from ..deps import current_user
-from ..models import Person
 from ..render import render
 from ..services.immich_client import get_client_from_settings, ImmichError
 

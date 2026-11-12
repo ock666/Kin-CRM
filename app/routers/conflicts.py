@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
 from ..database import get_db
-from ..scoping import get_owned_child
+from ..scoping import get_owned_child, get_person
 from ..deps import current_user
 from ..models import ConflictLog, ConflictChatMessage, ConflictStatus, JournalEntry, EventType, utcnow
 from ..services import conflict_resolution, gamification

@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..scoping import get_person
 from ..deps import current_user
-from ..models import Person
+from ..models import User
 from ..render import render, templates
 from ..services import wrapped as wrapped_service
 from ..services.immich_client import get_client_from_settings, ImmichError
@@ -66,9 +66,13 @@ def wrapped_generate_now(request: Request, db: Session = Depends(get_db), user=D
 
 
 def _person_share_or_404(db: Session, token: str):
-    """Validate a per-person share token: it must exist and not have outlived the wrapped TTL."""
+    """Validate a per-person share token: it must exist, the owning user's season must still be
+    live (a fresh main card exists), and the share must not have outlived the wrapped TTL."""
     share = db.query(wrapped_service.WrappedPersonShare).filter_by(token=token).first()
     if share is None:
+        raise HTTPException(status_code=404, detail="This link has expired or doesn't exist.")
+    owner = db.get(User, share.person.user_id) if share.person is not None else None
+    if owner is None or not wrapped_service.season_active(db, owner):
         raise HTTPException(status_code=404, detail="This link has expired or doesn't exist.")
     created = share.created_at.date() if share.created_at else None
     if created and (dt.date.today() - created).days > wrapped_service.CARD_TTL_DAYS:

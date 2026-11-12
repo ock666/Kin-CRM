@@ -14,7 +14,7 @@ LONG_BODY = (
 def _mk_person(name: str, birthday=(6, 15)) -> int:
     db = SessionLocal()
     try:
-        p = Person(name=name, birthday_month=birthday[0], birthday_day=birthday[1])
+        p = Person(user_id=1, name=name, birthday_month=birthday[0], birthday_day=birthday[1])
         db.add(p)
         db.commit()
         db.refresh(p)
@@ -28,7 +28,7 @@ def _mk_entry(person_ids, year: int, month: int = 1, day: int = 1,
               event_type=EventType.hangout, with_image: bool = False):
     db = SessionLocal()
     try:
-        e = JournalEntry(title=title, body=body, entry_date=dt.date(year, month, day),
+        e = JournalEntry(author_user_id=1, title=title, body=body, entry_date=dt.date(year, month, day),
                          event_type=event_type)
         e.people = [db.get(Person, pid) for pid in person_ids]
         db.add(e)
@@ -47,13 +47,13 @@ def _mk_entry(person_ids, year: int, month: int = 1, day: int = 1,
 # ---------------------------------------------------------------------------
 
 
-def test_payload_excludes_conflicts(app):
+def test_payload_excludes_conflicts(app, user):
     p1 = _mk_person("Ava")
     _mk_entry([p1], 2026, event_type=EventType.conflict, body="A tense thing happened " * 5)
     _mk_entry([p1], 2026, event_type=EventType.hangout, title="Nice lunch")
     db = SessionLocal()
     try:
-        payload = wrapped_service.build_payload(db, 2026)
+        payload = wrapped_service.build_payload(db, user, 2026)
         assert payload["stats"]["entries"] == 1
         assert payload["stats"]["hangouts"] == 1
         assert "conflict" not in payload["stats"]
@@ -62,13 +62,13 @@ def test_payload_excludes_conflicts(app):
         db.close()
 
 
-def test_payload_ignores_other_years(app):
+def test_payload_ignores_other_years(app, user):
     p1 = _mk_person("Ava")
     _mk_entry([p1], 2025, title="Last year")
     _mk_entry([p1], 2026, title="This year")
     db = SessionLocal()
     try:
-        payload = wrapped_service.build_payload(db, 2026)
+        payload = wrapped_service.build_payload(db, user, 2026)
         titles = [m["title"] for m in payload["moments"]]
         assert "This year" in titles
         assert "Last year" not in titles
@@ -76,13 +76,13 @@ def test_payload_ignores_other_years(app):
         db.close()
 
 
-def test_moment_scoring_filters_short_photo_less_notes(app):
+def test_moment_scoring_filters_short_photo_less_notes(app, user):
     p1 = _mk_person("Ava")
     _mk_entry([p1], 2026, title="tiny", body="", event_type=EventType.note)
     _mk_entry([p1], 2026, title="big", event_type=EventType.milestone, with_image=True)
     db = SessionLocal()
     try:
-        payload = wrapped_service.build_payload(db, 2026)
+        payload = wrapped_service.build_payload(db, user, 2026)
         titles = [m["title"] for m in payload["moments"]]
         assert "big" in titles
         assert "tiny" not in titles
@@ -90,7 +90,7 @@ def test_moment_scoring_filters_short_photo_less_notes(app):
         db.close()
 
 
-def test_top_people_ranked_by_activity(app):
+def test_top_people_ranked_by_activity(app, user):
     p1 = _mk_person("Close Friend")
     p2 = _mk_person("Distant")
     for i in range(4):
@@ -98,7 +98,7 @@ def test_top_people_ranked_by_activity(app):
     _mk_entry([p2], 2026, title="only one with distant")
     db = SessionLocal()
     try:
-        payload = wrapped_service.build_payload(db, 2026)
+        payload = wrapped_service.build_payload(db, user, 2026)
         assert payload["people"], "expected at least one person ranked"
         assert payload["people"][0]["name"] == "Close Friend"
         assert all(p["name"] != "Distant" for p in payload["people"])
@@ -112,12 +112,12 @@ def test_top_people_ranked_by_activity(app):
 # ---------------------------------------------------------------------------
 
 
-def test_generate_card_idempotent_with_fresh_token(app):
+def test_generate_card_idempotent_with_fresh_token(app, user):
     p1 = _mk_person("Ava")
     _mk_entry([p1], 2026)
     db = SessionLocal()
     try:
-        card1, created1 = wrapped_service.generate_card(db, 2026, today=dt.date(2026, 12, 16))
+        card1, created1 = wrapped_service.generate_card(db, user, 2026, today=dt.date(2026, 12, 16))
         assert created1 is True
         assert card1.token
         old_token = card1.token
@@ -125,7 +125,7 @@ def test_generate_card_idempotent_with_fresh_token(app):
         assert data1["year"] == 2026
         assert data1["summary"] is None  # deterministic-only when no AI configured
 
-        card2, created2 = wrapped_service.generate_card(db, 2026, today=dt.date(2026, 12, 20))
+        card2, created2 = wrapped_service.generate_card(db, user, 2026, today=dt.date(2026, 12, 20))
         assert created2 is False
         assert db.query(WrappedCard).filter_by(year=2026).count() == 1
         assert card2.token != old_token  # refreshing rotates the share token
@@ -133,46 +133,46 @@ def test_generate_card_idempotent_with_fresh_token(app):
         db.close()
 
 
-def test_generate_if_due_respects_season_and_flag(app):
+def test_generate_if_due_respects_season_and_flag(app, user):
     db = SessionLocal()
     try:
-        card, gen = wrapped_service.generate_if_due(db, today=dt.date(2026, 12, 15))
+        card, gen = wrapped_service.generate_if_due(db, user, today=dt.date(2026, 12, 15))
         assert card is None and gen is False
 
-        card, gen = wrapped_service.generate_if_due(db, today=dt.date(2026, 12, 16))
+        card, gen = wrapped_service.generate_if_due(db, user, today=dt.date(2026, 12, 16))
         assert gen is True and card is not None
 
-        _, gen2 = wrapped_service.generate_if_due(db, today=dt.date(2026, 12, 20))
+        _, gen2 = wrapped_service.generate_if_due(db, user, today=dt.date(2026, 12, 20))
         assert gen2 is False  # flagged, never regenerated in the same year
     finally:
         db.close()
 
 
-def test_fresh_card_expires(app):
+def test_fresh_card_expires(app, user):
     db = SessionLocal()
     try:
-        wrapped_service.generate_card(db, 2026, today=dt.date(2026, 12, 16))
+        wrapped_service.generate_card(db, user, 2026, today=dt.date(2026, 12, 16))
         # anchor created_at to the season so the expiry math is deterministic
         card = db.query(WrappedCard).filter_by(year=2026).first()
         card.created_at = dt.datetime(2026, 12, 16)
         db.commit()
-        assert wrapped_service.get_fresh_card(db, 2026, today=dt.date(2026, 12, 25)) is not None
+        assert wrapped_service.get_fresh_card(db, user, 2026, today=dt.date(2026, 12, 25)) is not None
 
         card.created_at = dt.datetime(2026, 11, 1)
         db.commit()
-        assert wrapped_service.get_fresh_card(db, 2026, today=dt.date(2026, 12, 16)) is None
+        assert wrapped_service.get_fresh_card(db, user, 2026, today=dt.date(2026, 12, 16)) is None
     finally:
         db.close()
 
 
-def test_cleanup_expired_deletes_old_cards(app):
+def test_cleanup_expired_deletes_old_cards(app, user):
     db = SessionLocal()
     try:
-        wrapped_service.generate_card(db, 2026, today=dt.date(2026, 12, 16))
+        wrapped_service.generate_card(db, user, 2026, today=dt.date(2026, 12, 16))
         card = db.query(WrappedCard).filter_by(year=2026).first()
         card.created_at = dt.datetime.utcnow() - dt.timedelta(days=40)
         db.commit()
-        assert wrapped_service.cleanup_expired(db, today=dt.date(2026, 12, 20)) == 1
+        assert wrapped_service.cleanup_expired(db, user, today=dt.date(2026, 12, 20)) == 1
         assert db.query(WrappedCard).filter_by(year=2026).count() == 0
     finally:
         db.close()
@@ -191,19 +191,19 @@ def test_wrapped_page_empty_state(logged_in_client):
     assert 'href="/wrapped"' not in resp.text
 
 
-def test_nav_shows_after_generation(logged_in_client):
+def test_nav_shows_after_generation(logged_in_client, user):
     db = SessionLocal()
     try:
-        p = Person(name="Ada")
+        p = Person(user_id=1, name="Ada")
         db.add(p)
         db.commit()
         db.refresh(p)
-        e = JournalEntry(title="Big day", body=LONG_BODY, entry_date=dt.date.today(),
+        e = JournalEntry(author_user_id=1, title="Big day", body=LONG_BODY, entry_date=dt.date.today(),
                          event_type=EventType.milestone)
         e.people = [p]
         db.add(e)
         db.commit()
-        wrapped_service.generate_card(db, dt.date.today().year, today=dt.date.today())
+        wrapped_service.generate_card(db, user, dt.date.today().year, today=dt.date.today())
     finally:
         db.close()
     resp = logged_in_client.get("/wrapped")
@@ -232,19 +232,19 @@ def test_dev_generate_hook(logged_in_client):
         db.close()
 
 
-def test_wrapped_page_shows_card(logged_in_client):
+def test_wrapped_page_shows_card(logged_in_client, user):
     db = SessionLocal()
     try:
-        p = Person(name="Ada Lovelace")
+        p = Person(user_id=1, name="Ada Lovelace")
         db.add(p)
         db.commit()
         db.refresh(p)
-        e = JournalEntry(title="Big day", body=LONG_BODY,
+        e = JournalEntry(author_user_id=1, title="Big day", body=LONG_BODY,
                          entry_date=dt.date.today(), event_type=EventType.milestone)
         e.people = [p]
         db.add(e)
         db.commit()
-        wrapped_service.generate_card(db, dt.date.today().year, today=dt.date.today())
+        wrapped_service.generate_card(db, user, dt.date.today().year, today=dt.date.today())
     finally:
         db.close()
     resp = logged_in_client.get("/wrapped")
@@ -253,19 +253,19 @@ def test_wrapped_page_shows_card(logged_in_client):
     assert "Share this card" in resp.text
 
 
-def test_share_link_public_and_content(logged_in_client):
+def test_share_link_public_and_content(logged_in_client, user):
     db = SessionLocal()
     try:
-        p = Person(name="Grace Hopper")
+        p = Person(user_id=1, name="Grace Hopper")
         db.add(p)
         db.commit()
         db.refresh(p)
-        e = JournalEntry(title="Camping trip", body="spent a weekend camping together " * 4,
+        e = JournalEntry(author_user_id=1, title="Camping trip", body="spent a weekend camping together " * 4,
                          entry_date=dt.date.today(), event_type=EventType.hangout)
         e.people = [p]
         db.add(e)
         db.commit()
-        card, _ = wrapped_service.generate_card(db, dt.date.today().year)
+        card, _ = wrapped_service.generate_card(db, user, dt.date.today().year)
         token = card.token
     finally:
         db.close()
@@ -277,19 +277,19 @@ def test_share_link_public_and_content(logged_in_client):
     assert "Log out" not in resp.text
 
 
-def test_share_link_404_when_expired(logged_in_client):
+def test_share_link_404_when_expired(logged_in_client, user):
     db = SessionLocal()
     try:
-        p = Person(name="Ada")
+        p = Person(user_id=1, name="Ada")
         db.add(p)
         db.commit()
         db.refresh(p)
-        e = JournalEntry(title="Old", body=LONG_BODY, entry_date=dt.date.today(),
+        e = JournalEntry(author_user_id=1, title="Old", body=LONG_BODY, entry_date=dt.date.today(),
                          event_type=EventType.milestone)
         e.people = [p]
         db.add(e)
         db.commit()
-        card, _ = wrapped_service.generate_card(db, dt.date.today().year)
+        card, _ = wrapped_service.generate_card(db, user, dt.date.today().year)
         token = card.token
         card.created_at = dt.datetime.utcnow() - dt.timedelta(days=40)
         db.commit()
@@ -302,21 +302,21 @@ def test_share_link_bad_token_404(logged_in_client):
     assert logged_in_client.get("/wrapped/share/not-a-real-token").status_code == 404
 
 
-def test_share_asset_proxy_404_without_immich(logged_in_client):
+def test_share_asset_proxy_404_without_immich(logged_in_client, user):
     db = SessionLocal()
     try:
-        p = Person(name="Ada")
+        p = Person(user_id=1, name="Ada")
         db.add(p)
         db.commit()
         db.refresh(p)
-        e = JournalEntry(title="With photo", body=LONG_BODY, entry_date=dt.date.today(),
+        e = JournalEntry(author_user_id=1, title="With photo", body=LONG_BODY, entry_date=dt.date.today(),
                          event_type=EventType.milestone)
         e.people = [p]
         db.add(e)
         db.commit()
         db.add(JournalImage(journal_entry_id=e.id, immich_asset_id="abc123"))
         db.commit()
-        card, _ = wrapped_service.generate_card(db, dt.date.today().year)
+        card, _ = wrapped_service.generate_card(db, user, dt.date.today().year)
         token = card.token
     finally:
         db.close()
@@ -336,7 +336,7 @@ def _mk_person_entries(name: str, count: int) -> int:
     try:
         p = db.get(Person, p_id)
         for i in range(count):
-            e = JournalEntry(title=f"{name} moment {i + 1}", body=LONG_BODY,
+            e = JournalEntry(author_user_id=1, title=f"{name} moment {i + 1}", body=LONG_BODY,
                              entry_date=dt.date(dt.date.today().year, (i % 6) + 1, 3),
                              event_type=EventType.hangout)
             e.people = [p]
@@ -388,11 +388,11 @@ def test_person_preview_requires_season(logged_in_client):
     assert resp.headers["location"] == "/wrapped"
 
 
-def test_person_preview_shows_card_and_link(logged_in_client):
+def test_person_preview_shows_card_and_link(logged_in_client, user):
     p_id = _mk_person_entries("Ada", 3)
     db = SessionLocal()
     try:
-        wrapped_service.generate_card(db, dt.date.today().year, today=dt.date.today())
+        wrapped_service.generate_card(db, user, dt.date.today().year, today=dt.date.today())
     finally:
         db.close()
     resp = logged_in_client.get(f"/wrapped/person/{p_id}")
@@ -401,12 +401,12 @@ def test_person_preview_shows_card_and_link(logged_in_client):
     assert "Share this card" in resp.text
 
 
-def test_person_share_public_card_only_that_person(logged_in_client):
+def test_person_share_public_card_only_that_person(logged_in_client, user):
     p_id = _mk_person_entries("Ada", 3)
     _mk_person_entries("Bob", 3)
     db = SessionLocal()
     try:
-        wrapped_service.generate_card(db, dt.date.today().year, today=dt.date.today())
+        wrapped_service.generate_card(db, user, dt.date.today().year, today=dt.date.today())
         person = db.get(Person, p_id)
         share, _ = wrapped_service.generate_person_share(db, person, dt.date.today().year)
         token = share.token
@@ -421,11 +421,11 @@ def test_person_share_public_card_only_that_person(logged_in_client):
     assert "Log out" not in resp.text  # standalone card, no app shell
 
 
-def test_person_share_404_after_season_ends(logged_in_client):
+def test_person_share_404_after_season_ends(logged_in_client, user):
     p_id = _mk_person_entries("Ada", 3)
     db = SessionLocal()
     try:
-        card, _ = wrapped_service.generate_card(db, dt.date.today().year, today=dt.date.today())
+        card, _ = wrapped_service.generate_card(db, user, dt.date.today().year, today=dt.date.today())
         person = db.get(Person, p_id)
         share, _ = wrapped_service.generate_person_share(db, person, dt.date.today().year)
         token = share.token
@@ -438,37 +438,37 @@ def test_person_share_404_after_season_ends(logged_in_client):
     assert logged_in_client.get(f"/wrapped/person/{p_id}", follow_redirects=False).status_code == 303
 
 
-def test_person_profile_button_season_and_eligibility(logged_in_client):
+def test_person_profile_button_season_and_eligibility(logged_in_client, user):
     eligible = _mk_person_entries("Ada", 3)
     db = SessionLocal()
     try:
-        wrapped_service.generate_card(db, dt.date.today().year, today=dt.date.today())
+        wrapped_service.generate_card(db, user, dt.date.today().year, today=dt.date.today())
     finally:
         db.close()
     assert "Share our year" in logged_in_client.get(f"/people/{eligible}").text
 
 
-def test_person_profile_button_hidden_without_eligibility(logged_in_client):
+def test_person_profile_button_hidden_without_eligibility(logged_in_client, user):
     too_few = _mk_person_entries("Mia", 2)
     db = SessionLocal()
     try:
-        wrapped_service.generate_card(db, dt.date.today().year, today=dt.date.today())
+        wrapped_service.generate_card(db, user, dt.date.today().year, today=dt.date.today())
     finally:
         db.close()
     assert "Share our year" not in logged_in_client.get(f"/people/{too_few}").text
 
 
-def test_cleanup_prunes_person_shares(app):
+def test_cleanup_prunes_person_shares(app, user):
     p_id = _mk_person_entries("Ada", 3)
     db = SessionLocal()
     try:
-        wrapped_service.generate_card(db, dt.date.today().year, today=dt.date.today())
+        wrapped_service.generate_card(db, user, dt.date.today().year, today=dt.date.today())
         wrapped_service.generate_person_share(db, db.get(Person, p_id), dt.date.today().year)
         from app.models import WrappedPersonShare
         share = db.query(WrappedPersonShare).first()
         share.created_at = dt.datetime.utcnow() - dt.timedelta(days=40)
         db.commit()
-        assert wrapped_service.cleanup_expired(db, today=dt.date.today()) == 1
+        assert wrapped_service.cleanup_expired(db, user, today=dt.date.today()) == 1
         assert db.query(WrappedPersonShare).count() == 0
     finally:
         db.close()

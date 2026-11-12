@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from ...database import get_db
 from ...models import Person, NotableDate
 from ...services import birthdays, checkins, gamification, grace
-from ...settings_store import get_setting, get_user_setting
+from ...settings_store import get_user_setting
 from .deps import get_current_api_user
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["dashboard"])

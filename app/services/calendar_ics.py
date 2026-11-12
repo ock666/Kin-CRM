@@ -13,7 +13,6 @@ import datetime as dt
 from sqlalchemy.orm import Session
 
 from ..models import Person, NotableDate
-from ..settings_store import get_setting
 
 
 def _escape(text: str) -> str:
