@@ -123,8 +123,8 @@
   function pacOK(x, y) { var t = grid[y][x]; return t !== "#" && t !== "-" && t !== "G"; }
   function ghostOK(x, y) { return grid[y][x] !== "#"; }
   function tileAt(t, dir) {
-    if (!dir) return { x: t.x, y: t.y };
-    var nx = t.x + dir.x, ny = t.y + dir.y;
+    if (!dir) return { x: t.tx, y: t.ty };
+    var nx = t.tx + dir.x, ny = t.ty + dir.y;
     if (ny === TUNNEL) {
       if (nx < 0) nx = W - 1;
       else if (nx >= W) nx = 0;
@@ -307,7 +307,7 @@
     var options = [];
     for (var i = 0; i < DIRS.length; i++) {
       var d = DIRS[i];
-      var nt = tileAt({ x: g.tx, y: g.ty }, d);
+      var nt = tileAt(g, d);
       if (!ghostOK(nt.x, nt.y)) continue;
       if (isReverse(d, g.dir) && !allowReverse) continue;
       if (frightenedMove) options.push(d);
@@ -318,7 +318,7 @@
     }
     if (!options.length) {
       var rd = reverse(g.dir);
-      if (rd && ghostOK(tileAt({ x: g.tx, y: g.ty }, rd).x, tileAt({ x: g.tx, y: g.ty }, rd).y)) g.dir = rd;
+      if (rd && ghostOK(tileAt(g, rd).x, tileAt(g, rd).y)) g.dir = rd;
       return;
     }
     if (frightenedMove) g.dir = options[Math.floor(Math.random() * options.length)];
