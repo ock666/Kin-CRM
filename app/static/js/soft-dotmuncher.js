@@ -576,7 +576,13 @@
   }
 
   function drawGhost(g) {
-    var cx = g.x * cell + cell / 2, cy = g.y * cell + cell / 2;
+    var xs = [g.x];
+    if (g.ty === TUNNEL) xs.push(g.x < W / 2 ? g.x + W : g.x - W);
+    for (var k = 0; k < xs.length; k++) drawGhostAt(g, xs[k], g.y);
+  }
+
+  function drawGhostAt(g, x, y) {
+    var cx = x * cell + cell / 2, cy = y * cell + cell / 2;
     var r = cell * 0.44;
     if (g.mode === "eaten") { drawGhostEyes(g, cx, cy, r); return; }
     var bodyColor;
@@ -639,7 +645,13 @@
   }
 
   function drawPacman() {
-    var cx = pacman.x * cell + cell / 2, cy = pacman.y * cell + cell / 2;
+    var xs = [pacman.x];
+    if (pacman.ty === TUNNEL) xs.push(pacman.x < W / 2 ? pacman.x + W : pacman.x - W);
+    for (var k = 0; k < xs.length; k++) drawPacmanAt(xs[k], pacman.y);
+  }
+
+  function drawPacmanAt(x, y) {
+    var cx = x * cell + cell / 2, cy = y * cell + cell / 2;
     var r = cell * 0.42;
     var d = pacman.dir || DIR.LEFT;
     var base = Math.atan2(d.y, d.x);
@@ -702,6 +714,8 @@
   var touchBtns = controlsEl.querySelectorAll("[data-dm]");
   for (var i = 0; i < touchBtns.length; i++) bindTouch(touchBtns[i]);
 
+  resetDots();
+  resetPositions();
   resize();
   draw();
   requestAnimationFrame(frame);
