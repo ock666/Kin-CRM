@@ -316,7 +316,7 @@ Kin can push birthdays and notable dates into any calendar that can subscribe to
 ### Multiple users, one instance
 - One Kin install can host multiple people, each with a fully private world — their own people, journal, tags, reminders, and progress, invisible to everyone else
 - Add someone from **Settings → Users** (admin), and they log into a fresh, empty Kin of their own
-- Instance-wide config (AI, Immich, TTS, push) is shared; preferences and all relationship data are per-user
+- Immich, AI, and Whisper are configured **per user** (each person brings their own photo library and AI keys); the TTS voice engine, push keys, and scheduler stay instance-wide (admin-only)
 
 ### Today dashboard
 - **Upcoming birthdays & notable dates** surfaced as they approach with configurable lead time
