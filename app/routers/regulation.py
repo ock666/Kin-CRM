@@ -58,3 +58,15 @@ def game_minesweeper_page(request: Request, db: Session = Depends(get_db), user=
         game_script="soft-minesweeper.js",
         game_description="Reveal the safe tiles and flag the mines. Take your time — no clock, no rush.",
     )
+
+
+@router.get("/regulation/dot-muncher")
+def game_dot_muncher_page(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
+    if not user:
+        return RedirectResponse("/login")
+    return render(
+        request, "regulation_game.html", db=db, user=user, active="regulation",
+        game_emoji="🟡", game_title="Dot Muncher",
+        game_script="soft-dotmuncher.js",
+        game_description="Gobble the dots and dodge the ghosts. Power pellets let you chase them back.",
+    )
