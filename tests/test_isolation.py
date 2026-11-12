@@ -133,3 +133,99 @@ def test_api_isolation(logged_in_client, second_client):
     assert all(item["id"] != pid for item in listed)
     # Direct fetch is a 404.
     assert second_client.get(f"/api/v1/people/{pid}", headers=headers).status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Settings / config bleed — per-user Immich/AI/Whisper and preferences.
+# ---------------------------------------------------------------------------
+
+
+def test_per_user_settings_are_isolated(logged_in_client, second_client):
+    from app.database import SessionLocal
+    from app.settings_store import get_user_setting, set_user_setting
+    db = SessionLocal()
+    try:
+        set_user_setting(db, 1, "immich_url", "http://a-immich.local:2283")
+        set_user_setting(db, 1, "ai_api_key", "sk-a-secret")
+        set_user_setting(db, 2, "immich_url", "http://b-immich.local:2283")
+        set_user_setting(db, 1, "birthday_lead_days", "30")
+    finally:
+        db.close()
+
+    db = SessionLocal()
+    try:
+        # Each user reads back only their own values.
+        assert get_user_setting(db, 1, "immich_url") == "http://a-immich.local:2283"
+        assert get_user_setting(db, 2, "immich_url") == "http://b-immich.local:2283"
+        # A's secrets and prefs never leak into B's view.
+        assert get_user_setting(db, 2, "ai_api_key") == ""
+        assert get_user_setting(db, 2, "birthday_lead_days") == "14"  # B keeps the default
+    finally:
+        db.close()
+
+
+def test_settings_page_shows_only_own_config(logged_in_client, second_client):
+    from app.database import SessionLocal
+    from app.settings_store import set_user_setting
+    db = SessionLocal()
+    try:
+        set_user_setting(db, 1, "immich_url", "http://a-immich.local:2283")
+        set_user_setting(db, 1, "ai_api_key", "sk-a-secret")
+        set_user_setting(db, 2, "immich_url", "http://b-immich.local:2283")
+    finally:
+        db.close()
+
+    page_a = logged_in_client.get("/settings").text
+    assert "http://a-immich.local:2283" in page_a
+    assert "sk-a-secret" not in page_a  # masked even for the owner
+
+    page_b = second_client.get("/settings").text
+    assert "http://a-immich.local:2283" not in page_b
+    assert "http://b-immich.local:2283" in page_b
+
+
+def test_immich_client_uses_own_config(logged_in_client, second_client):
+    from app.database import SessionLocal
+    from app.models import User
+    from app.settings_store import set_user_setting
+    from app.services.immich_client import get_client_from_settings
+    db = SessionLocal()
+    try:
+        set_user_setting(db, 1, "immich_url", "http://a-immich.local:2283")
+        set_user_setting(db, 1, "immich_api_key", "a-key")
+        set_user_setting(db, 2, "immich_url", "http://b-immich.local:2283")
+        set_user_setting(db, 2, "immich_api_key", "b-key")
+        a = db.get(User, 1)
+        b = db.get(User, 2)
+        assert get_client_from_settings(db, a).base_url == "http://a-immich.local:2283/api"
+        assert get_client_from_settings(db, b).base_url == "http://b-immich.local:2283/api"
+    finally:
+        db.close()
+
+
+def test_non_admin_cannot_manage_users(logged_in_client, second_client):
+    from app.database import SessionLocal
+    from app.models import User
+    resp = second_client.post(
+        "/settings/users/new",
+        data={"name": "Sneaky", "email": "sneaky@example.com", "password": "SneakyPass123"},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    db = SessionLocal()
+    try:
+        assert db.query(User).filter(User.email == "sneaky@example.com").count() == 0
+    finally:
+        db.close()
+
+
+def test_voice_uploads_are_scoped(logged_in_client, second_client):
+    import uuid
+    from app.config import settings as app_settings
+    a_dir = app_settings.UPLOAD_DIR / "voice" / "1"
+    a_dir.mkdir(parents=True, exist_ok=True)
+    fname = f"user_{uuid.uuid4().hex}.webm"
+    (a_dir / fname).write_bytes(b"fake audio")
+
+    assert logged_in_client.get(f"/uploads/voice/{fname}").status_code == 200
+    assert second_client.get(f"/uploads/voice/{fname}").status_code == 404

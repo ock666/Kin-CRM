@@ -18,7 +18,7 @@ def asset_thumbnail(asset_id: str, request: Request, db: Session = Depends(get_d
     if not user:
         return RedirectResponse("/login")
     try:
-        client = get_client_from_settings(db)
+        client = get_client_from_settings(db, user)
         content, content_type = client.fetch_asset_bytes(asset_id, size="thumbnail")
         return Response(content=content, media_type=content_type)
     except ImmichError:
@@ -30,7 +30,7 @@ def asset_original(asset_id: str, request: Request, db: Session = Depends(get_db
     if not user:
         return RedirectResponse("/login")
     try:
-        client = get_client_from_settings(db)
+        client = get_client_from_settings(db, user)
         content, content_type = client.fetch_asset_bytes(asset_id, size="original")
         return Response(content=content, media_type=content_type)
     except ImmichError:
@@ -44,7 +44,7 @@ def asset_preview(asset_id: str, request: Request, db: Session = Depends(get_db)
     if not user:
         return RedirectResponse("/login")
     try:
-        client = get_client_from_settings(db)
+        client = get_client_from_settings(db, user)
         content, content_type = client.fetch_asset_preview_bytes(asset_id)
         return Response(content=content, media_type=content_type)
     except ImmichError:
@@ -56,7 +56,7 @@ def person_thumbnail(immich_person_id: str, request: Request, db: Session = Depe
     if not user:
         return RedirectResponse("/login")
     try:
-        client = get_client_from_settings(db)
+        client = get_client_from_settings(db, user)
         content, content_type = client.person_thumbnail_bytes(immich_person_id)
         return Response(content=content, media_type=content_type)
     except ImmichError:
@@ -70,7 +70,7 @@ def people_picker(request: Request, db: Session = Depends(get_db), user=Depends(
     error = None
     people = []
     try:
-        client = get_client_from_settings(db)
+        client = get_client_from_settings(db, user)
         people = client.list_people()
     except ImmichError as e:
         error = str(e)
@@ -87,7 +87,7 @@ def browse_assets(request: Request, db: Session = Depends(get_db), user=Depends(
     error = None
     assets = []
     try:
-        client = get_client_from_settings(db)
+        client = get_client_from_settings(db, user)
         if person_id:
             person = get_person(db, user, person_id)
             if person and person.immich_person_id:
@@ -112,7 +112,7 @@ def person_gallery(request: Request, db: Session = Depends(get_db), user=Depends
     assets = []
     person = get_person(db, user, person_id)
     try:
-        client = get_client_from_settings(db)
+        client = get_client_from_settings(db, user)
         if person and person.immich_person_id:
             assets = client.get_person_assets(person.immich_person_id)
     except ImmichError as e:

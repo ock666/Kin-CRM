@@ -12,28 +12,28 @@ class WhisperError(Exception):
     pass
 
 
-def _read_settings(db):
-    from ..settings_store import get_setting, get_setting_sensitive
+def _read_settings(db, user):
+    from ..settings_store import get_user_setting
     cfg = {
-        "provider": get_setting(db, "whisper_provider", "openai"),
-        "base_url": get_setting(db, "whisper_base_url", ""),
-        "api_key": get_setting_sensitive(db, "whisper_api_key"),
-        "model": get_setting(db, "whisper_model", "whisper-1"),
-        # Fallbacks to AI settings (OpenAI-compatible) if whisper not set
-        "ai_base_url": get_setting(db, "ai_base_url", ""),
-        "ai_api_key": get_setting_sensitive(db, "ai_api_key"),
+        "provider": get_user_setting(db, user.id, "whisper_provider", "openai"),
+        "base_url": get_user_setting(db, user.id, "whisper_base_url", ""),
+        "api_key": get_user_setting(db, user.id, "whisper_api_key"),
+        "model": get_user_setting(db, user.id, "whisper_model", "whisper-1"),
+        # Fallbacks to the user's AI settings (OpenAI-compatible) if whisper not set
+        "ai_base_url": get_user_setting(db, user.id, "ai_base_url", ""),
+        "ai_api_key": get_user_setting(db, user.id, "ai_api_key"),
     }
     return cfg
 
 
-def transcribe_from_settings(db, file_obj: BinaryIO, filename: str = "audio.webm") -> str:
+def transcribe_from_settings(db, user, file_obj: BinaryIO, filename: str = "audio.webm") -> str:
     """Transcribe an audio file using configured Whisper settings.
 
     Supports two providers:
     - provider=openai: calls OpenAI-compatible audio.transcriptions (uses whisper_* if set, else AI settings)
     - provider=asr-webservice: POSTs to {base_url}/asr (onerahmet/openai-whisper-asr-webservice)
     """
-    cfg = _read_settings(db)
+    cfg = _read_settings(db, user)
     provider = (cfg.get("provider") or "openai").strip().lower()
     base_url = (cfg.get("base_url") or "").strip()
     api_key = (cfg.get("api_key") or "").strip()

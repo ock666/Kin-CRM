@@ -41,7 +41,7 @@ def _process_ai_extraction(entry_id: int, user):
         entry = get_journal_entry(db, user, entry_id)
         if not entry or not entry.people:
             return
-        ai = ai_from_settings(db)
+        ai = ai_from_settings(db, user)
         if ai:
             names = ", ".join(p.name for p in entry.people)
             suggestions = ai.extract_facts(names, entry.body)
@@ -81,7 +81,7 @@ async def journal_transcribe(
         max_bytes = 25 * 1024 * 1024  # 25 MB
         if raw and len(raw) > max_bytes:
             return JSONResponse({"error": "Audio too large (limit 25 MB)."}, status_code=413)
-        text = transcribe_from_settings(db, io.BytesIO(raw), audio_file.filename or "audio")
+        text = transcribe_from_settings(db, user, io.BytesIO(raw), audio_file.filename or "audio")
         return JSONResponse({"text": text})
     except WhisperError as e:
         return JSONResponse({"error": str(e)}, status_code=400)

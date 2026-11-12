@@ -90,7 +90,7 @@ def regenerate_birthday(draft_id: int, db: Session = Depends(get_db), user=Depen
     draft = get_owned_child(db, user, BirthdayMessageDraft, draft_id)
     if draft:
         try:
-            ai = get_client_from_settings(db)
+            ai = get_client_from_settings(db, user)
             if ai:
                 person = draft.person
                 draft.draft_text = ai.draft_birthday_message(
@@ -125,7 +125,7 @@ def regenerate_gift(gift_id: int, db: Session = Depends(get_db), user=Depends(cu
     gift = get_owned_child(db, user, GiftIdea, gift_id)
     if gift:
         try:
-            ai = get_client_from_settings(db)
+            ai = get_client_from_settings(db, user)
             if ai:
                 person = gift.person
                 previous = [g.description for g in person.gift_ideas if g.id != gift.id]

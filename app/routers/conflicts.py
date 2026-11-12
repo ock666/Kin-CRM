@@ -97,7 +97,7 @@ def add_conflict(person_id: int, request: Request, db: Session = Depends(get_db)
     # immediately, no waiting period, no requirement to interact with the person first. Falls
     # back gracefully to generic scripts in the template if this isn't configured or fails.
     try:
-        ai = ai_from_settings(db)
+        ai = ai_from_settings(db, user)
         if ai:
             conflict_resolution.generate_approach_suggestions(db, ai, conflict, conflict.person)
     except AIError:
@@ -159,7 +159,7 @@ def generate_approach(conflict_id: int, request: Request, db: Session = Depends(
     if not conflict:
         return RedirectResponse("/", status_code=303)
     try:
-        ai = ai_from_settings(db)
+        ai = ai_from_settings(db, user)
         if ai:
             conflict_resolution.generate_approach_suggestions(db, ai, conflict, conflict.person)
         else:
@@ -241,7 +241,7 @@ async def conflict_chat(conflict_id: int, request: Request, db: Session = Depend
             "content": f"I'm here to talk about what happened with {person_name}.",
         })
 
-    ai = support_ai_from_settings(db)
+    ai = support_ai_from_settings(db, user)
     if not ai:
         return JSONResponse(
             {"error": "AI isn't configured yet. Add an API key and set a support chat model in Settings."},
@@ -286,7 +286,7 @@ async def conflict_chat(conflict_id: int, request: Request, db: Session = Depend
                         if do_voice:
                             audio_bytes = synthesize_from_settings(db2, reply, user=user)
                             from ..config import settings as app_settings
-                            voice_dir = app_settings.UPLOAD_DIR / "voice"
+                            voice_dir = app_settings.UPLOAD_DIR / "voice" / str(user.id)
                             voice_dir.mkdir(parents=True, exist_ok=True)
                             fname = f"bot_{uuid.uuid4().hex}.mp3"
                             fpath = voice_dir / fname
@@ -311,14 +311,14 @@ async def conflict_chat(conflict_id: int, request: Request, db: Session = Depend
 _AUDIO_EXTS = {".webm", ".ogg", ".mp3", ".m4a", ".wav", ".mp4", ".aac", ".flac"}
 
 
-def _transcribe_audio(raw: bytes, filename: str) -> str:
+def _transcribe_audio(raw: bytes, filename: str, user) -> str:
     """Transcribe audio in a worker thread using its own DB session (blocking I/O)."""
     from ..database import SessionLocal
     from ..services.whisper_client import transcribe_from_settings
     import io as _io
     db2 = SessionLocal()
     try:
-        return transcribe_from_settings(db2, _io.BytesIO(raw), filename)
+        return transcribe_from_settings(db2, user, _io.BytesIO(raw), filename)
     finally:
         db2.close()
 
@@ -341,7 +341,7 @@ async def conflict_chat_voice(conflict_id: int, db: Session = Depends(get_db), u
         return JSONResponse({"error": "Audio too large (limit 25 MB)."}, status_code=413)
 
     from ..config import settings as app_settings
-    voice_dir = app_settings.UPLOAD_DIR / "voice"
+    voice_dir = app_settings.UPLOAD_DIR / "voice" / str(user.id)
     voice_dir.mkdir(parents=True, exist_ok=True)
 
     ext = os.path.splitext(audio_file.filename or "")[1].lower()
@@ -354,7 +354,7 @@ async def conflict_chat_voice(conflict_id: int, db: Session = Depends(get_db), u
 
     # Transcribe off the event loop (blocking HTTP/ASR I/O); failures fall back to a plain voice note.
     try:
-        text = await run_in_threadpool(_transcribe_audio, raw, audio_file.filename or "audio.webm")
+        text = await run_in_threadpool(_transcribe_audio, raw, audio_file.filename or "audio.webm", user)
     except Exception as _tx_exc:
         import logging
         logging.getLogger(__name__).warning("Voice transcription failed: %s", _tx_exc)
@@ -370,10 +370,12 @@ async def conflict_chat_voice(conflict_id: int, db: Session = Depends(get_db), u
 @router.get("/uploads/voice/{filename}")
 def serve_voice_upload(filename: str, db: Session = Depends(get_db), user=Depends(current_user)):
     # Auth-gated simple file server for voice uploads. Reject any path segments/traversal.
+    if not user:
+        return JSONResponse({"error": "not found"}, status_code=404)
     if not filename or filename in (".", "..") or Path(filename).name != filename:
         return JSONResponse({"error": "not found"}, status_code=404)
     from ..config import settings as app_settings
-    fpath = app_settings.UPLOAD_DIR / "voice" / filename
+    fpath = app_settings.UPLOAD_DIR / "voice" / str(user.id) / filename
     if not fpath.is_file():
         return JSONResponse({"error": "not found"}, status_code=404)
     return FileResponse(str(fpath))
@@ -395,7 +397,7 @@ async def chat_insight(conflict_id: int, request: Request, db: Session = Depends
     )
     if not messages:
         return JSONResponse({"error": "no messages yet"}, status_code=400)
-    ai = support_ai_from_settings(db)
+    ai = support_ai_from_settings(db, user)
     if not ai:
         return JSONResponse({"error": "AI not configured"}, status_code=400)
     try:

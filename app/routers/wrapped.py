@@ -25,6 +25,15 @@ from ..config import settings
 router = APIRouter(prefix="/wrapped", tags=["wrapped"])
 
 
+def _immich_for_owner(db: Session, user_id: int):
+    """Immich client for the user who owns a shared card, so share proxies read from the
+    owner's library — never the (possibly anonymous) viewer's."""
+    owner = db.get(User, user_id)
+    if owner is None:
+        raise HTTPException(status_code=404, detail="This link has expired or doesn't exist.")
+    return get_client_from_settings(db, owner)
+
+
 def _card_or_404(db: Session, token: str):
     card = db.query(wrapped_service.WrappedCard).filter_by(token=token).first()
     if card is None:
@@ -96,7 +105,7 @@ def wrapped_person_preview(request: Request, person_id: int, db: Session = Depen
         request.session["notice_flash"] = "There aren't enough shared moments to make a card yet."
         return RedirectResponse(f"/people/{person_id}", status_code=303)
 
-    share, _ = wrapped_service.generate_person_share(db, person, dt.date.today().year)
+    share, _ = wrapped_service.generate_person_share(db, user, person, dt.date.today().year)
     data = json.loads(share.data_json)
     share_url = request.url_for("wrapped_person_share", token=share.token)
     return render(request, "wrapped_person.html", db=db, user=user, active="wrapped",
@@ -112,7 +121,7 @@ def wrapped_person_regenerate(request: Request, person_id: int, db: Session = De
         return RedirectResponse("/login")
     person = get_person(db, user, person_id)
     if person and wrapped_service.season_active(db, user):
-        wrapped_service.generate_person_share(db, person, dt.date.today().year)
+        wrapped_service.generate_person_share(db, user, person, dt.date.today().year)
         request.session["notice_flash"] = "Fresh share link created."
     return RedirectResponse(f"/wrapped/person/{person_id}", status_code=303)
 
@@ -137,9 +146,9 @@ def wrapped_person_share(request: Request, token: str, db: Session = Depends(get
 @router.get("/share/person/{token}/asset/{asset_id}/thumbnail")
 def wrapped_person_share_asset(token: str, asset_id: str, db: Session = Depends(get_db)):
     """Token-gated Immich thumbnail proxy for per-person share cards."""
-    _person_share_or_404(db, token)
+    share = _person_share_or_404(db, token)
     try:
-        client = get_client_from_settings(db)
+        client = _immich_for_owner(db, share.person.user_id)
         content, content_type = client.fetch_asset_bytes(asset_id, size="thumbnail")
         return Response(content=content, media_type=content_type)
     except ImmichError:
@@ -149,9 +158,9 @@ def wrapped_person_share_asset(token: str, asset_id: str, db: Session = Depends(
 @router.get("/share/person/{token}/asset/{asset_id}/preview")
 def wrapped_person_share_asset_preview(token: str, asset_id: str, db: Session = Depends(get_db)):
     """Token-gated high-res preview for per-person share cards."""
-    _person_share_or_404(db, token)
+    share = _person_share_or_404(db, token)
     try:
-        client = get_client_from_settings(db)
+        client = _immich_for_owner(db, share.person.user_id)
         content, content_type = client.fetch_asset_preview_bytes(asset_id)
         return Response(content=content, media_type=content_type)
     except ImmichError:
@@ -162,9 +171,9 @@ def wrapped_person_share_asset_preview(token: str, asset_id: str, db: Session = 
 def wrapped_share_person_thumbnail(token: str, face_id: str, db: Session = Depends(get_db)):
     """Token-gated Immich person (avatar) thumbnail proxy so the share card can show a person's
     display picture without exposing the rest of the app or the Immich credentials."""
-    _card_or_404(db, token)
+    card = _card_or_404(db, token)
     try:
-        client = get_client_from_settings(db)
+        client = _immich_for_owner(db, card.user_id)
         content, content_type = client.person_thumbnail_bytes(face_id)
         return Response(content=content, media_type=content_type)
     except ImmichError:
@@ -193,9 +202,9 @@ def wrapped_share(request: Request, token: str, db: Session = Depends(get_db)):
 def wrapped_share_asset(token: str, asset_id: str, db: Session = Depends(get_db)):
     """Token-gated Immich thumbnail proxy so the public share card can show photos without
     exposing the rest of the app or the Immich credentials."""
-    _card_or_404(db, token)
+    card = _card_or_404(db, token)
     try:
-        client = get_client_from_settings(db)
+        client = _immich_for_owner(db, card.user_id)
         content, content_type = client.fetch_asset_bytes(asset_id, size="thumbnail")
         return Response(content=content, media_type=content_type)
     except ImmichError:
@@ -205,9 +214,9 @@ def wrapped_share_asset(token: str, asset_id: str, db: Session = Depends(get_db)
 @router.get("/share/{token}/asset/{asset_id}/preview")
 def wrapped_share_asset_preview(token: str, asset_id: str, db: Session = Depends(get_db)):
     """Token-gated high-res preview for the share card's standout moments."""
-    _card_or_404(db, token)
+    card = _card_or_404(db, token)
     try:
-        client = get_client_from_settings(db)
+        client = _immich_for_owner(db, card.user_id)
         content, content_type = client.fetch_asset_preview_bytes(asset_id)
         return Response(content=content, media_type=content_type)
     except ImmichError:

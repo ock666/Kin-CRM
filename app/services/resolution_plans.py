@@ -57,7 +57,7 @@ def generate_plans_for_idle(db: Session, user) -> int:
 
     ai = None
     try:
-        ai = get_support_client_from_settings(db)
+        ai = get_support_client_from_settings(db, user)
     except AIError:
         ai = None
     if not ai:
@@ -99,7 +99,7 @@ def generate_plan_for_conflict(db: Session, user, conflict_id: int) -> bool:
 
     ai = None
     try:
-        ai = get_support_client_from_settings(db)
+        ai = get_support_client_from_settings(db, user)
     except AIError:
         return False
     if not ai:

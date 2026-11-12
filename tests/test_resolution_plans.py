@@ -86,7 +86,7 @@ def test_insight_endpoint_mocked(app, logged_in_client, monkeypatch):
         def chat_insight(self, messages):
             return "Key insight: I should approach this calmly."
 
-    monkeypatch.setattr("app.routers.conflicts.support_ai_from_settings", lambda db: MockAI())
+    monkeypatch.setattr("app.routers.conflicts.support_ai_from_settings", lambda db, user: MockAI())
 
     resp = logged_in_client.post("/people/new", data={"name":"Insight Person"}, follow_redirects=False)
     import re
@@ -127,7 +127,7 @@ def test_generate_plan_endpoint_mocked(app, logged_in_client, monkeypatch):
         def suggest_resolution_plan(self, *a, **kw):
             return plan
 
-    monkeypatch.setattr("app.services.ai_client.get_support_client_from_settings", lambda db: MockAI())
+    monkeypatch.setattr("app.services.ai_client.get_support_client_from_settings", lambda db, user: MockAI())
 
     resp = logged_in_client.post("/people/new", data={"name":"Plan Person"}, follow_redirects=False)
     import re

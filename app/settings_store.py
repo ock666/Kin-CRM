@@ -11,35 +11,10 @@ from sqlalchemy.orm import Session
 from .models import Setting, UserSetting
 
 DEFAULTS = {
-    "immich_url": "",
-    "immich_api_key": "",
-    "ai_base_url": "https://api.openai.com/v1",
-    "ai_api_key": "",
-    "ai_model": "gpt-4o-mini",
-    "support_chat_model": "gpt-4o",
-    # Whisper (voice transcription) — if unset, falls back to AI settings (OpenAI-compatible)
-    "whisper_base_url": "",
-    "whisper_api_key": "",
-    "whisper_model": "whisper-1",
-    "whisper_provider": "openai",  # 'openai' or 'asr-webservice'
-    "birthday_lead_days": "14",
-    "checkin_default_cadence_days": "60",
     "daily_job_hour": "8",
-    "push_enabled": "0",
-    "push_birthdays": "1",
-    "push_cadence": "1",
-    # Calendar sync (ICS feed served by Kin, subscribed to from any external calendar)
-    "calendar_ics_enabled": "0",
-    "calendar_ics_token": "",
-    "calendar_sync_birthdays": "1",
-    "calendar_sync_notable_dates": "1",
-    "calendar_birthday_reminder_days": "14",
-    "calendar_notable_reminder_days": "1",
-    "grace_until": "",
-    "reassurance_note": "",
     "conflict_plan_idle_minutes": "15",
     "chat_retention_days": "14",
-    # TTS (voice replies)
+    # TTS (voice replies) — instance-wide voice engine; only mirror-mode is per-user.
     "tts_provider": "piper",           # piper | openai
     "tts_base_url": "",               # Piper base URL or OpenAI base (or LiteLLM)
     "tts_api_key": "",                # OpenAI/LiteLLM key if needed
@@ -49,15 +24,29 @@ DEFAULTS = {
     "tts_piper_host": "",
     "tts_piper_port": "10200",
     "tts_piper_web_port": "5500",      # Piper web UI (used only to enumerate voices)
-    "tts_mirror_mode": "1",           # if on, bot replies with voice when user sends voice; if off, bot always replies with text
 }
 
 
-SENSITIVE_KEYS = {"immich_api_key", "ai_api_key", "vapid_private_key", "whisper_api_key", "tts_api_key"}
+SENSITIVE_KEYS = {"vapid_private_key", "tts_api_key"}
 
-# Per-user preferences. Everything here is personal (notification toggles, cadence defaults,
-# the grace "stepping back" state, calendar-sync choices) and must be isolated per user.
+# Per-user preferences. Everything here is personal and isolated per user — including each user's
+# own Immich, AI, and Whisper credentials, so one user's photos / journal content / voice never
+# touches another user's provider or library.
 USER_DEFAULTS = {
+    # Immich (photo library + hangout detection) — per-user, photos are personal.
+    "immich_url": "",
+    "immich_api_key": "",
+    # AI (drafts, summaries, starters, conflict support) — bring-your-own-key.
+    "ai_base_url": "https://api.openai.com/v1",
+    "ai_api_key": "",
+    "ai_model": "gpt-4o-mini",
+    "support_chat_model": "gpt-4o",
+    # Whisper (voice transcription) — if unset, falls back to the user's AI settings.
+    "whisper_base_url": "",
+    "whisper_api_key": "",
+    "whisper_model": "whisper-1",
+    "whisper_provider": "openai",  # 'openai' or 'asr-webservice'
+    # Personal preferences.
     "birthday_lead_days": "14",
     "checkin_default_cadence_days": "60",
     "grace_until": "",
@@ -73,6 +62,9 @@ USER_DEFAULTS = {
     "calendar_birthday_reminder_days": "14",
     "calendar_notable_reminder_days": "1",
 }
+
+# Per-user secrets that must never be shown back in plaintext on the settings page.
+SENSITIVE_USER_KEYS = {"immich_api_key", "ai_api_key", "whisper_api_key"}
 
 # Keys that migrated from the old global `settings` table into per-user `user_settings`.
 PER_USER_KEYS = set(USER_DEFAULTS)
@@ -138,6 +130,9 @@ def get_all_user_settings(db: Session, user_id: int) -> dict:
     out = dict(USER_DEFAULTS)
     for row in db.query(UserSetting).filter(UserSetting.user_id == user_id).all():
         out[row.key] = row.value or ""
+    for key in SENSITIVE_USER_KEYS:
+        if key in out and out[key]:
+            out[key] = "••••••••"
     return out
 
 

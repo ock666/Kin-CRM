@@ -79,7 +79,7 @@ def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(curr
     hangouts = []
     hangouts_error = None
     try:
-        client = immich_from_settings(db)
+        client = immich_from_settings(db, user)
         memories = client.on_this_day_with_fallback()
         hangouts, hangouts_error = get_recent_hangouts_cached(db, user, client)
     except ImmichError as e:

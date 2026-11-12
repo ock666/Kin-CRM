@@ -531,21 +531,21 @@ def familiarity_register(person) -> str:
         return "warm, natural, and human"
 
 
-def get_client_from_settings(db) -> Optional["AIClient"]:
-    from ..settings_store import get_setting
-    base_url = get_setting(db, "ai_base_url")
-    api_key = get_setting(db, "ai_api_key")
-    model = get_setting(db, "ai_model")
+def get_client_from_settings(db, user) -> Optional["AIClient"]:
+    from ..settings_store import get_user_setting
+    base_url = get_user_setting(db, user.id, "ai_base_url")
+    api_key = get_user_setting(db, user.id, "ai_api_key")
+    model = get_user_setting(db, user.id, "ai_model")
     if not api_key:
         return None
     return AIClient(base_url, api_key, model)
 
 
-def get_support_client_from_settings(db) -> Optional["AIClient"]:
-    from ..settings_store import get_setting
-    base_url = get_setting(db, "ai_base_url")
-    api_key = get_setting(db, "ai_api_key")
-    model = get_setting(db, "support_chat_model", "gpt-4o")
+def get_support_client_from_settings(db, user) -> Optional["AIClient"]:
+    from ..settings_store import get_user_setting
+    base_url = get_user_setting(db, user.id, "ai_base_url")
+    api_key = get_user_setting(db, user.id, "ai_api_key")
+    model = get_user_setting(db, user.id, "support_chat_model", "gpt-4o")
     if not api_key:
         return None
     return AIClient(base_url, api_key, model)

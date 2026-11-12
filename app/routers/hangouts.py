@@ -47,14 +47,14 @@ def _clamped_today(value: str) -> dt.date:
     return d
 
 
-def _person_face_assets(db, person: Person) -> set[str]:
+def _person_face_assets(db, user, person: Person) -> set[str]:
     """The asset ids Immich actually tags with this person's face in the recent window.
     Used to reject crafted `asset_ids` (e.g. photos of anyone else on the server). Raises
     `ImmichError` when Immich is unreachable/misconfigured so callers can fail CLOSED instead of
     accepting asset ids that were never verified against this person's face."""
     if not person.immich_person_id:
         return set()
-    client = get_client_from_settings(db)
+    client = get_client_from_settings(db, user)
     cutoff = dt.date.today() - dt.timedelta(days=31)
     window_start = dt.datetime.combine(cutoff, dt.time.min) - dt.timedelta(hours=24)
     window_end = dt.datetime.now(dt.timezone.utc) + dt.timedelta(hours=24)
@@ -86,7 +86,7 @@ def log_hangout(
     hangout_date = _clamped_today(entry_date)
     asset_ids = asset_ids[:MAX_ATTACHED_ASSETS]
     try:
-        verified = _person_face_assets(db, person)
+        verified = _person_face_assets(db, user, person)
     except ImmichError:
         request.session["notice_flash"] = "Couldn't verify that photo with Immich right now — try again in a moment."
         return RedirectResponse("/", status_code=303)

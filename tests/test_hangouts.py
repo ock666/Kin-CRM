@@ -181,7 +181,7 @@ def fake_dashboard(monkeypatch):
         def on_this_day_with_fallback(self):
             return []
 
-    monkeypatch.setattr(dashboard, "immich_from_settings", lambda db: _Client())
+    monkeypatch.setattr(dashboard, "immich_from_settings", lambda db, user: _Client())
     return monkeypatch
 
 
@@ -370,7 +370,7 @@ def test_log_hangout_creates_entry(app, logged_in_client, monkeypatch):
     try:
         p = _person(db, "Alex", "face-1")
         monkeypatch.setattr(hangouts_router, "get_client_from_settings",
-                           lambda db_: _FaceClient(["photo-a", "photo-b"]))
+                           lambda db_, user: _FaceClient(["photo-a", "photo-b"]))
         resp = logged_in_client.post("/hangouts/log", data={
             "person_id": str(p.id),
             "entry_date": "2026-08-07",
@@ -400,7 +400,7 @@ def test_log_hangout_skips_duplicate_assets(app, logged_in_client, monkeypatch):
         p = _person(db, "Alex", "face-1")
         _attach(db, p, dt.date.today() - dt.timedelta(days=3), ["already-there"], title="Old entry")
         monkeypatch.setattr(hangouts_router, "get_client_from_settings",
-                           lambda db_: _FaceClient(["already-there", "brand-new"]))
+                           lambda db_, user: _FaceClient(["already-there", "brand-new"]))
 
         logged_in_client.post("/hangouts/log", data={
             "person_id": str(p.id),
@@ -623,7 +623,7 @@ def test_log_hangout_clamps_future_date(app, logged_in_client, monkeypatch):
     try:
         p = _person(db, "Alex", "face-1")
         monkeypatch.setattr(hangouts_router, "get_client_from_settings",
-                           lambda db_: _FaceClient(["photo-a"]))
+                           lambda db_, user: _FaceClient(["photo-a"]))
         tomorrow = (dt.date.today() + dt.timedelta(days=1)).isoformat()
         logged_in_client.post("/hangouts/log", data={
             "person_id": str(p.id),
@@ -665,7 +665,7 @@ def test_log_hangout_fails_closed_when_immich_unreachable(app, logged_in_client,
     try:
         p = _person(db, "Alex", "face-1")
 
-        def _boom(db_):
+        def _boom(db_, user):
             raise ImmichError("immich down")
 
         monkeypatch.setattr(hangouts_router, "get_client_from_settings", _boom)
@@ -690,7 +690,7 @@ def test_log_hangout_rejects_non_face_assets(app, logged_in_client, monkeypatch)
         p = _person(db, "Alex", "face-1")
         # Immich says only face-a belongs to Alex; face-b is someone else's photo.
         monkeypatch.setattr(hangouts_router, "get_client_from_settings",
-                           lambda db_: _FaceClient(["face-a"]))
+                           lambda db_, user: _FaceClient(["face-a"]))
         logged_in_client.post("/hangouts/log", data={
             "person_id": str(p.id),
             "entry_date": "2026-08-07",
@@ -712,7 +712,7 @@ def test_quick_log_skips_when_all_photos_already_logged(app, logged_in_client, m
         p = _person(db, "Alex", "face-1")
         _attach(db, p, dt.date.today() - dt.timedelta(days=3), ["photo-a"], title="Already logged")
         monkeypatch.setattr(hangouts_router, "get_client_from_settings",
-                           lambda db_: _FaceClient(["photo-a"]))
+                           lambda db_, user: _FaceClient(["photo-a"]))
         resp = logged_in_client.post("/hangouts/log", data={
             "person_id": str(p.id),
             "entry_date": "2026-08-07",

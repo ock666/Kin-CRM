@@ -88,7 +88,7 @@ async def send_chat(conflict_id: int, body: ChatMessage, db: Session = Depends(g
     if not c:
         raise HTTPException(status_code=404, detail="Conflict not found")
     try:
-        ai = get_support_client_from_settings(db)
+        ai = get_support_client_from_settings(db, user)
         if not ai:
             raise HTTPException(status_code=400, detail="AI support chat not configured")
     except Exception:

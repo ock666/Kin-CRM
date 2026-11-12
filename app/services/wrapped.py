@@ -318,12 +318,12 @@ def build_payload(db: Session, user, year: int) -> dict:
     }
 
 
-def _narrate(db: Session, payload: dict) -> dict:
+def _narrate(db: Session, user, payload: dict) -> dict:
     """Add the optional warm AI summary + per-person blurbs. Returns the payload unchanged (but
     narrated) on success; on any AI failure the card simply stays deterministic-only."""
     try:
         from .ai_client import get_client_from_settings, AIError
-        client = get_client_from_settings(db)
+        client = get_client_from_settings(db, user)
         if not client:
             return payload
         stats = payload["stats"]
@@ -364,7 +364,7 @@ def _narrate(db: Session, payload: dict) -> dict:
     return payload
 
 
-def _enrich_faces(db: Session, payload: dict) -> dict:
+def _enrich_faces(db: Session, user, payload: dict) -> dict:
     """Best-effort face-aware cropping for standout moments: asks Immich where the faces are and
     stores object-position percentages so the browser keeps people front and centre in the crop.
     Never breaks the card - any failure just leaves the default centre crop."""
@@ -374,7 +374,7 @@ def _enrich_faces(db: Session, payload: dict) -> dict:
             continue
         try:
             from .immich_client import get_client_from_settings as immich_client
-            client = immich_client(db)
+            client = immich_client(db, user)
             center = client.asset_face_center(aid)
         except Exception:
             center = None
@@ -383,7 +383,7 @@ def _enrich_faces(db: Session, payload: dict) -> dict:
     return payload
 
 
-def _enrich_person_photos(db: Session, payload: dict) -> dict:
+def _enrich_person_photos(db: Session, user, payload: dict) -> dict:
     """Give each 'people you were closest to' card a photo: preferably a 'together' photo (the
     person's face appearing in a photo from this year), else their Kin avatar (their Immich face
     thumbnail), else nothing. Best-effort - never breaks the card. The photo is served through the
@@ -396,7 +396,7 @@ def _enrich_person_photos(db: Session, payload: dict) -> dict:
     except Exception:
         return payload
     try:
-        client = immich_client(db)
+        client = immich_client(db, user)
     except Exception:
         return payload
 
@@ -438,9 +438,9 @@ def generate_card(db: Session, user, year: int, today: dt.date | None = None,
     previewing early doesn't consume the real mid-December generation."""
     today = today or dt.date.today()
     payload = build_payload(db, user, year)
-    _narrate(db, payload)
-    _enrich_faces(db, payload)
-    _enrich_person_photos(db, payload)
+    _narrate(db, user, payload)
+    _enrich_faces(db, user, payload)
+    _enrich_person_photos(db, user, payload)
 
     existing = db.query(WrappedCard).filter(WrappedCard.user_id == user.id, WrappedCard.year == year).first()
     if existing:
@@ -588,12 +588,12 @@ def build_person_payload(db: Session, person, year: int) -> dict:
     }
 
 
-def _person_note(db: Session, payload: dict) -> str:
+def _person_note(db: Session, user, payload: dict) -> str:
     """Optional warm AI note for a per-person card. Returns '' when AI isn't configured or fails,
     so callers fall back to a gentle template."""
     try:
         from .ai_client import get_client_from_settings
-        client = get_client_from_settings(db)
+        client = get_client_from_settings(db, user)
         if not client:
             return ""
         stats_lines = "\n".join(
@@ -608,11 +608,11 @@ def _person_note(db: Session, payload: dict) -> str:
         return ""
 
 
-def generate_person_share(db: Session, person, year: int) -> tuple[WrappedPersonShare, bool]:
+def generate_person_share(db: Session, user, person, year: int) -> tuple[WrappedPersonShare, bool]:
     """Build (or refresh) the per-person share for a person+year. Idempotent - one row per person
     per year; refreshing rotates the token and re-snapshots the data."""
     payload = build_person_payload(db, person, year)
-    note = _person_note(db, payload)
+    note = _person_note(db, user, payload)
     if note:
         payload["note"] = note
 

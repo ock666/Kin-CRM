@@ -73,7 +73,7 @@ def generate_birthday_drafts(db: Session, user) -> int:
 
     ai = None
     try:
-        ai = get_client_from_settings(db)
+        ai = get_client_from_settings(db, user)
     except AIError:
         ai = None
 

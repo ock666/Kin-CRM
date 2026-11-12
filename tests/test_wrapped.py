@@ -359,16 +359,16 @@ def test_person_share_eligibility_requires_three_moments(app):
         db.close()
 
 
-def test_generate_person_share_idempotent_and_rotates_token(app):
+def test_generate_person_share_idempotent_and_rotates_token(app, user):
     p_id = _mk_person_entries("Ada", 3)
     db = SessionLocal()
     try:
         year = dt.date.today().year
         person = db.get(Person, p_id)
-        share1, created1 = wrapped_service.generate_person_share(db, person, year)
+        share1, created1 = wrapped_service.generate_person_share(db, user, person, year)
         assert created1 is True
         old_token = share1.token
-        share2, created2 = wrapped_service.generate_person_share(db, person, year)
+        share2, created2 = wrapped_service.generate_person_share(db, user, person, year)
         assert created2 is False
         assert share2.token != old_token
         from app.models import WrappedPersonShare
@@ -408,7 +408,7 @@ def test_person_share_public_card_only_that_person(logged_in_client, user):
     try:
         wrapped_service.generate_card(db, user, dt.date.today().year, today=dt.date.today())
         person = db.get(Person, p_id)
-        share, _ = wrapped_service.generate_person_share(db, person, dt.date.today().year)
+        share, _ = wrapped_service.generate_person_share(db, user, person, dt.date.today().year)
         token = share.token
     finally:
         db.close()
@@ -427,7 +427,7 @@ def test_person_share_404_after_season_ends(logged_in_client, user):
     try:
         card, _ = wrapped_service.generate_card(db, user, dt.date.today().year, today=dt.date.today())
         person = db.get(Person, p_id)
-        share, _ = wrapped_service.generate_person_share(db, person, dt.date.today().year)
+        share, _ = wrapped_service.generate_person_share(db, user, person, dt.date.today().year)
         token = share.token
         # season over: main card expires
         card.created_at = dt.datetime.utcnow() - dt.timedelta(days=40)
@@ -463,7 +463,7 @@ def test_cleanup_prunes_person_shares(app, user):
     db = SessionLocal()
     try:
         wrapped_service.generate_card(db, user, dt.date.today().year, today=dt.date.today())
-        wrapped_service.generate_person_share(db, db.get(Person, p_id), dt.date.today().year)
+        wrapped_service.generate_person_share(db, user, db.get(Person, p_id), dt.date.today().year)
         from app.models import WrappedPersonShare
         share = db.query(WrappedPersonShare).first()
         share.created_at = dt.datetime.utcnow() - dt.timedelta(days=40)

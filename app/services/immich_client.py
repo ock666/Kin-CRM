@@ -268,8 +268,8 @@ class ImmichClient:
             raise ImmichError(f"Could not reach Immich server: {e}")
 
 
-def get_client_from_settings(db) -> "ImmichClient":
-    from ..settings_store import get_setting
-    url = get_setting(db, "immich_url")
-    key = get_setting(db, "immich_api_key")
+def get_client_from_settings(db, user) -> "ImmichClient":
+    from ..settings_store import get_user_setting
+    url = get_user_setting(db, user.id, "immich_url")
+    key = get_user_setting(db, user.id, "immich_api_key")
     return ImmichClient(url, key)

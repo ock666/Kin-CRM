@@ -131,8 +131,8 @@ def test_calendar_settings_saves_token_on_enable(logged_in_client):
 
 
 def test_birthday_lead_default_is_two_weeks():
-    from app.settings_store import DEFAULTS
-    assert DEFAULTS["birthday_lead_days"] == "14"
+    from app.settings_store import USER_DEFAULTS
+    assert USER_DEFAULTS["birthday_lead_days"] == "14"
 
 
 def test_startup_migration_bumps_stored_three_to_14(app):
