@@ -14,6 +14,7 @@ from fastapi.responses import RedirectResponse, Response
 from sqlalchemy.orm import Session
 
 from ..database import get_db
+from ..scoping import get_person
 from ..deps import current_user
 from ..models import Person
 from ..render import render, templates
@@ -38,7 +39,7 @@ def _card_or_404(db: Session, token: str):
 def wrapped_page(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
     if not user:
         return RedirectResponse("/login")
-    card = wrapped_service.get_fresh_card(db)
+    card = wrapped_service.get_fresh_card(db, user)
     data = json.loads(card.data_json) if card else None
     share_url = request.url_for("wrapped_share", token=card.token) if card else None
     return render(request, "wrapped.html", db=db, user=user, active="wrapped",
@@ -55,7 +56,7 @@ def wrapped_generate_now(request: Request, db: Session = Depends(get_db), user=D
         return RedirectResponse("/login")
     # record_generation=False: previewing early must not consume the real mid-December run.
     card, created = wrapped_service.generate_card(
-        db, dt.date.today().year, today=dt.date.today(), record_generation=False
+        db, user, dt.date.today().year, today=dt.date.today(), record_generation=False
     )
     if created:
         request.session["notice_flash"] = "Kin Wrapped generated — preview it here."
@@ -65,10 +66,7 @@ def wrapped_generate_now(request: Request, db: Session = Depends(get_db), user=D
 
 
 def _person_share_or_404(db: Session, token: str):
-    """Validate a per-person share token: it must exist, be within the season (a fresh main card),
-    and not have outlived the wrapped TTL."""
-    if not wrapped_service.season_active(db):
-        raise HTTPException(status_code=404, detail="This link has expired or doesn't exist.")
+    """Validate a per-person share token: it must exist and not have outlived the wrapped TTL."""
     share = db.query(wrapped_service.WrappedPersonShare).filter_by(token=token).first()
     if share is None:
         raise HTTPException(status_code=404, detail="This link has expired or doesn't exist.")
@@ -86,10 +84,10 @@ def wrapped_person_preview(request: Request, person_id: int, db: Session = Depen
     card, ready to copy."""
     if not user:
         return RedirectResponse("/login")
-    if not wrapped_service.season_active(db):
+    if not wrapped_service.season_active(db, user):
         request.session["notice_flash"] = "Kin Wrapped isn't available right now."
         return RedirectResponse("/wrapped", status_code=303)
-    person = db.get(Person, person_id)
+    person = get_person(db, user, person_id)
     if not person or not wrapped_service.is_person_share_eligible(db, person, dt.date.today().year):
         request.session["notice_flash"] = "There aren't enough shared moments to make a card yet."
         return RedirectResponse(f"/people/{person_id}", status_code=303)
@@ -108,8 +106,8 @@ def wrapped_person_regenerate(request: Request, person_id: int, db: Session = De
     """Rotate the share link for a person (a previously-shared link is replaced with a fresh one)."""
     if not user:
         return RedirectResponse("/login")
-    person = db.get(Person, person_id)
-    if person and wrapped_service.season_active(db):
+    person = get_person(db, user, person_id)
+    if person and wrapped_service.season_active(db, user):
         wrapped_service.generate_person_share(db, person, dt.date.today().year)
         request.session["notice_flash"] = "Fresh share link created."
     return RedirectResponse(f"/wrapped/person/{person_id}", status_code=303)

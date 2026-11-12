@@ -28,7 +28,7 @@ from ..models import (
     WrappedCard, WrappedPersonShare, Person, JournalEntry, JournalImage,
     GiftIdea, GiftStatus, UnlockedAchievement, EventType,
 )
-from ..settings_store import get_setting, set_setting
+from ..settings_store import get_setting, set_setting, get_user_setting, set_user_setting
 
 logger = logging.getLogger(__name__)
 
@@ -91,21 +91,22 @@ def _first_image(entry) -> dict:
     return {}
 
 
-def _year_entries(db: Session, year: int):
+def _year_entries(db: Session, user, year: int):
     start = dt.date(year, 1, 1)
     end = dt.date(year, 12, 31)
     return (
         db.query(JournalEntry)
+        .filter(JournalEntry.author_user_id == user.id)
         .filter(JournalEntry.entry_date >= start, JournalEntry.entry_date <= end)
         .filter(JournalEntry.event_type.is_(None) | (JournalEntry.event_type != EventType.conflict))
         .all()
     )
 
 
-def build_payload(db: Session, year: int) -> dict:
+def build_payload(db: Session, user, year: int) -> dict:
     """Compute the deterministic 'Your Year' payload for a calendar year. No AI here - the
     caller may enrich it with narration afterwards."""
-    entries = _year_entries(db, year)
+    entries = _year_entries(db, user, year)
 
     scored = []
     for e in entries:
@@ -164,17 +165,21 @@ def build_payload(db: Session, year: int) -> dict:
     photo_count = (
         db.query(JournalImage.id)
         .join(JournalEntry, JournalEntry.id == JournalImage.journal_entry_id)
+        .filter(JournalEntry.author_user_id == user.id)
         .filter(JournalEntry.entry_date >= dt.date(year, 1, 1),
                 JournalEntry.entry_date <= dt.date(year, 12, 31))
         .count()
     )
     gifts_given = (
         db.query(GiftIdea.id)
+        .join(Person, Person.id == GiftIdea.person_id)
+        .filter(Person.user_id == user.id)
         .filter(GiftIdea.year == year, GiftIdea.status == GiftStatus.given)
         .count()
     )
     achievements = (
         db.query(UnlockedAchievement.id)
+        .filter(UnlockedAchievement.user_id == user.id)
         .filter(UnlockedAchievement.unlocked_at >= dt.datetime(year, 1, 1),
                 UnlockedAchievement.unlocked_at <= dt.datetime(year, 12, 31, 23, 59, 59))
         .count()
@@ -259,6 +264,7 @@ def build_payload(db: Session, year: int) -> dict:
     from .gamification import ACHIEVEMENTS as ACH
     badge_rows = (
         db.query(UnlockedAchievement)
+        .filter(UnlockedAchievement.user_id == user.id)
         .filter(UnlockedAchievement.unlocked_at >= dt.datetime(year, 1, 1),
                 UnlockedAchievement.unlocked_at <= dt.datetime(year, 12, 31, 23, 59, 59))
         .order_by(UnlockedAchievement.unlocked_at.asc())
@@ -423,7 +429,7 @@ def _enrich_person_photos(db: Session, payload: dict) -> dict:
     return payload
 
 
-def generate_card(db: Session, year: int, today: dt.date | None = None,
+def generate_card(db: Session, user, year: int, today: dt.date | None = None,
                   record_generation: bool = True) -> tuple[WrappedCard, bool]:
     """Build (or refresh) this year's card, optionally narrated, and persist it. Returns
     (card, created). Idempotent per year - a fresh card replaces the old one, never duplicates.
@@ -431,12 +437,12 @@ def generate_card(db: Session, year: int, today: dt.date | None = None,
     `record_generation` sets the once-per-year flag. The developer/preview hook passes False so
     previewing early doesn't consume the real mid-December generation."""
     today = today or dt.date.today()
-    payload = build_payload(db, year)
+    payload = build_payload(db, user, year)
     _narrate(db, payload)
     _enrich_faces(db, payload)
     _enrich_person_photos(db, payload)
 
-    existing = db.query(WrappedCard).filter(WrappedCard.year == year).first()
+    existing = db.query(WrappedCard).filter(WrappedCard.user_id == user.id, WrappedCard.year == year).first()
     if existing:
         existing.data_json = json.dumps(payload)
         existing.token = secrets.token_urlsafe(16)
@@ -445,6 +451,7 @@ def generate_card(db: Session, year: int, today: dt.date | None = None,
         return existing, False
 
     card = WrappedCard(
+        user_id=user.id,
         token=secrets.token_urlsafe(16),
         year=year,
         data_json=json.dumps(payload),
@@ -454,15 +461,15 @@ def generate_card(db: Session, year: int, today: dt.date | None = None,
     db.commit()
     db.refresh(card)
     if record_generation:
-        set_setting(db, _generated_flag(year), "1")
+        set_user_setting(db, user.id, _generated_flag(year), "1")
     return card, True
 
 
-def get_fresh_card(db: Session, year: int | None = None, today: dt.date | None = None) -> WrappedCard | None:
+def get_fresh_card(db: Session, user, year: int | None = None, today: dt.date | None = None) -> WrappedCard | None:
     """The current year's card, or None if none exists yet or it has expired."""
     today = today or dt.date.today()
     year = year or today.year
-    card = db.query(WrappedCard).filter(WrappedCard.year == year).order_by(WrappedCard.id.desc()).first()
+    card = db.query(WrappedCard).filter(WrappedCard.user_id == user.id, WrappedCard.year == year).order_by(WrappedCard.id.desc()).first()
     if card is None:
         return None
     created = card.created_at.date() if card.created_at else today
@@ -471,7 +478,7 @@ def get_fresh_card(db: Session, year: int | None = None, today: dt.date | None =
     return card
 
 
-def generate_if_due(db: Session, today: dt.date | None = None) -> tuple[WrappedCard | None, bool]:
+def generate_if_due(db: Session, user, today: dt.date | None = None) -> tuple[WrappedCard | None, bool]:
     """Scheduler hook: auto-generate this year's card once, when the season arrives.
 
     Returns (card_or_None, generated). Guarded by a settings flag so an expired card is never
@@ -480,22 +487,22 @@ def generate_if_due(db: Session, today: dt.date | None = None) -> tuple[WrappedC
     if (today.month, today.day) < (WRAPPED_MONTH, WRAPPED_DAY):
         return None, False
     year = today.year
-    if get_setting(db, _generated_flag(year), "0") == "1":
+    if get_user_setting(db, user.id, _generated_flag(year), "0") == "1":
         return None, False
-    card, created = generate_card(db, year, today)
+    card, created = generate_card(db, user, year, today)
     return card, created
 
 
-def cleanup_expired(db: Session, today: dt.date | None = None) -> int:
+def cleanup_expired(db: Session, user, today: dt.date | None = None) -> int:
     """Prune cards and per-person shares older than the TTL so long-running installs never
     accumulate wrapped cards or share links. Returns the number deleted."""
     today = today or dt.date.today()
     cutoff = dt.datetime.combine(today - dt.timedelta(days=CARD_TTL_DAYS), dt.time.min)
     count = 0
-    for card in db.query(WrappedCard).filter(WrappedCard.created_at < cutoff).all():
+    for card in db.query(WrappedCard).filter(WrappedCard.user_id == user.id, WrappedCard.created_at < cutoff).all():
         db.delete(card)
         count += 1
-    for share in db.query(WrappedPersonShare).filter(WrappedPersonShare.created_at < cutoff).all():
+    for share in db.query(WrappedPersonShare).join(Person, Person.id == WrappedPersonShare.person_id).filter(Person.user_id == user.id, WrappedPersonShare.created_at < cutoff).all():
         db.delete(share)
         count += 1
     if count:
@@ -508,10 +515,10 @@ def cleanup_expired(db: Session, today: dt.date | None = None) -> int:
 # ---------------------------------------------------------------------------
 
 
-def season_active(db: Session, today: dt.date | None = None) -> bool:
+def season_active(db: Session, user, today: dt.date | None = None) -> bool:
     """True while the wrapped season is live (a fresh card exists for the current year). Per-person
     shares are only available during the season - they disappear when it ends."""
-    return get_fresh_card(db, today=today) is not None
+    return get_fresh_card(db, user, today=today) is not None
 
 
 def is_person_share_eligible(db: Session, person, year: int) -> bool:
@@ -630,5 +637,5 @@ def generate_person_share(db: Session, person, year: int) -> tuple[WrappedPerson
     return share, True
 
 
-def get_person_share(db: Session, person_id: int, year: int) -> WrappedPersonShare | None:
-    return db.query(WrappedPersonShare).filter_by(person_id=person_id, year=year).first()
+def get_person_share(db: Session, user, person_id: int, year: int) -> WrappedPersonShare | None:
+    return db.query(WrappedPersonShare).join(Person, Person.id == WrappedPersonShare.person_id).filter(Person.user_id == user.id, Person.id == person_id, WrappedPersonShare.year == year).first()

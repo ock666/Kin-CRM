@@ -4,6 +4,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from ..database import SessionLocal
+from ..models import User
 from ..settings_store import get_setting
 from . import birthdays, push as push_service, resolution_plans, wrapped as wrapped_service
 
@@ -12,42 +13,47 @@ logger = logging.getLogger(__name__)
 _scheduler: AsyncIOScheduler | None = None
 
 
+def _all_users(db):
+    return db.query(User).all()
+
+
 def run_daily_jobs():
     db = SessionLocal()
     try:
-        try:
-            n = birthdays.generate_birthday_drafts(db)
-            if n:
-                logger.info("Generated %d birthday draft(s)", n)
-        except Exception:
-            logger.exception("Birthday draft generation failed")
+        for user in _all_users(db):
+            try:
+                n = birthdays.generate_birthday_drafts(db, user)
+                if n:
+                    logger.info("Generated %d birthday draft(s) for user %s", n, user.id)
+            except Exception:
+                logger.exception("Birthday draft generation failed for user %s", user.id)
 
-        try:
-            push_service.send_push_notifications(db)
-        except Exception:
-            logger.exception("Push notification send failed")
+            try:
+                push_service.send_push_notifications(db, user)
+            except Exception:
+                logger.exception("Push notification send failed for user %s", user.id)
 
-        # Kin Wrapped season: generate the card once when it's due (mid-December), nudge the
-        # user that it's ready, and prune stale cards so nothing accumulates.
-        try:
-            card, generated = wrapped_service.generate_if_due(db)
-            if generated:
-                try:
-                    push_service.push_notification(
-                        db,
-                        title="Kin Wrapped is ready",
-                        body=f"Your {card.year} in review is waiting for you. 🎉",
-                        url="/wrapped",
-                        tag="wrapped",
-                    )
-                except Exception:
-                    logger.exception("Wrapped-ready push failed")
-        except Exception:
-            logger.exception("Wrapped generation failed")
-        try:
-            wrapped_service.cleanup_expired(db)
-        except Exception:
-            logger.exception("Wrapped cleanup failed")
+            # Kin Wrapped season: generate the card once when it's due (mid-December), nudge the
+            # user that it's ready, and prune stale cards so nothing accumulates.
+            try:
+                card, generated = wrapped_service.generate_if_due(db, user)
+                if generated:
+                    try:
+                        push_service.push_notification(
+                            db, user,
+                            title="Kin Wrapped is ready",
+                            body=f"Your {card.year} in review is waiting for you. 🎉",
+                            url="/wrapped",
+                            tag="wrapped",
+                        )
+                    except Exception:
+                        logger.exception("Wrapped-ready push failed for user %s", user.id)
+            except Exception:
+                logger.exception("Wrapped generation failed for user %s", user.id)
+            try:
+                wrapped_service.cleanup_expired(db, user)
+            except Exception:
+                logger.exception("Wrapped cleanup failed for user %s", user.id)
     finally:
         db.close()
 
@@ -55,9 +61,11 @@ def run_daily_jobs():
 def run_plan_job():
     db = SessionLocal()
     try:
-        resolution_plans.generate_plans_for_idle(db)
-    except Exception:
-        logger.exception("Resolution plan generation failed")
+        for user in _all_users(db):
+            try:
+                resolution_plans.generate_plans_for_idle(db, user)
+            except Exception:
+                logger.exception("Resolution plan generation failed for user %s", user.id)
     finally:
         db.close()
 
@@ -78,12 +86,13 @@ def start_scheduler():
     # or edited birthdays always have a message ready, no matter when the container came up.
     db = SessionLocal()
     try:
-        try:
-            n = birthdays.generate_birthday_drafts(db)
-            if n:
-                logger.info("Startup: generated %d birthday draft(s)", n)
-        except Exception:
-            logger.exception("Startup birthday draft generation failed")
+        for user in _all_users(db):
+            try:
+                n = birthdays.generate_birthday_drafts(db, user)
+                if n:
+                    logger.info("Startup: generated %d birthday draft(s) for user %s", n, user.id)
+            except Exception:
+                logger.exception("Startup birthday draft generation failed for user %s", user.id)
     finally:
         db.close()
 

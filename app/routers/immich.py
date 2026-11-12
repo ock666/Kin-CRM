@@ -5,6 +5,7 @@ from fastapi.responses import Response, RedirectResponse
 from sqlalchemy.orm import Session
 
 from ..database import get_db
+from ..scoping import get_person
 from ..deps import current_user
 from ..models import Person
 from ..render import render
@@ -89,7 +90,7 @@ def browse_assets(request: Request, db: Session = Depends(get_db), user=Depends(
     try:
         client = get_client_from_settings(db)
         if person_id:
-            person = db.get(Person, person_id)
+            person = get_person(db, user, person_id)
             if person and person.immich_person_id:
                 assets = client.get_person_assets(person.immich_person_id)
         elif entry_date:
@@ -110,7 +111,7 @@ def person_gallery(request: Request, db: Session = Depends(get_db), user=Depends
     """Read-only photo gallery for a person's profile page (no attach checkboxes)."""
     error = None
     assets = []
-    person = db.get(Person, person_id)
+    person = get_person(db, user, person_id)
     try:
         client = get_client_from_settings(db)
         if person and person.immich_person_id:

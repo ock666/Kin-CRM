@@ -15,14 +15,14 @@ import datetime as dt
 
 from sqlalchemy.orm import Session
 
-from ..settings_store import get_setting, set_setting
+from ..settings_store import get_user_setting, set_user_setting
 
 GRACE_DAYS = 7
 
 
-def grace_until(db: Session) -> dt.date | None:
+def grace_until(db: Session, user) -> dt.date | None:
     """Return the date grace mode is active until, or None if it isn't active."""
-    raw = (get_setting(db, "grace_until") or "").strip()
+    raw = (get_user_setting(db, user.id, "grace_until") or "").strip()
     if not raw:
         return None
     try:
@@ -31,18 +31,18 @@ def grace_until(db: Session) -> dt.date | None:
         return None
 
 
-def is_grace_active(db: Session, today: dt.date | None = None) -> bool:
+def is_grace_active(db: Session, user, today: dt.date | None = None) -> bool:
     """True when grace mode is currently in effect (or a programmatic check happens during it)."""
-    until = grace_until(db)
+    until = grace_until(db, user)
     if until is None:
         return False
     today = today or dt.date.today()
     return today <= until
 
 
-def remaining_days(db: Session, today: dt.date | None = None) -> int | None:
+def remaining_days(db: Session, user, today: dt.date | None = None) -> int | None:
     """How many days of grace remain (inclusive). None when grace isn't active."""
-    until = grace_until(db)
+    until = grace_until(db, user)
     if until is None:
         return None
     today = today or dt.date.today()
@@ -51,14 +51,14 @@ def remaining_days(db: Session, today: dt.date | None = None) -> int | None:
     return (until - today).days + 1
 
 
-def start_grace(db: Session, days: int = GRACE_DAYS, today: dt.date | None = None) -> dt.date:
+def start_grace(db: Session, user, days: int = GRACE_DAYS, today: dt.date | None = None) -> dt.date:
     """Begin grace mode for `days` days. Returns the last active date. Covers exactly `days`
     calendar days starting today (so 7 days = today through today+6)."""
     today = today or dt.date.today()
     until = today + dt.timedelta(days=days - 1)
-    set_setting(db, "grace_until", until.isoformat())
+    set_user_setting(db, user.id, "grace_until", until.isoformat())
     return until
 
 
-def end_grace(db: Session):
-    set_setting(db, "grace_until", "")
+def end_grace(db: Session, user):
+    set_user_setting(db, user.id, "grace_until", "")

@@ -6,6 +6,7 @@ from fastapi.responses import RedirectResponse, JSONResponse
 from sqlalchemy.orm import Session
 
 from ..database import get_db
+from ..scoping import get_journal_entry, get_person, owned_people, owned_tags
 from ..deps import current_user
 from ..models import JournalEntry, JournalImage, Person, EventType, EnergyCost, Tag, NotableDate, ScratchpadItem
 from ..render import render
@@ -33,11 +34,11 @@ def _safe_enum(enum_cls, value, default):
         return default
 
 
-def _process_ai_extraction(entry_id: int):
+def _process_ai_extraction(entry_id: int, user):
     from ..database import SessionLocal
     db = SessionLocal()
     try:
-        entry = db.get(JournalEntry, entry_id)
+        entry = get_journal_entry(db, user, entry_id)
         if not entry or not entry.people:
             return
         ai = ai_from_settings(db)
@@ -94,8 +95,8 @@ def journal_new(request: Request, db: Session = Depends(get_db), user=Depends(cu
                  entry_date: str | None = Query(None), immich_asset_ids: list[str] = Query([])):
     if not user:
         return RedirectResponse("/login")
-    people = db.query(Person).filter(Person.archived.is_(False)).order_by(Person.name).all()
-    scratchpad_person = db.get(Person, person_id) if person_id else None
+    people = owned_people(db, user).filter(Person.archived.is_(False)).order_by(Person.name).all()
+    scratchpad_person = get_person(db, user, person_id) if person_id else None
     return render(request, "journal_form.html", db=db, user=user, active="journal",
                   people=people, preselect_person_id=person_id, preselect_event_type=event_type,
                   preselect_entry_date=entry_date, preselect_asset_ids=immich_asset_ids,
@@ -109,7 +110,7 @@ def quick_create_person(request: Request, db: Session = Depends(get_db), user=De
     name = quick_name.strip()
     person = None
     if name:
-        person = Person(name=name)
+        person = Person(user_id=user.id, name=name)
         db.add(person)
         db.commit()
     return render(request, "partials/person_checkbox.html", db=db, user=user, person=person, checked=True)
@@ -136,7 +137,7 @@ def journal_create(
         source="manual",
     )
     for pid in person_ids:
-        p = db.get(Person, pid)
+        p = get_person(db, user, pid)
         if p:
             entry.people.append(p)
             checkin_service.touch_last_contact(db, p, entry.entry_date)
@@ -172,9 +173,9 @@ def journal_create(
         "entry_years_back": years_back,
         "entry_is_new_year": (entry.entry_date.month, entry.entry_date.day) in {(12, 31), (1, 1)},
     }
-    gamification.award_and_flash(request, db, *events, context=context)
+    gamification.award_and_flash(request, db, user, *events, context=context)
 
-    background_tasks.add_task(_process_ai_extraction, entry.id)
+    background_tasks.add_task(_process_ai_extraction, entry.id, user)
 
     if entry.people:
         return RedirectResponse(f"/people/{entry.people[0].id}", status_code=303)
@@ -185,10 +186,10 @@ def journal_create(
 def journal_edit(entry_id: int, request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
     if not user:
         return RedirectResponse("/login")
-    entry = db.get(JournalEntry, entry_id)
+    entry = get_journal_entry(db, user, entry_id)
     if not entry:
         return RedirectResponse("/")
-    people = db.query(Person).filter(Person.archived.is_(False)).order_by(Person.name).all()
+    people = owned_people(db, user).filter(Person.archived.is_(False)).order_by(Person.name).all()
     return render(request, "journal_form.html", db=db, user=user, active="journal",
                   people=people, entry=entry, today=entry.entry_date.isoformat(),
                   preselect_person_id=None, scratchpad_person=None)
@@ -201,7 +202,7 @@ def journal_update(
     event_type: str = Form("note"), energy_cost: str = Form(""), location: str = Form(""),
     person_ids: list[int] = Form([]),
 ):
-    entry = db.get(JournalEntry, entry_id)
+    entry = get_journal_entry(db, user, entry_id)
     if not entry:
         return RedirectResponse("/")
     entry.title = title or None
@@ -210,7 +211,7 @@ def journal_update(
     entry.event_type = _safe_enum(EventType, event_type, EventType.note)
     entry.energy_cost = _safe_enum(EnergyCost, energy_cost, None)
     entry.location = location or None
-    entry.people = [p for pid in person_ids if (p := db.get(Person, pid))]
+    entry.people = [p for pid in person_ids if (p := get_person(db, user, pid))]
     db.commit()
     if entry.people:
         return RedirectResponse(f"/people/{entry.people[0].id}", status_code=303)
@@ -219,7 +220,7 @@ def journal_update(
 
 @router.post("/journal/{entry_id}/delete")
 def journal_delete(entry_id: int, db: Session = Depends(get_db), user=Depends(current_user)):
-    entry = db.get(JournalEntry, entry_id)
+    entry = get_journal_entry(db, user, entry_id)
     person_id = entry.people[0].id if entry and entry.people else None
     if entry:
         db.delete(entry)
@@ -231,7 +232,7 @@ def journal_delete(entry_id: int, db: Session = Depends(get_db), user=Depends(cu
 def journal_suggestions(entry_id: int, request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
     if not user:
         return RedirectResponse("/login")
-    entry = db.get(JournalEntry, entry_id)
+    entry = get_journal_entry(db, user, entry_id)
     if not entry or not entry.ai_suggestions_json:
         return RedirectResponse("/")
     suggestions = json.loads(entry.ai_suggestions_json)
@@ -243,15 +244,15 @@ def journal_suggestions(entry_id: int, request: Request, db: Session = Depends(g
 def apply_suggestions(entry_id: int, request: Request, db: Session = Depends(get_db), user=Depends(current_user),
                        tags: list[str] = Form([]), notable_dates: list[str] = Form([]),
                        follow_ups: list[str] = Form([])):
-    entry = db.get(JournalEntry, entry_id)
+    entry = get_journal_entry(db, user, entry_id)
     if not entry:
         return RedirectResponse("/")
     suggestions = json.loads(entry.ai_suggestions_json or "{}")
 
     for tag_name in tags:
-        tag = db.query(Tag).filter(Tag.name == tag_name).first()
+        tag = owned_tags(db, user).filter(Tag.name == tag_name).first()
         if not tag:
-            tag = Tag(name=tag_name)
+            tag = Tag(user_id=user.id, name=tag_name)
             db.add(tag)
             db.flush()
         for p in entry.people:
@@ -282,7 +283,7 @@ def apply_suggestions(entry_id: int, request: Request, db: Session = Depends(get
 
 @router.post("/journal/{entry_id}/suggestions/dismiss")
 def dismiss_suggestions(entry_id: int, db: Session = Depends(get_db), user=Depends(current_user)):
-    entry = db.get(JournalEntry, entry_id)
+    entry = get_journal_entry(db, user, entry_id)
     if entry:
         person_id = entry.people[0].id if entry.people else None
         entry.ai_suggestions_json = None

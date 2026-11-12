@@ -27,7 +27,7 @@ def is_overdue(person: Person, today: dt.date | None = None) -> bool:
     return (today - baseline).days >= person.checkin_cadence_days
 
 
-def overdue_people(db: Session) -> list[tuple[Person, int]]:
+def overdue_people(db: Session, user) -> list[tuple[Person, int]]:
     """Returns (person, days_overdue) for people past their check-in cadence,
     skipping anyone currently snoozed. Non-punitive by design: this is a gentle
     nudge list, not a red-alert list."""
@@ -35,6 +35,7 @@ def overdue_people(db: Session) -> list[tuple[Person, int]]:
     out = []
     people = (
         db.query(Person)
+        .filter(Person.user_id == user.id)
         .filter(Person.archived.is_(False))
         .filter(Person.reminders_dismissed.is_(False))
         .filter(Person.checkin_cadence_days.isnot(None))

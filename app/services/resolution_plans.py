@@ -12,7 +12,7 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from ..models import ConflictLog, ConflictChatMessage, ConflictStatus
+from ..models import ConflictLog, ConflictChatMessage, ConflictStatus, Person
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ def _idle_minutes(db: Session) -> int:
         return 15
 
 
-def find_plannable_conflicts(db: Session, today: dt.datetime | None = None) -> list[ConflictLog]:
+def find_plannable_conflicts(db: Session, user, today: dt.datetime | None = None) -> list[ConflictLog]:
     """Conflicts with: unresolved, has chat messages, no plan yet, last chat message
     older than the idle threshold."""
     now = today if today else dt.datetime.utcnow()
@@ -34,6 +34,8 @@ def find_plannable_conflicts(db: Session, today: dt.datetime | None = None) -> l
 
     conflicts = (
         db.query(ConflictLog)
+        .join(Person, Person.id == ConflictLog.person_id)
+        .filter(Person.user_id == user.id)
         .filter(ConflictLog.status == ConflictStatus.unresolved)
         .filter(ConflictLog.resolution_plan_json.is_(None))
         .all()
@@ -49,7 +51,7 @@ def find_plannable_conflicts(db: Session, today: dt.datetime | None = None) -> l
     return result
 
 
-def generate_plans_for_idle(db: Session) -> int:
+def generate_plans_for_idle(db: Session, user) -> int:
     """Run by scheduler: find idle conflicts and generate plans. Returns count."""
     from .ai_client import get_support_client_from_settings, AIError
 
@@ -61,7 +63,7 @@ def generate_plans_for_idle(db: Session) -> int:
     if not ai:
         return 0
 
-    conflicts = find_plannable_conflicts(db)
+    conflicts = find_plannable_conflicts(db, user)
     count = 0
     for c in conflicts:
         try:
@@ -78,12 +80,12 @@ def generate_plans_for_idle(db: Session) -> int:
     return count
 
 
-def generate_plan_for_conflict(db: Session, conflict_id: int) -> bool:
+def generate_plan_for_conflict(db: Session, user, conflict_id: int) -> bool:
     """Generate a plan for a single conflict (called from conflict card load)."""
     from .ai_client import get_support_client_from_settings, AIError
-    from ..models import ConflictLog
+    from ..scoping import get_owned_child
 
-    conflict = db.get(ConflictLog, conflict_id)
+    conflict = get_owned_child(db, user, ConflictLog, conflict_id)
     if not conflict or conflict.resolution_plan_json:
         return False
 

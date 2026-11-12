@@ -16,6 +16,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from ..database import get_db
+from ..scoping import get_person
 from ..deps import current_user
 from ..models import HangoutDismissal, JournalEntry, JournalImage, Person, EventType
 from ..services import checkins as checkin_service
@@ -74,7 +75,7 @@ def log_hangout(
     """One-click hangout log: creates a journal entry with the hangout photos auto-attached."""
     if not user:
         return RedirectResponse("/login")
-    person = db.get(Person, person_id)
+    person = get_person(db, user, person_id)
     if not person or not person.immich_person_id:
         return RedirectResponse("/", status_code=303)
 
@@ -119,7 +120,7 @@ def log_hangout(
     events = ["NOTE_ADDED"]
     if new_asset_ids:
         events.append("PHOTO_ATTACHED")
-    gamification.award_and_flash(request, db, *events, context={
+    gamification.award_and_flash(request, db, user, *events, context={
         "entry_people_count": 1,
         "entry_word_count": len(entry.body.split()),
         "entry_hour": (entry.created_at or dt.datetime.utcnow()).hour,
@@ -139,7 +140,7 @@ def dismiss_hangout(
     resurface. Dismissing only hides the suggestion - the check-in credit still applies."""
     if not user:
         return RedirectResponse("/login")
-    person = db.get(Person, person_id)
+    person = get_person(db, user, person_id)
     if not person:
         return RedirectResponse("/", status_code=303)
 

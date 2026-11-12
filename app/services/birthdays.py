@@ -4,7 +4,7 @@ import logging
 from sqlalchemy.orm import Session
 
 from ..models import Person, BirthdayMessageDraft, GiftIdea, GiftStatus, ReviewStatus
-from ..settings_store import get_setting
+from ..settings_store import get_setting, get_user_setting
 from .ai_client import get_client_from_settings, build_person_context, AIError
 
 logger = logging.getLogger(__name__)
@@ -47,11 +47,11 @@ def days_until_birthday(person: Person, today: dt.date | None = None) -> int | N
     return (nb - (today or dt.date.today())).days
 
 
-def people_with_upcoming_birthdays(db: Session, lead_days: int) -> list[tuple[Person, int]]:
+def people_with_upcoming_birthdays(db: Session, user, lead_days: int) -> list[tuple[Person, int]]:
     """Returns (person, days_until) for people whose birthday falls within lead_days."""
     today = dt.date.today()
     out = []
-    for p in db.query(Person).filter(Person.archived.is_(False)).all():
+    for p in db.query(Person).filter(Person.user_id == user.id, Person.archived.is_(False)).all():
         nb = _next_birthday(p, today)
         if nb is None:
             continue
@@ -61,13 +61,13 @@ def people_with_upcoming_birthdays(db: Session, lead_days: int) -> list[tuple[Pe
     return sorted(out, key=lambda t: t[1])
 
 
-def generate_birthday_drafts(db: Session) -> int:
+def generate_birthday_drafts(db: Session, user) -> int:
     """Create pending BirthdayMessageDraft rows for people whose birthday is coming up soon, if one
     doesn't already exist for this year, and (when AI is available) suggest a gift idea alongside
     an active draft. Gifts are attempted even when the draft already exists, so a draft created
     while AI was down isn't left permanently without a gift. Always human-in-the-loop - nothing is
     sent or bought automatically. Returns the number of drafts created."""
-    lead_days = _safe_int(get_setting(db, "birthday_lead_days", "3"), 3)
+    lead_days = _safe_int(get_user_setting(db, user.id, "birthday_lead_days", "3"), 3)
     today = dt.date.today()
     created = 0
 
@@ -77,7 +77,7 @@ def generate_birthday_drafts(db: Session) -> int:
     except AIError:
         ai = None
 
-    for person, days_until in people_with_upcoming_birthdays(db, lead_days):
+    for person, days_until in people_with_upcoming_birthdays(db, user, lead_days):
         target_year = (today + dt.timedelta(days=days_until)).year
         draft = db.query(BirthdayMessageDraft).filter_by(person_id=person.id, year=target_year).first()
 

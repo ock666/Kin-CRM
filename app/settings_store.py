@@ -1,7 +1,14 @@
-"""Simple key/value settings stored in the DB (Immich creds, AI creds, app prefs)."""
+"""Simple key/value settings stored in the DB.
+
+Two layers:
+- `settings` — instance-level config (AI/Immich/TTS/Whisper creds, push VAPID, scheduler
+  hour). Admin-controlled, shared by every user on the instance.
+- `user_settings` — per-user preferences (birthday lead days, cadence defaults, grace note,
+  notification toggles, calendar-sync choices). One row per (user, key).
+"""
 from sqlalchemy.orm import Session
 
-from .models import Setting
+from .models import Setting, UserSetting
 
 DEFAULTS = {
     "immich_url": "",
@@ -48,6 +55,28 @@ DEFAULTS = {
 
 SENSITIVE_KEYS = {"immich_api_key", "ai_api_key", "vapid_private_key", "whisper_api_key", "tts_api_key"}
 
+# Per-user preferences. Everything here is personal (notification toggles, cadence defaults,
+# the grace "stepping back" state, calendar-sync choices) and must be isolated per user.
+USER_DEFAULTS = {
+    "birthday_lead_days": "14",
+    "checkin_default_cadence_days": "60",
+    "grace_until": "",
+    "reassurance_note": "",
+    "tts_mirror_mode": "1",
+    "push_enabled": "0",
+    "push_birthdays": "1",
+    "push_cadence": "1",
+    "calendar_ics_enabled": "0",
+    "calendar_ics_token": "",
+    "calendar_sync_birthdays": "1",
+    "calendar_sync_notable_dates": "1",
+    "calendar_birthday_reminder_days": "14",
+    "calendar_notable_reminder_days": "1",
+}
+
+# Keys that migrated from the old global `settings` table into per-user `user_settings`.
+PER_USER_KEYS = set(USER_DEFAULTS)
+
 
 def get_all_settings(db: Session) -> dict:
     out = dict(DEFAULTS)
@@ -86,3 +115,32 @@ def set_setting(db: Session, key: str, value: str):
 def set_many(db: Session, values: dict):
     for k, v in values.items():
         set_setting(db, k, v)
+
+
+def get_user_setting(db: Session, user_id: int, key: str, default: str = "") -> str:
+    row = db.query(UserSetting).filter(UserSetting.user_id == user_id, UserSetting.key == key).first()
+    if row is not None and row.value is not None:
+        return row.value
+    return USER_DEFAULTS.get(key, default)
+
+
+def set_user_setting(db: Session, user_id: int, key: str, value: str):
+    row = db.query(UserSetting).filter(UserSetting.user_id == user_id, UserSetting.key == key).first()
+    if row is None:
+        row = UserSetting(user_id=user_id, key=key, value=value)
+        db.add(row)
+    else:
+        row.value = value
+    db.commit()
+
+
+def get_all_user_settings(db: Session, user_id: int) -> dict:
+    out = dict(USER_DEFAULTS)
+    for row in db.query(UserSetting).filter(UserSetting.user_id == user_id).all():
+        out[row.key] = row.value or ""
+    return out
+
+
+def set_many_user(db: Session, user_id: int, values: dict):
+    for k, v in values.items():
+        set_user_setting(db, user_id, k, v)

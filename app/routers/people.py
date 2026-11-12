@@ -6,12 +6,13 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from ..database import get_db
+from ..scoping import get_owned_child, get_person, get_tag, owned_people, owned_tags
 from ..deps import current_user
 from ..models import Person, Tag, NotableDate, ScratchpadItem, NotablePersonRef, ConflictStatus, RelationshipState
 from ..render import render
 from ..services import birthdays as bday_service
 from ..services import checkins, friend_rank, gamification, states as state_service, wrapped as wrapped_service
-from ..settings_store import get_setting
+from ..settings_store import get_setting, get_user_setting
 
 router = APIRouter()
 
@@ -46,14 +47,14 @@ def people_list(request: Request, db: Session = Depends(get_db), user=Depends(cu
                  view: str = Query("grid")):
     if not user:
         return RedirectResponse("/login")
-    query = db.query(Person).filter(Person.archived.is_(show_archived))
+    query = owned_people(db, user).filter(Person.archived.is_(show_archived))
     if q:
         like = f"%{q}%"
         query = query.filter(or_(Person.name.ilike(like), Person.nickname.ilike(like)))
     people = query.order_by(Person.name).all()
     if tag:
         people = [p for p in people if any(t.name == tag for t in p.tags)]
-    all_tags = db.query(Tag).order_by(Tag.name).all()
+    all_tags = owned_tags(db, user).order_by(Tag.name).all()
     ranks = {p.id: friend_rank.compute_friend_rank(p) for p in people}
     watermeters = {p.id: checkins.compute_cadence_watermeter(p) for p in people}
 
@@ -81,7 +82,7 @@ def people_list(request: Request, db: Session = Depends(get_db), user=Depends(cu
 def people_new(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
     if not user:
         return RedirectResponse("/login")
-    default_cadence = get_setting(db, "checkin_default_cadence_days", "60")
+    default_cadence = get_user_setting(db, user.id, "checkin_default_cadence_days", "60")
     return render(request, "person_form.html", db=db, user=user, active="people",
                   person=None, months=_month_names(), default_cadence=default_cadence)
 
@@ -99,7 +100,7 @@ def people_create(
     if not user:
         return RedirectResponse("/login")
     clean_name = name.strip()
-    person = Person(
+    person = Person(user_id=user.id,
         name=clean_name, nickname=(nickname.strip() or clean_name), pronouns=pronouns or None,
         relationship_label=relationship_label or None,
         birthday_month=_safe_int(birthday_month),
@@ -114,7 +115,7 @@ def people_create(
     )
     db.add(person)
     db.commit()
-    gamification.award_and_flash(request, db, "PROFILE_UPDATED")
+    gamification.award_and_flash(request, db, user, "PROFILE_UPDATED")
     return RedirectResponse(f"/people/{person.id}", status_code=303)
 
 
@@ -122,7 +123,7 @@ def people_create(
 def person_detail(person_id: int, request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
     if not user:
         return RedirectResponse("/login")
-    person = db.get(Person, person_id)
+    person = get_person(db, user, person_id)
     if not person:
         return RedirectResponse("/people")
     entries = person.journal_entries
@@ -132,18 +133,18 @@ def person_detail(person_id: int, request: Request, db: Session = Depends(get_db
     today = dt.date.today()
     bday_days = bday_service.days_until_birthday(person)
     try:
-        bday_lead = int(get_setting(db, "birthday_lead_days", "3") or 3)
+        bday_lead = int(get_user_setting(db, user.id, "birthday_lead_days", "3") or 3)
     except ValueError:
         bday_lead = 3
 
     person_state = state_service.effective_state(person, today)
-    suggestions = state_service.suggest_states(db, today=today)
+    suggestions = state_service.suggest_states(db, user, today=today)
     person_suggestion = next((s for p, s, r in suggestions if p.id == person.id), None)
 
     # Kin Wrapped season: offer 'share our year with {Name}' while the wrapped is live and this
     # person has enough shared moments this year.
     wrapped_share_available = (
-        wrapped_service.season_active(db)
+        wrapped_service.season_active(db, user)
         and wrapped_service.is_person_share_eligible(db, person, today.year)
     )
     return render(request, "person_detail.html", db=db, user=user, active="people",
@@ -158,7 +159,7 @@ def person_detail(person_id: int, request: Request, db: Session = Depends(get_db
 def person_edit(person_id: int, request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
     if not user:
         return RedirectResponse("/login")
-    person = db.get(Person, person_id)
+    person = get_person(db, user, person_id)
     if not person:
         return RedirectResponse("/people")
     return render(request, "person_form.html", db=db, user=user, active="people",
@@ -177,7 +178,7 @@ def person_update(
 ):
     if not user:
         return RedirectResponse("/login")
-    person = db.get(Person, person_id)
+    person = get_person(db, user, person_id)
     if not person:
         return RedirectResponse("/people")
     clean_name = name.strip()
@@ -199,13 +200,13 @@ def person_update(
     person.bio = bio.strip() or None
     person.checkin_cadence_days = _safe_int(checkin_cadence_days)
     db.commit()
-    gamification.award_and_flash(request, db, "PROFILE_UPDATED")
+    gamification.award_and_flash(request, db, user, "PROFILE_UPDATED")
     return RedirectResponse(f"/people/{person.id}", status_code=303)
 
 
 @router.post("/people/{person_id}/archive")
 def person_archive(person_id: int, db: Session = Depends(get_db), user=Depends(current_user)):
-    person = db.get(Person, person_id)
+    person = get_person(db, user, person_id)
     if person:
         person.archived = not person.archived
         db.commit()
@@ -214,7 +215,7 @@ def person_archive(person_id: int, db: Session = Depends(get_db), user=Depends(c
 
 @router.post("/people/{person_id}/delete")
 def person_delete(person_id: int, db: Session = Depends(get_db), user=Depends(current_user)):
-    person = db.get(Person, person_id)
+    person = get_person(db, user, person_id)
     if person:
         db.delete(person)
         db.commit()
@@ -223,14 +224,14 @@ def person_delete(person_id: int, db: Session = Depends(get_db), user=Depends(cu
 
 @router.post("/people/{person_id}/tags")
 def add_tag(person_id: int, db: Session = Depends(get_db), user=Depends(current_user), tag_name: str = Form(...)):
-    person = db.get(Person, person_id)
+    person = get_person(db, user, person_id)
     if not person:
         return RedirectResponse("/people")
     tag_name = tag_name.strip()
     if tag_name:
-        tag = db.query(Tag).filter(Tag.name == tag_name).first()
+        tag = owned_tags(db, user).filter(Tag.name == tag_name).first()
         if not tag:
-            tag = Tag(name=tag_name)
+            tag = Tag(user_id=user.id, name=tag_name)
             db.add(tag)
             db.flush()
         if tag not in person.tags:
@@ -241,8 +242,8 @@ def add_tag(person_id: int, db: Session = Depends(get_db), user=Depends(current_
 
 @router.post("/people/{person_id}/tags/{tag_id}/remove")
 def remove_tag(person_id: int, tag_id: int, db: Session = Depends(get_db), user=Depends(current_user)):
-    person = db.get(Person, person_id)
-    tag = db.get(Tag, tag_id)
+    person = get_person(db, user, person_id)
+    tag = get_tag(db, user, tag_id)
     if person and tag and tag in person.tags:
         person.tags.remove(tag)
         db.commit()
@@ -254,6 +255,9 @@ def add_notable_date(
     person_id: int, db: Session = Depends(get_db), user=Depends(current_user),
     label: str = Form(...), month: int = Form(...), day: int = Form(...), year: str = Form(""),
 ):
+    person = get_person(db, user, person_id)
+    if not person:
+        return RedirectResponse("/people", status_code=303)
     nd = NotableDate(person_id=person_id, label=label.strip(), month=month, day=day,
                       year=_safe_int(year))
     db.add(nd)
@@ -263,7 +267,7 @@ def add_notable_date(
 
 @router.post("/notable-dates/{nd_id}/delete")
 def delete_notable_date(nd_id: int, db: Session = Depends(get_db), user=Depends(current_user)):
-    nd = db.get(NotableDate, nd_id)
+    nd = get_owned_child(db, user, NotableDate, nd_id)
     if nd:
         person_id = nd.person_id
         db.delete(nd)
@@ -275,18 +279,18 @@ def delete_notable_date(nd_id: int, db: Session = Depends(get_db), user=Depends(
 @router.post("/people/{person_id}/link-immich")
 def link_immich(person_id: int, request: Request, db: Session = Depends(get_db), user=Depends(current_user),
                  immich_person_id: str = Form(...)):
-    person = db.get(Person, person_id)
+    person = get_person(db, user, person_id)
     if person:
         person.immich_person_id = immich_person_id
         person.avatar_url = f"/immich/person/{immich_person_id}/thumbnail"
         db.commit()
-        gamification.check_only(request, db)
+        gamification.check_only(request, db, user)
     return RedirectResponse(f"/people/{person_id}", status_code=303)
 
 
 @router.post("/people/{person_id}/unlink-immich")
 def unlink_immich(person_id: int, db: Session = Depends(get_db), user=Depends(current_user)):
-    person = db.get(Person, person_id)
+    person = get_person(db, user, person_id)
     if person:
         person.immich_person_id = None
         person.avatar_url = None
@@ -298,21 +302,21 @@ def unlink_immich(person_id: int, db: Session = Depends(get_db), user=Depends(cu
 def add_scratchpad_item(person_id: int, request: Request, db: Session = Depends(get_db), user=Depends(current_user),
                          text: str = Form(...)):
     text = text.strip()
-    if text:
+    if text and get_person(db, user, person_id):
         db.add(ScratchpadItem(person_id=person_id, text=text))
         db.commit()
-        gamification.check_only(request, db)
+        gamification.check_only(request, db, user)
     return RedirectResponse(f"/people/{person_id}", status_code=303)
 
 
 @router.post("/scratchpad/{item_id}/delete")
 def delete_scratchpad_item(item_id: int, request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
-    item = db.get(ScratchpadItem, item_id)
+    item = get_owned_child(db, user, ScratchpadItem, item_id)
     if item:
         person_id = item.person_id
         db.delete(item)
         db.commit()
-        gamification.check_only(request, db, context={"scratchpad_cleared": True})
+        gamification.check_only(request, db, user, context={"scratchpad_cleared": True})
         return RedirectResponse(f"/people/{person_id}", status_code=303)
     return RedirectResponse("/people", status_code=303)
 
@@ -321,16 +325,16 @@ def delete_scratchpad_item(item_id: int, request: Request, db: Session = Depends
 def add_notable_person(person_id: int, request: Request, db: Session = Depends(get_db), user=Depends(current_user),
                         name: str = Form(...), relation: str = Form("")):
     name = name.strip()
-    if name:
+    if name and get_person(db, user, person_id):
         db.add(NotablePersonRef(person_id=person_id, name=name, relation=relation.strip() or None))
         db.commit()
-        gamification.check_only(request, db)
+        gamification.check_only(request, db, user)
     return RedirectResponse(f"/people/{person_id}", status_code=303)
 
 
 @router.post("/notable-people/{ref_id}/delete")
 def delete_notable_person(ref_id: int, db: Session = Depends(get_db), user=Depends(current_user)):
-    ref = db.get(NotablePersonRef, ref_id)
+    ref = get_owned_child(db, user, NotablePersonRef, ref_id)
     if ref:
         person_id = ref.person_id
         db.delete(ref)
@@ -342,16 +346,16 @@ def delete_notable_person(ref_id: int, db: Session = Depends(get_db), user=Depen
 @router.post("/people/{person_id}/state")
 def set_relationship_state(person_id: int, request: Request, db: Session = Depends(get_db),
                             user=Depends(current_user), state: str = Form("")):
-    person = db.get(Person, person_id)
+    person = get_person(db, user, person_id)
     if person and state in ("none", "wants_space", "drifted"):
         person.relationship_state = RelationshipState(state)
         db.commit()
         labels = {"none": "cleared", "wants_space": "set to 'wants space'", "drifted": "marked as drifted"}
         context = {}
         if state == "wants_space":
-            gamification.award_and_flash(request, db, "REST_SPACE")
+            gamification.award_and_flash(request, db, user, "REST_SPACE")
         elif state == "drifted":
-            gamification.award_and_flash(request, db, "REST_SPACE", context={"drift_acknowledged": True})
+            gamification.award_and_flash(request, db, user, "REST_SPACE", context={"drift_acknowledged": True})
         request.session["notice_flash"] = f"Relationship state {labels[state]}. 🕊️"
     return RedirectResponse(f"/people/{person_id}", status_code=303)
 
@@ -359,9 +363,9 @@ def set_relationship_state(person_id: int, request: Request, db: Session = Depen
 @router.post("/people/{person_id}/state-suggestion/apply")
 def apply_state_suggestion(person_id: int, request: Request, db: Session = Depends(get_db),
                             user=Depends(current_user)):
-    person = db.get(Person, person_id)
+    person = get_person(db, user, person_id)
     if person:
-        suggestions = state_service.suggest_states(db)
+        suggestions = state_service.suggest_states(db, user)
         for p, suggested, reason in suggestions:
             if p.id == person.id:
                 person.relationship_state = suggested
@@ -379,7 +383,7 @@ def dismiss_state_suggestion(person_id: int, db: Session = Depends(get_db), user
 @router.post("/tags/{tag_id}/color")
 def set_tag_color(tag_id: int, request: Request, db: Session = Depends(get_db), user=Depends(current_user),
                    color: str = Form(...)):
-    tag = db.get(Tag, tag_id)
+    tag = get_tag(db, user, tag_id)
     if tag and color:
         tag.color = color
         db.commit()

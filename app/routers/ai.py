@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from ..database import get_db
+from ..scoping import get_person
 from ..deps import current_user
 from ..models import Person
 from ..render import render
@@ -19,7 +20,7 @@ def _journal_snippets(person: Person) -> list[str]:
 
 @router.post("/people/{person_id}/bio")
 def generate_bio(person_id: int, request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
-    person = db.get(Person, person_id)
+    person = get_person(db, user, person_id)
     if not person:
         return render(request, "partials/ai_text.html", db=db, user=user, text=None,
                       error="Person not found.")
@@ -38,7 +39,7 @@ def generate_bio(person_id: int, request: Request, db: Session = Depends(get_db)
 
 @router.post("/people/{person_id}/gap-questions")
 def generate_gap_questions(person_id: int, request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
-    person = db.get(Person, person_id)
+    person = get_person(db, user, person_id)
     if not person:
         return render(request, "partials/ai_gap_questions.html", db=db, user=user, items=[],
                       person_id=person_id, error="Person not found.")
@@ -61,7 +62,7 @@ def generate_gap_questions(person_id: int, request: Request, db: Session = Depen
 
 @router.post("/people/{person_id}/summary")
 def generate_summary(person_id: int, request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
-    person = db.get(Person, person_id)
+    person = get_person(db, user, person_id)
     if not person:
         return render(request, "partials/ai_text.html", db=db, user=user, text=None,
                       error="Person not found.")
@@ -84,7 +85,7 @@ def generate_summary(person_id: int, request: Request, db: Session = Depends(get
 
 @router.get("/people/{person_id}/starters")
 def conversation_starters(person_id: int, request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
-    person = db.get(Person, person_id)
+    person = get_person(db, user, person_id)
     if not person:
         return render(request, "partials/ai_list.html", db=db, user=user, items=[], error="Person not found.")
     try:
@@ -101,7 +102,7 @@ def conversation_starters(person_id: int, request: Request, db: Session = Depend
 
 @router.get("/people/{person_id}/quick-replies")
 def quick_replies(person_id: int, request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
-    person = db.get(Person, person_id)
+    person = get_person(db, user, person_id)
     if not person:
         return render(request, "partials/quick_replies.html", db=db, user=user, replies=[],
                       error="Person not found.")

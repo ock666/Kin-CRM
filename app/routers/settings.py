@@ -6,7 +6,8 @@ from ..database import get_db
 from ..deps import current_user
 from ..models import User
 from ..render import render
-from ..settings_store import get_all_settings, set_many, get_setting_sensitive
+from ..settings_store import (get_all_settings, set_many, get_setting_sensitive,
+                              get_all_user_settings, set_many_user, get_user_setting, set_user_setting)
 from ..auth import hash_password, _strong_enough, verify_password
 from ..services.immich_client import ImmichClient, ImmichError
 from ..services.ai_client import AIClient, AIError
@@ -23,11 +24,16 @@ def privacy_page(request: Request, db: Session = Depends(get_db), user=Depends(c
     return render(request, "privacy.html", db=db, user=user, active="privacy")
 
 
+def _cfg_for_user(db, user):
+    """Settings shown in the UI: instance-wide config plus the current user's preferences."""
+    return {**get_all_settings(db), **get_all_user_settings(db, user.id)}
+
+
 @router.get("/settings")
 def settings_page(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
     if not user:
         return RedirectResponse("/login")
-    cfg = get_all_settings(db)
+    cfg = _cfg_for_user(db, user)
     users = db.query(User).order_by(User.id).all()
     user_mfa = db.get(User, user.id)
     return render(request, "settings.html", db=db, user=user_mfa, active="settings", cfg=cfg, users=users)
@@ -113,7 +119,7 @@ def save_whisper(request: Request, db: Session = Depends(get_db), user=Depends(c
 
 @router.post("/settings/whisper/test")
 def test_whisper(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
-    cfg = get_all_settings(db)
+    cfg = _cfg_for_user(db, user)
     users = db.query(User).order_by(User.id).all()
     result = None
     try:
@@ -162,17 +168,17 @@ def save_tts(request: Request, db: Session = Depends(get_db), user=Depends(curre
         "tts_piper_host": tts_piper_host.strip(),
         "tts_piper_port": tts_piper_port.strip() or "10200",
         "tts_piper_web_port": tts_piper_web_port.strip() or "5500",
-        "tts_mirror_mode": "1" if tts_mirror_mode == "1" else "0",
     }
     if tts_api_key:
         values["tts_api_key"] = tts_api_key
     set_many(db, values)
+    set_user_setting(db, user.id, "tts_mirror_mode", "1" if tts_mirror_mode == "1" else "0")
     return RedirectResponse("/settings", status_code=303)
 
 
 @router.post("/settings/tts/test")
 def test_tts(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
-    cfg = get_all_settings(db)
+    cfg = _cfg_for_user(db, user)
     users = db.query(User).order_by(User.id).all()
     result = None
     try:
@@ -251,7 +257,7 @@ def tts_sample(request: Request, db: Session = Depends(get_db), user=Depends(cur
     """Return a short MP3 sample for the currently selected TTS settings/voice."""
     try:
         from ..services.tts_client import synthesize_from_settings
-        audio = synthesize_from_settings(db, "This is a short sample from Kin.")
+        audio = synthesize_from_settings(db, "This is a short sample from Kin.", user=user)
         from fastapi.responses import Response
         return Response(content=audio, media_type="audio/mpeg",
                         headers={"Cache-Control": "no-store"})
@@ -278,10 +284,10 @@ def save_calendar(request: Request, db: Session = Depends(get_db), user=Depends(
         "calendar_birthday_reminder_days": calendar_birthday_reminder_days or "14",
         "calendar_notable_reminder_days": calendar_notable_reminder_days or "1",
     }
-    if calendar_ics_enabled == "1" and not get_setting_sensitive(db, "calendar_ics_token"):
+    if calendar_ics_enabled == "1" and not get_user_setting(db, user.id, "calendar_ics_token", ""):
         import secrets
         values["calendar_ics_token"] = secrets.token_urlsafe(24)
-    set_many(db, values)
+    set_many_user(db, user.id, values)
     return RedirectResponse("/settings", status_code=303)
 
 
@@ -290,9 +296,11 @@ def save_general(request: Request, db: Session = Depends(get_db), user=Depends(c
                   birthday_lead_days: str = Form("14"), checkin_default_cadence_days: str = Form("60"),
                   daily_job_hour: str = Form("8"), conflict_plan_idle_minutes: str = Form("15"),
                   chat_retention_days: str = Form("14")):
-    set_many(db, {
+    set_many_user(db, user.id, {
         "birthday_lead_days": birthday_lead_days,
         "checkin_default_cadence_days": checkin_default_cadence_days,
+    })
+    set_many(db, {
         "daily_job_hour": daily_job_hour,
         "conflict_plan_idle_minutes": conflict_plan_idle_minutes,
         "chat_retention_days": chat_retention_days,
@@ -308,7 +316,7 @@ def save_push(request: Request, db: Session = Depends(get_db), user=Depends(curr
     the actual browser subscription (enable/disable) lives in the client (static/js/pwa.js).
     Storing them here lets the scheduler gate which messages it creates without touching the
     browser permission state."""
-    set_many(db, {
+    set_many_user(db, user.id, {
         "push_enabled": push_enabled,
         "push_birthdays": push_birthdays,
         "push_cadence": push_cadence,
@@ -421,7 +429,7 @@ def mfa_regenerate_codes(request: Request, db: Session = Depends(get_db), user=D
     plain_codes, hashed_json = generate_recovery_codes()
     user.mfa_recovery_codes = hashed_json
     db.commit()
-    cfg = get_all_settings(db)
+    cfg = _cfg_for_user(db, user)
     users = db.query(User).order_by(User.id).all()
     return render(request, "settings.html", db=db, user=user, active="settings",
                   cfg=cfg, users=users, recovery_codes=plain_codes,

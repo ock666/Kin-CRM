@@ -110,22 +110,22 @@ def calculate_level(total_xp: int) -> int:
     return level
 
 
-def _get_or_create_stats(db: Session) -> UserStats:
-    stats = db.get(UserStats, 1)
+def _get_or_create_stats(db: Session, user) -> UserStats:
+    stats = db.query(UserStats).filter(UserStats.user_id == user.id).first()
     if not stats:
-        stats = UserStats(id=1, total_xp=0, current_level=1, streak_days=0)
+        stats = UserStats(user_id=user.id, total_xp=0, current_level=1, streak_days=0)
         db.add(stats)
         db.flush()
     return stats
 
 
-def award_xp(db: Session, event_type: str, context: dict | None = None) -> dict:
+def award_xp(db: Session, user, event_type: str, context: dict | None = None) -> dict:
     """Award XP for one event, update the daily streak, check for newly-unlocked achievements,
     and commit. Safe to call multiple times per day - the streak only increments once/day
     regardless of how many events fire. `context` carries optional event-specific details (e.g.
     how many people were tagged in the entry that triggered this) used by a handful of
     achievement checks that can't be derived from aggregate DB state alone."""
-    stats = _get_or_create_stats(db)
+    stats = _get_or_create_stats(db, user)
 
     xp_gained = XP_EVENTS.get(event_type, 10)
     stats.total_xp += xp_gained
@@ -143,7 +143,7 @@ def award_xp(db: Session, event_type: str, context: dict | None = None) -> dict:
         stats.streak_days = 1
     stats.last_active_date = today
 
-    new_badges = check_achievements(db, stats, event_type=event_type, context=context)
+    new_badges = check_achievements(db, user, stats, event_type=event_type, context=context)
 
     db.commit()
     db.refresh(stats)
@@ -158,7 +158,7 @@ def award_xp(db: Session, event_type: str, context: dict | None = None) -> dict:
     }
 
 
-def check_achievements(db: Session, stats: UserStats, event_type: str | None = None,
+def check_achievements(db: Session, user, stats: UserStats, event_type: str | None = None,
                         context: dict | None = None) -> list[str]:
     """Pure-Python/SQL achievement checks - no AI calls. Returns slugs newly unlocked this call.
 
@@ -171,11 +171,11 @@ def check_achievements(db: Session, stats: UserStats, event_type: str | None = N
     """
     context = context or {}
     newly_unlocked: list[str] = []
-    already = {row.slug for row in db.query(UnlockedAchievement.slug).all()}
+    already = {row.slug for row in db.query(UnlockedAchievement.slug).filter(UnlockedAchievement.user_id == user.id).all()}
 
     def _unlock(slug: str):
         if slug not in already:
-            db.add(UnlockedAchievement(slug=slug))
+            db.add(UnlockedAchievement(user_id=user.id, slug=slug))
             newly_unlocked.append(slug)
             already.add(slug)
 
@@ -195,34 +195,36 @@ def check_achievements(db: Session, stats: UserStats, event_type: str | None = N
         _unlock("100_day_streak")
 
     # --- Simple aggregate counts (one cheap COUNT query each, skipped if already unlocked) ---
-    if _locked("first_step") and db.query(JournalEntry).count() >= 1:
+    if _locked("first_step") and db.query(JournalEntry).filter(JournalEntry.author_user_id == user.id).count() >= 1:
         _unlock("first_step")
-    if _locked("circle_builder") and db.query(Person).count() >= 3:
+    if _locked("circle_builder") and db.query(Person).filter(Person.user_id == user.id).count() >= 3:
         _unlock("circle_builder")
-    if _locked("social_network") and db.query(Person).count() >= 10:
+    if _locked("social_network") and db.query(Person).filter(Person.user_id == user.id).count() >= 10:
         _unlock("social_network")
-    if _locked("face_to_name") and db.query(Person).filter(Person.immich_person_id.isnot(None)).count() >= 1:
+    if _locked("face_to_name") and db.query(Person).filter(Person.user_id == user.id, Person.immich_person_id.isnot(None)).count() >= 1:
         _unlock("face_to_name")
-    if _locked("notable_mentions") and db.query(NotablePersonRef).count() >= 1:
+    if _locked("notable_mentions") and db.query(NotablePersonRef).join(Person).filter(Person.user_id == user.id).count() >= 1:
         _unlock("notable_mentions")
-    if _locked("scratchpad_user") and db.query(ScratchpadItem).count() >= 1:
+    if _locked("scratchpad_user") and db.query(ScratchpadItem).join(Person).filter(Person.user_id == user.id).count() >= 1:
         _unlock("scratchpad_user")
-    if _locked("memory_keeper") and db.query(JournalImage).count() >= 5:
+    if _locked("memory_keeper") and db.query(JournalImage).join(JournalEntry).filter(JournalEntry.author_user_id == user.id).count() >= 5:
         _unlock("memory_keeper")
-    if _locked("photo_album") and db.query(JournalImage).count() >= 25:
+    if _locked("photo_album") and db.query(JournalImage).join(JournalEntry).filter(JournalEntry.author_user_id == user.id).count() >= 25:
         _unlock("photo_album")
-    if _locked("gift_giver") and db.query(GiftIdea).count() >= 1:
+    if _locked("gift_giver") and db.query(GiftIdea).join(Person).filter(Person.user_id == user.id).count() >= 1:
         _unlock("gift_giver")
-    if _locked("cadence_master") and db.query(Person).filter(Person.checkin_cadence_days.isnot(None)).count() >= 5:
+    if _locked("cadence_master") and db.query(Person).filter(Person.user_id == user.id, Person.checkin_cadence_days.isnot(None)).count() >= 5:
         _unlock("cadence_master")
     if _locked("details_matter"):
         has_details = db.query(Person).filter(
+            Person.user_id == user.id,
             (Person.birthday_month.isnot(None)) | (Person.occupation.isnot(None)) | (Person.hobbies.isnot(None))
         ).count() >= 1
         if has_details:
             _unlock("details_matter")
     if _locked("well_connected"):
         has_contact = db.query(Person).filter(
+            Person.user_id == user.id,
             (Person.email.isnot(None)) | (Person.phone.isnot(None))
         ).count() >= 1
         if has_contact:
@@ -234,7 +236,7 @@ def check_achievements(db: Session, stats: UserStats, event_type: str | None = N
         distinct_people = (
             db.query(journal_entry_people.c.person_id)
             .join(JournalEntry, JournalEntry.id == journal_entry_people.c.journal_entry_id)
-            .filter(JournalEntry.entry_date >= cutoff)
+            .filter(JournalEntry.author_user_id == user.id, JournalEntry.entry_date >= cutoff)
             .distinct()
             .count()
         )
@@ -247,6 +249,8 @@ def check_achievements(db: Session, stats: UserStats, event_type: str | None = N
     if _locked("inner_circle") or _locked("besties"):
         max_count = (
             db.query(func.count(journal_entry_people.c.journal_entry_id))
+            .join(JournalEntry, JournalEntry.id == journal_entry_people.c.journal_entry_id)
+            .filter(JournalEntry.author_user_id == user.id)
             .group_by(journal_entry_people.c.person_id)
             .order_by(func.count(journal_entry_people.c.journal_entry_id).desc())
             .limit(1)
@@ -260,20 +264,20 @@ def check_achievements(db: Session, stats: UserStats, event_type: str | None = N
     # --- Full-table scans (only needed while still locked - naturally gets cheaper over time) ---
     if _locked("the_historian"):
         backdated = sum(
-            1 for e in db.query(JournalEntry).all()
+            1 for e in db.query(JournalEntry).filter(JournalEntry.author_user_id == user.id).all()
             if e.created_at and e.entry_date < e.created_at.date()
         )
         if backdated >= 10:
             _unlock("the_historian")
 
     if _locked("weekend_warrior"):
-        entry_dates = {e.entry_date for e in db.query(JournalEntry.entry_date).all()}
+        entry_dates = {e.entry_date for e in db.query(JournalEntry.entry_date).filter(JournalEntry.author_user_id == user.id).all()}
         if any(d.weekday() == 5 and (d + dt.timedelta(days=1)) in entry_dates for d in entry_dates):
             _unlock("weekend_warrior")
 
     if _locked("check_in_champ"):
         week_counts: dict[tuple[int, int], int] = {}
-        for e in db.query(JournalEntry.entry_date).all():
+        for e in db.query(JournalEntry.entry_date).filter(JournalEntry.author_user_id == user.id).all():
             key = e.entry_date.isocalendar()[:2]  # (iso_year, iso_week)
             week_counts[key] = week_counts.get(key, 0) + 1
         if any(c >= 5 for c in week_counts.values()):
@@ -328,13 +332,13 @@ def check_achievements(db: Session, stats: UserStats, event_type: str | None = N
     return newly_unlocked
 
 
-def award_and_flash(request, db: Session, *event_types: str, context: dict | None = None) -> dict:
+def award_and_flash(request, db: Session, user, *event_types: str, context: dict | None = None) -> dict:
     """The one-line hook for existing routes: awards XP for one or more events (e.g. logging a
     journal entry that also had a photo attached fires both NOTE_ADDED and PHOTO_ATTACHED), then
     stashes a "flash" notice in the session ONLY if something toast-worthy happened (a level-up
     or a new badge) - routine XP gains accumulate silently, surfaced only on the progress page/
     dashboard card, to avoid notification spam."""
-    results = [award_xp(db, event_type, context=context) for event_type in event_types]
+    results = [award_xp(db, user, event_type, context=context) for event_type in event_types]
     total_gained = sum(r["xp_gained"] for r in results)
     level_up = any(r["level_up"] for r in results)
     badges: list[str] = []
@@ -352,12 +356,12 @@ def award_and_flash(request, db: Session, *event_types: str, context: dict | Non
     return final
 
 
-def check_only(request, db: Session, context: dict | None = None) -> list[str]:
+def check_only(request, db: Session, user, context: dict | None = None) -> list[str]:
     """For achievement-only triggers that don't earn XP (e.g. viewing an 'On This Day' memory,
     or linking an Immich face) - checks/unlocks achievements and flashes a toast on a new badge,
     without touching XP/level/streak state at all."""
-    stats = _get_or_create_stats(db)
-    new_badges = check_achievements(db, stats, context=context)
+    stats = _get_or_create_stats(db, user)
+    new_badges = check_achievements(db, user, stats, context=context)
     if new_badges:
         db.commit()
         request.session["gamification_flash"] = {
@@ -367,13 +371,13 @@ def check_only(request, db: Session, context: dict | None = None) -> list[str]:
     return new_badges
 
 
-def get_stats_and_achievements(db: Session) -> dict:
+def get_stats_and_achievements(db: Session, user) -> dict:
     """For the dashboard widget / progress page - current stats plus the full achievement
     catalog annotated with unlocked/locked status. Hidden (easter-egg) achievements that are
     still locked have their name/description masked so they stay a surprise."""
-    stats = _get_or_create_stats(db)
+    stats = _get_or_create_stats(db, user)
     db.commit()  # persist a freshly-created row immediately so the page has something to show
-    unlocked_slugs = {row.slug for row in db.query(UnlockedAchievement.slug).all()}
+    unlocked_slugs = {row.slug for row in db.query(UnlockedAchievement.slug).filter(UnlockedAchievement.user_id == user.id).all()}
 
     next_level_threshold = int(100 * (stats.current_level ** 1.5))
     prev_level_threshold = int(100 * ((stats.current_level - 1) ** 1.5)) if stats.current_level > 1 else 0

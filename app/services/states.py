@@ -29,7 +29,7 @@ def effective_state(person: Person, today: dt.date | None = None) -> Relationshi
     return person.relationship_state or RelationshipState.none
 
 
-def suggest_states(db: Session, today: dt.date | None = None) -> list[tuple[Person, RelationshipState, str]]:
+def suggest_states(db: Session, user, today: dt.date | None = None) -> list[tuple[Person, RelationshipState, str]]:
     """Find people with a suggestible state and return (person, suggested_state, reason).
     Currently suggests drifted for people with state 'none', no unresolved conflict,
     a cadence set, they're overdue, and last contact was 90+ days ago."""
@@ -38,6 +38,7 @@ def suggest_states(db: Session, today: dt.date | None = None) -> list[tuple[Pers
 
     people = (
         db.query(Person)
+        .filter(Person.user_id == user.id)
         .filter(Person.archived.is_(False))
         .filter(Person.reminders_dismissed.is_(False))
         .filter(Person.relationship_state == RelationshipState.none)
@@ -48,7 +49,8 @@ def suggest_states(db: Session, today: dt.date | None = None) -> list[tuple[Pers
     conflict_ids = {
         c.person_id for c in
         db.query(ConflictLog.person_id)
-        .filter(ConflictLog.status == ConflictStatus.unresolved)
+        .join(Person, Person.id == ConflictLog.person_id)
+        .filter(Person.user_id == user.id, ConflictLog.status == ConflictStatus.unresolved)
         .all()
     }
 

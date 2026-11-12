@@ -91,7 +91,7 @@ def _relative_label(date: dt.date, today: dt.date | None = None) -> str:
     return date.isoformat()
 
 
-def detect_recent_hangouts(db: Session, client, window_days: int = 31,
+def detect_recent_hangouts(db: Session, user, client, window_days: int = 31,
                            max_people: int = 20) -> tuple[list[dict], str | None]:
     """Return (hangouts, error).
 
@@ -112,6 +112,7 @@ def detect_recent_hangouts(db: Session, client, window_days: int = 31,
     cutoff = dt.date.today() - dt.timedelta(days=window_days)
     people = (
         db.query(Person)
+        .filter(Person.user_id == user.id)
         .filter(Person.archived.is_(False))
         .filter(Person.immich_person_id.isnot(None))
         .order_by(Person.id)
@@ -183,13 +184,11 @@ def detect_recent_hangouts(db: Session, client, window_days: int = 31,
 # less often than the dashboard is opened).
 
 CACHE_TTL_SECONDS = 15 * 60
-_detection_cache: dict = {"ts": None, "items": None, "error": None}
+_detection_cache: dict = {}  # keyed by user_id -> {"ts", "items", "error"}
 
 
 def invalidate_hangout_cache():
-    _detection_cache["ts"] = None
-    _detection_cache["items"] = None
-    _detection_cache["error"] = None
+    _detection_cache.clear()
 
 
 def _serialize_hangouts(hangouts: list[dict], error: str | None) -> tuple[list[dict], str | None]:
@@ -206,10 +205,11 @@ def _serialize_hangouts(hangouts: list[dict], error: str | None) -> tuple[list[d
     return items, error
 
 
-def _rehydrate_hangouts(db: Session, items: list[dict]) -> list[dict]:
+def _rehydrate_hangouts(db: Session, user, items: list[dict]) -> list[dict]:
+    from ..scoping import get_person
     hangouts = []
     for it in items:
-        person = db.get(Person, it["person_id"])
+        person = get_person(db, user, it["person_id"])
         if person is None:
             continue
         hangouts.append({
@@ -225,15 +225,16 @@ def _rehydrate_hangouts(db: Session, items: list[dict]) -> list[dict]:
     return hangouts
 
 
-def get_recent_hangouts_cached(db: Session, client, window_days: int = 31,
+def get_recent_hangouts_cached(db: Session, user, client, window_days: int = 31,
                                 max_people: int = 20) -> tuple[list[dict], str | None]:
     """`detect_recent_hangouts` with a short TTL cache so the dashboard doesn't hammer Immich on
     every load. On a cache hit, Person rows are re-fetched so they belong to the current request
     session; logging or dismissing a hangout calls `invalidate_hangout_cache()` first."""
+    cache = _detection_cache.setdefault(user.id, {"ts": None, "items": None, "error": None})
     now = time.time()
-    if _detection_cache["ts"] is not None and now - _detection_cache["ts"] < CACHE_TTL_SECONDS:
-        return _rehydrate_hangouts(db, _detection_cache["items"]), _detection_cache["error"]
-    hangouts, error = detect_recent_hangouts(db, client, window_days=window_days, max_people=max_people)
-    _detection_cache["ts"] = now
-    _detection_cache["items"], _detection_cache["error"] = _serialize_hangouts(hangouts, error)
+    if cache["ts"] is not None and now - cache["ts"] < CACHE_TTL_SECONDS:
+        return _rehydrate_hangouts(db, user, cache["items"]), cache["error"]
+    hangouts, error = detect_recent_hangouts(db, user, client, window_days=window_days, max_people=max_people)
+    cache["ts"] = now
+    cache["items"], cache["error"] = _serialize_hangouts(hangouts, error)
     return hangouts, error

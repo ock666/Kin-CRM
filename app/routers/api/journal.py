@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from ...database import get_db
+from ...scoping import get_journal_entry, get_person
 from ...models import JournalEntry, JournalImage, Person, EventType, EnergyCost
 from ...schemas.journal import JournalCreate, JournalUpdate, JournalEntryResponse
 from ...services import checkins, gamification as gm
@@ -57,7 +58,7 @@ def create_entry(body: JournalCreate, db: Session = Depends(get_db), user=Depend
         source="api",
     )
     for pid in body.person_ids:
-        p = db.get(Person, pid)
+        p = get_person(db, user, pid)
         if p:
             entry.people.append(p)
             checkins.touch_last_contact(db, p, entry.entry_date)
@@ -71,7 +72,7 @@ def create_entry(body: JournalCreate, db: Session = Depends(get_db), user=Depend
 
 @router.put("/{entry_id}")
 def update_entry(entry_id: int, body: JournalUpdate, db: Session = Depends(get_db), user=Depends(get_current_api_user)):
-    entry = db.get(JournalEntry, entry_id)
+    entry = get_journal_entry(db, user, entry_id)
     if not entry or entry.author_user_id != user.id:
         raise HTTPException(status_code=404, detail="Entry not found")
     if body.title is not None:
@@ -87,7 +88,7 @@ def update_entry(entry_id: int, body: JournalUpdate, db: Session = Depends(get_d
     if body.location is not None:
         entry.location = body.location
     if body.person_ids is not None:
-        entry.people = [p for pid in body.person_ids if (p := db.get(Person, pid))]
+        entry.people = [p for pid in body.person_ids if (p := get_person(db, user, pid))]
     db.commit()
     db.refresh(entry)
     return _entry_response(entry)
@@ -95,7 +96,7 @@ def update_entry(entry_id: int, body: JournalUpdate, db: Session = Depends(get_d
 
 @router.delete("/{entry_id}", status_code=204)
 def delete_entry(entry_id: int, db: Session = Depends(get_db), user=Depends(get_current_api_user)):
-    entry = db.get(JournalEntry, entry_id)
+    entry = get_journal_entry(db, user, entry_id)
     if not entry or entry.author_user_id != user.id:
         raise HTTPException(status_code=404, detail="Entry not found")
     db.delete(entry)
