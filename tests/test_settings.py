@@ -15,20 +15,29 @@ def test_settings_page_has_whats_new(logged_in_client):
     assert "Be gentle with yourself" in resp.text
     assert "Dot Muncher" in resp.text
     assert "Multiple people" in resp.text
+    assert "Households" in resp.text
     assert "Kin Wrapped" not in resp.text  # prior release's notes are not in this one
 
 
 def test_save_immich_settings_persist(logged_in_client):
     resp = logged_in_client.post(
-        "/settings/immich",
+        "/settings/households/1/immich",
         data={"immich_url": "http://immich.local:2283", "immich_api_key": "test-key-123"},
         follow_redirects=False,
     )
     assert resp.status_code == 303
 
-    page = logged_in_client.get("/settings")
+    page = logged_in_client.get("/settings/households/1")
     assert "http://immich.local:2283" in page.text
-    assert "test-key-123" in page.text
+    # the key is stored, but never shown back in plaintext
+    assert "test-key-123" not in page.text
+    from app.database import SessionLocal
+    from app.settings_store import get_household_setting
+    db = SessionLocal()
+    try:
+        assert get_household_setting(db, 1, "immich_api_key") == "test-key-123"
+    finally:
+        db.close()
 
 
 def test_save_ai_settings_persist(logged_in_client):
@@ -48,46 +57,49 @@ def test_save_ai_with_blank_key_keeps_existing(logged_in_client):
     # Saving the AI form with a blank key (the "unchanged" password field) must NOT wipe the
     # stored key - previously it silently cleared it, silently disabling AI.
     from app.database import SessionLocal
-    from app.settings_store import set_many, get_setting
+    from app.settings_store import set_household_setting, get_household_setting
 
     db = SessionLocal()
     try:
-        set_many(db, {"ai_base_url": "https://api.openai.com/v1", "ai_api_key": "sk-existing-secret",
-                      "ai_model": "gpt-4o-mini", "support_chat_model": "gpt-4o"})
+        set_household_setting(db, 1, "ai_base_url", "https://api.openai.com/v1")
+        set_household_setting(db, 1, "ai_api_key", "sk-existing-secret")
+        set_household_setting(db, 1, "ai_model", "gpt-4o-mini")
+        set_household_setting(db, 1, "support_chat_model", "gpt-4o")
     finally:
         db.close()
 
     logged_in_client.post(
-        "/settings/ai",
+        "/settings/households/1/ai",
         data={"ai_base_url": "https://api.openai.com/v1", "ai_api_key": "",
               "ai_model": "gpt-4o-mini", "support_chat_model": "gpt-4o"},
         follow_redirects=False,
     )
     db = SessionLocal()
     try:
-        assert get_setting(db, "ai_api_key") == "sk-existing-secret"
+        assert get_household_setting(db, 1, "ai_api_key") == "sk-existing-secret"
     finally:
         db.close()
 
 
 def test_save_immich_with_blank_key_keeps_existing(logged_in_client):
     from app.database import SessionLocal
-    from app.settings_store import set_many, get_setting
+    from app.settings_store import set_household_setting, get_household_setting
 
     db = SessionLocal()
     try:
-        set_many(db, {"immich_url": "http://immich.local", "immich_api_key": "immich-secret"})
+        set_household_setting(db, 1, "immich_url", "http://immich.local")
+        set_household_setting(db, 1, "immich_api_key", "immich-secret")
     finally:
         db.close()
 
     logged_in_client.post(
-        "/settings/immich",
+        "/settings/households/1/immich",
         data={"immich_url": "http://immich.local", "immich_api_key": ""},
         follow_redirects=False,
     )
     db = SessionLocal()
     try:
-        assert get_setting(db, "immich_api_key") == "immich-secret"
+        assert get_household_setting(db, 1, "immich_api_key") == "immich-secret"
     finally:
         db.close()
 
@@ -95,7 +107,7 @@ def test_save_immich_with_blank_key_keeps_existing(logged_in_client):
 def test_add_second_user(logged_in_client):
     resp = logged_in_client.post(
         "/settings/users/new",
-        data={"name": "Second User", "email": "second@example.com", "password": "anotherpassword123"},
+        data={"name": "Second User", "email": "second@example.com", "password": "AnotherPassword123"},
         follow_redirects=False,
     )
     assert resp.status_code == 303

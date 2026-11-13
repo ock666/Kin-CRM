@@ -54,10 +54,7 @@ def _can_edit_household(db, user, household_id: int) -> bool:
 
 def _settings_common(db, user):
     """Context shared by every route that renders the settings page."""
-    return dict(
-        households=db.query(Household).order_by(Household.id).all(),
-        can_edit_config=_can_edit_household_config(user),
-    )
+    return dict(households=db.query(Household).order_by(Household.id).all())
 
 
 @router.get("/settings")
@@ -69,132 +66,6 @@ def settings_page(request: Request, db: Session = Depends(get_db), user=Depends(
     user_mfa = db.get(User, user.id)
     return render(request, "settings.html", db=db, user=user_mfa, active="settings",
                   cfg=cfg, users=users, **_settings_common(db, user))
-
-
-@router.post("/settings/immich")
-def save_immich(request: Request, db: Session = Depends(get_db), user=Depends(current_user),
-                 immich_url: str = Form(""), immich_api_key: str = Form("")):
-    if not user:
-        return RedirectResponse("/login", status_code=303)
-    if not _can_edit_household_config(user):
-        return RedirectResponse("/settings", status_code=303)
-    values = {"immich_url": immich_url.strip()}
-    # The password field is blank when the user wants to keep the existing key - never wipe a
-    # stored secret with an empty submission.
-    if immich_api_key:
-        values["immich_api_key"] = immich_api_key.strip()
-    set_many_household(db, user.household_id, values)
-    return RedirectResponse("/settings", status_code=303)
-
-
-@router.post("/settings/immich/test")
-def test_immich(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
-    cfg = _cfg_for_user(db, user)
-    result = None
-    try:
-        client = ImmichClient(cfg["immich_url"], get_household_setting(db, user.household_id, "immich_api_key"))
-        client.test_connection()
-        result = ("success", "Connected to Immich successfully.")
-    except ImmichError as e:
-        result = ("danger", "Could not connect to Immich. Check your URL and API key.")
-    users = db.query(User).order_by(User.id).all()
-    return render(request, "settings.html", db=db, user=user, active="settings", cfg=cfg, users=users,
-                  **_settings_common(db, user), immich_test=result)
-
-
-@router.post("/settings/ai")
-def save_ai(request: Request, db: Session = Depends(get_db), user=Depends(current_user),
-            ai_base_url: str = Form(...), ai_api_key: str = Form(""), ai_model: str = Form(...),
-            support_chat_model: str = Form("gpt-4o")):
-    if not user:
-        return RedirectResponse("/login", status_code=303)
-    if not _can_edit_household_config(user):
-        return RedirectResponse("/settings", status_code=303)
-    values = {
-        "ai_base_url": ai_base_url.strip(),
-        "ai_model": ai_model.strip(),
-        "support_chat_model": support_chat_model.strip() or "gpt-4o",
-    }
-    # The API-key field is blank when the user wants to keep the existing key - never wipe a
-    # stored secret with an empty submission.
-    if ai_api_key:
-        values["ai_api_key"] = ai_api_key.strip()
-    set_many_household(db, user.household_id, values)
-    return RedirectResponse("/settings", status_code=303)
-
-
-@router.post("/settings/ai/test")
-def test_ai(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
-    cfg = _cfg_for_user(db, user)
-    result = None
-    try:
-        client = AIClient(cfg["ai_base_url"], get_household_setting(db, user.household_id, "ai_api_key"), cfg["ai_model"])
-        reply = client.test_connection()
-        result = ("success", f"AI responded: {reply}")
-    except AIError as e:
-        result = ("danger", "AI connection failed. Check your credentials and try again.")
-    users = db.query(User).order_by(User.id).all()
-    return render(request, "settings.html", db=db, user=user, active="settings", cfg=cfg, users=users,
-                  **_settings_common(db, user), ai_test=result)
-
-
-@router.post("/settings/whisper")
-def save_whisper(request: Request, db: Session = Depends(get_db), user=Depends(current_user),
-                 whisper_provider: str = Form("openai"), whisper_base_url: str = Form(""),
-                 whisper_api_key: str = Form(""), whisper_model: str = Form("whisper-1")):
-    if not user:
-        return RedirectResponse("/login", status_code=303)
-    if not _can_edit_household_config(user):
-        return RedirectResponse("/settings", status_code=303)
-    provider = (whisper_provider or "openai").strip() or "openai"
-    values = {
-        "whisper_provider": provider,
-        "whisper_base_url": whisper_base_url.strip(),
-    }
-    # Only persist model/key for OpenAI-compatible provider; ignore for ASR to avoid
-    # accidentally overwriting or storing irrelevant fields.
-    if provider != "asr-webservice":
-        values["whisper_model"] = (whisper_model or "whisper-1").strip() or "whisper-1"
-        if whisper_api_key:
-            values["whisper_api_key"] = whisper_api_key
-    set_many_household(db, user.household_id, values)
-    return RedirectResponse("/settings", status_code=303)
-
-
-@router.post("/settings/whisper/test")
-def test_whisper(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
-    cfg = _cfg_for_user(db, user)
-    users = db.query(User).order_by(User.id).all()
-    result = None
-    try:
-        import httpx
-        provider = (cfg.get("whisper_provider") or "openai").lower()
-        base = (cfg.get("whisper_base_url") or cfg.get("ai_base_url") or "").strip()
-        if not base:
-            raise RuntimeError("No base URL configured")
-        if provider == "asr-webservice":
-            url = base.rstrip('/') + "/healthz"
-            # healthz may not exist; try root as a fallback
-            with httpx.Client(timeout=5.0) as client:
-                r = client.get(url)
-                if r.status_code >= 400:
-                    r = client.get(base)
-                if r.status_code < 400:
-                    result = ("success", "ASR webservice reachable.")
-                else:
-                    raise RuntimeError("ASR webservice returned an error")
-        else:
-            # OpenAI-compatible: just try a HEAD/GET to the base URL
-            with httpx.Client(timeout=5.0) as client:
-                r = client.get(base)
-                if r.status_code < 400:
-                    result = ("success", "OpenAI-compatible endpoint reachable.")
-                else:
-                    raise RuntimeError("Endpoint returned an error")
-    except Exception:
-        result = ("danger", "Whisper endpoint not reachable. Check URL and container.")
-    return render(request, "settings.html", db=db, user=user, active="settings", cfg=cfg, users=users,
-                  **_settings_common(db, user), whisper_test=result)
 
 
 @router.post("/settings/tts")
@@ -295,7 +166,7 @@ def list_tts_voices(request: Request, db: Session = Depends(get_db), user=Depend
             # OpenAI: suggest a small set; cannot enumerate via API
             voices = ["alloy", "verse", "aria", "sage"]
         return JSONResponse({"voices": voices})
-    except Exception as e:
+    except Exception:
         return JSONResponse({"voices": [], "error": "Failed to fetch voices."}, status_code=400)
 
 
@@ -585,7 +456,6 @@ def test_household_whisper(household_id: int, request: Request, db: Session = De
     cfg = ctx["cfg"]
     result = None
     try:
-        provider = (cfg.get("whisper_provider") or "openai").lower()
         base = (cfg.get("whisper_base_url") or cfg.get("ai_base_url") or "").strip()
         if not base:
             raise RuntimeError("No base URL configured")

@@ -24,6 +24,9 @@ The four quieter games are still there too — Soft Fall, 2048, Memory, and Mine
 ### 👥 Multiple people, one Kin
 Kin now supports multiple users on a single install, each with their own fully private world — their own people, journal, tags, reminders, and progress, kept completely separate from everyone else's. It's the perfect fit if you'd like to host Kin for a friend or partner without each of you running your own instance. To add someone: Settings → Users → add their name and email, and they'll log into a fresh, empty Kin of their own.
 
+### 🏠 Households
+Two people can now opt to share one Kin. A single-use invite link (from the new Household page) lets a partner or friend join your household — merging their people and journal into yours — or create a brand-new account straight into it. Households come with roles: household owners manage members and config, instance owners administer the whole install, and a per-user "hide config" toggle lets you manage things for someone less technical. A household of one is just your own private Kin, so nothing changes if you'd rather keep it that way.
+
 That's everything for now. Be gentle with yourself — Skye 💛
 """.strip(),
 }

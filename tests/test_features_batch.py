@@ -127,7 +127,7 @@ def test_export_import_roundtrip(logged_in_client, user):
         db.close()
 
     # Export
-    exp = logged_in_client.get("/export/json")
+    exp = logged_in_client.post("/export/json")
     assert exp.status_code == 200
     data = json.loads(exp.text)
     assert data["format"] == "kin-export"
