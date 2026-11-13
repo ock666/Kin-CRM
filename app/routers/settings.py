@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..deps import current_user
 from ..models import User, Household
+from ..services import households as household_service
 from ..render import render
 from ..settings_store import (get_all_settings, set_many,
                               get_all_user_settings, set_many_user, get_user_setting, set_user_setting,
@@ -442,6 +443,76 @@ def toggle_settings_hidden(user_id: int, request: Request, db: Session = Depends
         else f"{target.name} can now edit their own config."
     )
     return RedirectResponse("/settings", status_code=303)
+
+
+# ---------------------------------------------------------------------------
+# Instance-owner: configure another household on its members' behalf
+# ---------------------------------------------------------------------------
+
+
+@router.get("/settings/households/{household_id}")
+def household_config_page(household_id: int, request: Request, db: Session = Depends(get_db),
+                          user=Depends(current_user)):
+    if not user or not user.is_admin:
+        return RedirectResponse("/settings", status_code=303)
+    hh = db.get(Household, household_id)
+    if hh is None:
+        return RedirectResponse("/settings", status_code=303)
+    cfg = get_all_household_settings(db, household_id)
+    members = household_service.household_members(db, household_id)
+    return render(request, "household_config.html", db=db, user=user, active="settings",
+                  household=hh, cfg=cfg, members=members)
+
+
+@router.post("/settings/households/{household_id}/immich")
+def save_household_immich(household_id: int, request: Request, db: Session = Depends(get_db),
+                          user=Depends(current_user), immich_url: str = Form(""),
+                          immich_api_key: str = Form("")):
+    if not user or not user.is_admin:
+        return RedirectResponse("/settings", status_code=303)
+    values = {"immich_url": immich_url.strip()}
+    if immich_api_key:
+        values["immich_api_key"] = immich_api_key.strip()
+    set_many_household(db, household_id, values)
+    request.session["notice_flash"] = "Immich settings saved."
+    return RedirectResponse(f"/settings/households/{household_id}", status_code=303)
+
+
+@router.post("/settings/households/{household_id}/ai")
+def save_household_ai(household_id: int, request: Request, db: Session = Depends(get_db),
+                      user=Depends(current_user), ai_base_url: str = Form(""),
+                      ai_api_key: str = Form(""), ai_model: str = Form(""),
+                      support_chat_model: str = Form("gpt-4o")):
+    if not user or not user.is_admin:
+        return RedirectResponse("/settings", status_code=303)
+    values = {
+        "ai_base_url": ai_base_url.strip(),
+        "ai_model": ai_model.strip(),
+        "support_chat_model": support_chat_model.strip() or "gpt-4o",
+    }
+    if ai_api_key:
+        values["ai_api_key"] = ai_api_key.strip()
+    set_many_household(db, household_id, values)
+    request.session["notice_flash"] = "AI settings saved."
+    return RedirectResponse(f"/settings/households/{household_id}", status_code=303)
+
+
+@router.post("/settings/households/{household_id}/whisper")
+def save_household_whisper(household_id: int, request: Request, db: Session = Depends(get_db),
+                           user=Depends(current_user), whisper_provider: str = Form("openai"),
+                           whisper_base_url: str = Form(""), whisper_api_key: str = Form(""),
+                           whisper_model: str = Form("whisper-1")):
+    if not user or not user.is_admin:
+        return RedirectResponse("/settings", status_code=303)
+    provider = (whisper_provider or "openai").strip() or "openai"
+    values = {"whisper_provider": provider, "whisper_base_url": whisper_base_url.strip()}
+    if provider != "asr-webservice":
+        values["whisper_model"] = (whisper_model or "whisper-1").strip() or "whisper-1"
+        if whisper_api_key:
+            values["whisper_api_key"] = whisper_api_key
+    set_many_household(db, household_id, values)
+    request.session["notice_flash"] = "Voice settings saved."
+    return RedirectResponse(f"/settings/households/{household_id}", status_code=303)
 
 
 # ---------------------------------------------------------------------------

@@ -151,3 +151,48 @@ def test_non_owner_cannot_rename(logged_in_client):
         assert db.get(Household, 1).name != "Hacked"
     finally:
         db.close()
+
+
+def test_instance_owner_edits_another_households_config(logged_in_client):
+    from app.database import SessionLocal
+    from app.services.households import create_user
+    from app.settings_store import get_household_setting
+    db = SessionLocal()
+    try:
+        second = create_user(db, name="Second", email="second@example.com", password="SecondPass123")
+        db.commit()
+        second_hh = second.household_id
+    finally:
+        db.close()
+    resp = logged_in_client.post(
+        f"/settings/households/{second_hh}/immich",
+        data={"immich_url": "http://second-immich.local:2283", "immich_api_key": "k"},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    db = SessionLocal()
+    try:
+        assert get_household_setting(db, second_hh, "immich_url") == "http://second-immich.local:2283"
+    finally:
+        db.close()
+
+
+def test_non_admin_cannot_edit_another_household(logged_in_client):
+    from app.database import SessionLocal
+    from app.services.households import create_user
+    from app.settings_store import get_household_setting
+    db = SessionLocal()
+    try:
+        create_user(db, name="Second", email="second@example.com", password="SecondPass123")
+        db.commit()
+    finally:
+        db.close()
+    with _login("second@example.com") as c:
+        resp = c.post("/settings/households/1/immich", data={"immich_url": "http://hacked"},
+                      follow_redirects=False)
+        assert resp.status_code == 303
+    db = SessionLocal()
+    try:
+        assert get_household_setting(db, 1, "immich_url") != "http://hacked"
+    finally:
+        db.close()

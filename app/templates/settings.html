@@ -320,7 +320,10 @@
 <div class="card mt-2">
   <h2>👥 Households &amp; members</h2>
   {% for h in households %}
-    <div class="mt-1" style="font-weight:600;">🏠 {{ h.name or ('Household ' ~ h.id) }}</div>
+    <div class="flex-between mt-1">
+      <div style="font-weight:600;">🏠 {{ h.name or ('Household ' ~ h.id) }}</div>
+      <a class="btn btn-sm" href="/settings/households/{{ h.id }}">Edit config</a>
+    </div>
     {% for u in users %}
       {% if u.household_id == h.id %}
       <div class="flex-between" style="padding:.35rem 0; border-top:1px solid var(--border);">
