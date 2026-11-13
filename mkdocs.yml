@@ -1,0 +1,52 @@
+site_name: Kin
+site_description: Kin is a self-hosted personal relationship manager — gently helping you keep in touch with the people who matter, built with neurodivergent brains in mind.
+site_url: https://kin-docs.skyenet.io
+repo_url: https://github.com/ock666/Kin-CRM
+repo_name: ock666/Kin-CRM
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: amber
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: amber
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.inlinehilite
+  - attr_list
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Quick start: quickstart.md
+  - Installation: installation.md
+  - Core concepts: concepts.md
+  - Features: features.md
+  - Multiple people: multi-user.md
+  - Self-hosting admin: admin.md
+  - Glossary: glossary.md
