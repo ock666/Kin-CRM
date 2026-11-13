@@ -313,6 +313,11 @@ Kin can push birthdays and notable dates into any calendar that can subscribe to
 <!-- FEATURES -->
 ## Features
 
+### Multiple users, one instance
+- One Kin install can host multiple people, each with a fully private world — their own people, journal, tags, reminders, and progress, invisible to everyone else
+- Add someone from **Settings → Users** (admin), and they log into a fresh, empty Kin of their own
+- Immich, AI, and Whisper are configured **per user** (each person brings their own photo library and AI keys); the TTS voice engine, push keys, and scheduler stay instance-wide (admin-only)
+
 ### Today dashboard
 - **Upcoming birthdays & notable dates** surfaced as they approach with configurable lead time
 - **"Time to reach out"** — gentle cadence nudges with per-person quick reply ideas (AI-generated from profile data or template fallback)
@@ -351,7 +356,7 @@ Kin can push birthdays and notable dates into any calendar that can subscribe to
 - Chat transcripts auto-archive after 14 days ("water under the bridge"), always exportable
 
 ### Gamification (celebrating rest too)
-- Shared household-wide XP, levels, and 45+ achievements
+- Personal XP, levels, and 45+ achievements (per user)
 - **Rest achievements**: celebrate snoozing a check-in, entering grace mode, releasing a conflict, setting "wants space" — rest is productive
 - Achievements unlock silently; toasts only for level-ups or new badges
 
@@ -367,7 +372,7 @@ Kin can push birthdays and notable dates into any calendar that can subscribe to
 - **Breathe**: Box, 4-7-8, physiological sigh, and 4-6 patterns with one interactive timer
 - **Ground**: 5-4-3-2-1 grounding and quick physical resets
 - **Reframe**: facts-vs-RSD reality check, the STOP technique, and "name it to tame it" affect labeling
-- **Soothe**: gentle, no-pressure games (no timers, no score pressure, touch + keyboard) — Soft Fall (falling blocks), 2048, Memory, and Minesweeper
+- **Soothe**: gentle, no-pressure games (no timers, no score pressure, touch + keyboard) — Soft Fall (falling blocks), 2048, Memory, Minesweeper, and Dot Muncher (a cozy Pac-Man-style maze chase)
 - Inclusive help lines: AU (000, Lifeline, Beyond Blue, QLife), US (988, Trevor Project, Trans Lifeline), UK (999/111, Mind, Switchboard) — secular and queer-affirming only
 
 ### Kin Wrapped

@@ -48,9 +48,11 @@ person_tags = Table(
 
 class Tag(Base):
     __tablename__ = "tags"
+    __table_args__ = (UniqueConstraint("user_id", "name", name="uq_tags_user_name"),)
 
     id = Column(Integer, primary_key=True)
-    name = Column(String(100), unique=True, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    name = Column(String(100), nullable=False)
     color = Column(String(20), default="#6366f1")
 
     people = relationship("Person", secondary=person_tags, back_populates="tags")
@@ -97,6 +99,7 @@ class Person(Base):
     __tablename__ = "people"
 
     id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     name = Column(String(255), nullable=False)
     nickname = Column(String(255), nullable=True)
     pronouns = Column(String(50), nullable=True)
@@ -302,6 +305,17 @@ class Setting(Base):
     value = Column(Text, nullable=True)
 
 
+class UserSetting(Base):
+    """Per-user preferences (each user's own copy of birthday lead days, cadence defaults,
+    grace note, calendar-sync choices, etc.). Instance/infra settings stay in the global
+    `settings` table (admin-controlled)."""
+    __tablename__ = "user_settings"
+
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    key = Column(String(100), primary_key=True)
+    value = Column(Text, nullable=True)
+
+
 # ---------------------------------------------------------------------------
 # Gamification (v1.2) - a shared/household-wide progression state (singleton row,
 # id fixed at 1) rather than per-login-user, matching this app's shared-workspace model.
@@ -311,7 +325,8 @@ class Setting(Base):
 class UserStats(Base):
     __tablename__ = "user_stats"
 
-    id = Column(Integer, primary_key=True, default=1)
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, unique=True, index=True)
     total_xp = Column(Integer, default=0, nullable=False)
     current_level = Column(Integer, default=1, nullable=False)
     streak_days = Column(Integer, default=0, nullable=False)
@@ -320,9 +335,11 @@ class UserStats(Base):
 
 class UnlockedAchievement(Base):
     __tablename__ = "unlocked_achievements"
+    __table_args__ = (UniqueConstraint("user_id", "slug", name="uq_achievements_user_slug"),)
 
     id = Column(Integer, primary_key=True)
-    slug = Column(String(100), unique=True, nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    slug = Column(String(100), nullable=False, index=True)
     unlocked_at = Column(DateTime, default=utcnow)
 
 
@@ -412,6 +429,7 @@ class WrappedCard(Base):
     __tablename__ = "wrapped_cards"
 
     id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     token = Column(String(64), unique=True, nullable=False, index=True)
     year = Column(Integer, nullable=False, index=True)
     data_json = Column(Text, nullable=False)

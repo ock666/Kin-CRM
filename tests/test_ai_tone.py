@@ -40,7 +40,7 @@ def test_familiarity_register_acquaintance():
 
 
 def test_familiarity_register_warmer_with_more_data():
-    p = _Person(
+    p = _Person(user_id=1,
         journal_entries=[object() for _ in range(8)],
         last_contact_date=dt.date.today(),
         birthday_month=6,
@@ -72,7 +72,7 @@ def test_register_values_avoid_cheesy_language():
         assert "understated" in reg or "low-key" in reg or "plain" in reg, tier
 
 
-def test_conversation_starters_prompt_is_understated():
+def test_conversation_starters_prompt_is_understated(user):
     captured = {}
 
     ai = AIClient("http://example.com/v1", "sk-test", "gpt-4o-mini")

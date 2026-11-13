@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
 from ..database import get_db
+from ..scoping import get_owned_child, get_person
 from ..deps import current_user
 from ..models import ConflictLog, ConflictChatMessage, ConflictStatus, JournalEntry, EventType, utcnow
 from ..services import conflict_resolution, gamification
@@ -85,6 +86,8 @@ def add_conflict(person_id: int, request: Request, db: Session = Depends(get_db)
     summary = summary.strip()
     if not summary:
         return RedirectResponse(f"/people/{person_id}", status_code=303)
+    if not get_person(db, user, person_id):
+        return RedirectResponse("/people", status_code=303)
 
     conflict = ConflictLog(person_id=person_id, summary=summary, status=ConflictStatus.unresolved)
     db.add(conflict)
@@ -94,7 +97,7 @@ def add_conflict(person_id: int, request: Request, db: Session = Depends(get_db)
     # immediately, no waiting period, no requirement to interact with the person first. Falls
     # back gracefully to generic scripts in the template if this isn't configured or fails.
     try:
-        ai = ai_from_settings(db)
+        ai = ai_from_settings(db, user)
         if ai:
             conflict_resolution.generate_approach_suggestions(db, ai, conflict, conflict.person)
     except AIError:
@@ -106,7 +109,7 @@ def add_conflict(person_id: int, request: Request, db: Session = Depends(get_db)
 @router.post("/conflicts/{conflict_id}/resolve")
 def resolve_conflict(conflict_id: int, request: Request, db: Session = Depends(get_db),
                       user=Depends(current_user), resolution_notes: str = Form("")):
-    conflict = db.get(ConflictLog, conflict_id)
+    conflict = get_owned_child(db, user, ConflictLog, conflict_id)
     if not conflict:
         return RedirectResponse("/", status_code=303)
     conflict.status = ConflictStatus.resolved
@@ -114,7 +117,7 @@ def resolve_conflict(conflict_id: int, request: Request, db: Session = Depends(g
     conflict.resolution_notes = resolution_notes.strip() or None
     db.commit()
 
-    gamification.award_and_flash(request, db, "CONFLICT_RESOLVED")
+    gamification.award_and_flash(request, db, user, "CONFLICT_RESOLVED")
     request.session["notice_flash"] = "Marked resolved. Glad that one's settled. 🕊️"
     return RedirectResponse(f"/people/{conflict.person_id}", status_code=303)
 
@@ -124,14 +127,14 @@ def release_conflict(conflict_id: int, request: Request, db: Session = Depends(g
     """Option D - "Letting This Go". A first-class, equally valid resolution path, not a
     fallback: choosing to release pressure around something is treated the same as an explicit
     repair for gamification/XP purposes."""
-    conflict = db.get(ConflictLog, conflict_id)
+    conflict = get_owned_child(db, user, ConflictLog, conflict_id)
     if not conflict:
         return RedirectResponse("/", status_code=303)
     conflict.status = ConflictStatus.released
     conflict.resolved_at = utcnow()
     db.commit()
 
-    gamification.award_and_flash(request, db, "CONFLICT_RELEASED")
+    gamification.award_and_flash(request, db, user, "CONFLICT_RELEASED")
     request.session["notice_flash"] = "Closed. Choosing peace and releasing pressure is a valid path. 🕊️"
     return RedirectResponse(f"/people/{conflict.person_id}", status_code=303)
 
@@ -140,7 +143,7 @@ def release_conflict(conflict_id: int, request: Request, db: Session = Depends(g
 def dismiss_reminder(conflict_id: int, db: Session = Depends(get_db), user=Depends(current_user)):
     """Quietly hides this conflict from the dashboard's gentle reminder list without resolving or
     releasing it - it still shows on the person's own profile either way, ready whenever."""
-    conflict = db.get(ConflictLog, conflict_id)
+    conflict = get_owned_child(db, user, ConflictLog, conflict_id)
     if conflict:
         conflict.reminder_dismissed = True
         db.commit()
@@ -152,11 +155,11 @@ def generate_approach(conflict_id: int, request: Request, db: Session = Depends(
     """Manually (re)generate the AI's conflict-specific approach suggestions - used both for the
     first generation (if AI wasn't configured yet when the conflict was logged) and for "try
     different suggestions" if the first pass doesn't feel right."""
-    conflict = db.get(ConflictLog, conflict_id)
+    conflict = get_owned_child(db, user, ConflictLog, conflict_id)
     if not conflict:
         return RedirectResponse("/", status_code=303)
     try:
-        ai = ai_from_settings(db)
+        ai = ai_from_settings(db, user)
         if ai:
             conflict_resolution.generate_approach_suggestions(db, ai, conflict, conflict.person)
         else:
@@ -168,7 +171,7 @@ def generate_approach(conflict_id: int, request: Request, db: Session = Depends(
 
 @router.post("/conflicts/{conflict_id}/delete")
 def delete_conflict(conflict_id: int, db: Session = Depends(get_db), user=Depends(current_user)):
-    conflict = db.get(ConflictLog, conflict_id)
+    conflict = get_owned_child(db, user, ConflictLog, conflict_id)
     if conflict:
         person_id = conflict.person_id
         db.delete(conflict)
@@ -179,7 +182,7 @@ def delete_conflict(conflict_id: int, db: Session = Depends(get_db), user=Depend
 
 @router.get("/conflicts/{conflict_id}/chat")
 def get_chat_messages(conflict_id: int, db: Session = Depends(get_db), user=Depends(current_user)):
-    conflict = db.get(ConflictLog, conflict_id)
+    conflict = get_owned_child(db, user, ConflictLog, conflict_id)
     if not conflict:
         return JSONResponse({"error": "not found"}, status_code=404)
     if _retention_expired(db, conflict):
@@ -202,7 +205,7 @@ def get_chat_messages(conflict_id: int, db: Session = Depends(get_db), user=Depe
 @router.post("/conflicts/{conflict_id}/chat")
 async def conflict_chat(conflict_id: int, request: Request, db: Session = Depends(get_db),
                          user=Depends(current_user)):
-    conflict = db.get(ConflictLog, conflict_id)
+    conflict = get_owned_child(db, user, ConflictLog, conflict_id)
     if not conflict:
         return JSONResponse({"error": "not found"}, status_code=404)
 
@@ -238,7 +241,7 @@ async def conflict_chat(conflict_id: int, request: Request, db: Session = Depend
             "content": f"I'm here to talk about what happened with {person_name}.",
         })
 
-    ai = support_ai_from_settings(db)
+    ai = support_ai_from_settings(db, user)
     if not ai:
         return JSONResponse(
             {"error": "AI isn't configured yet. Add an API key and set a support chat model in Settings."},
@@ -266,7 +269,7 @@ async def conflict_chat(conflict_id: int, request: Request, db: Session = Depend
                         from ..services.tts_client import synthesize_from_settings, should_reply_with_voice
                         import logging
                         _tts_log = logging.getLogger(__name__)
-                        _, mirror_mode = should_reply_with_voice(db2)
+                        _, mirror_mode = should_reply_with_voice(db2, user)
                         # Mirror: reply with voice only when answering a voice note (message == "" means
                         # the client just sent audio via /chat/voice). A text turn never triggers voice.
                         do_voice = bool(
@@ -281,9 +284,9 @@ async def conflict_chat(conflict_id: int, request: Request, db: Session = Depend
                             mirror_mode, do_voice, sum(1 for pm in prior if pm.role == 'user' and pm.audio_url),
                         )
                         if do_voice:
-                            audio_bytes = synthesize_from_settings(db2, reply)
+                            audio_bytes = synthesize_from_settings(db2, reply, user=user)
                             from ..config import settings as app_settings
-                            voice_dir = app_settings.UPLOAD_DIR / "voice"
+                            voice_dir = app_settings.UPLOAD_DIR / "voice" / str(user.id)
                             voice_dir.mkdir(parents=True, exist_ok=True)
                             fname = f"bot_{uuid.uuid4().hex}.mp3"
                             fpath = voice_dir / fname
@@ -308,14 +311,14 @@ async def conflict_chat(conflict_id: int, request: Request, db: Session = Depend
 _AUDIO_EXTS = {".webm", ".ogg", ".mp3", ".m4a", ".wav", ".mp4", ".aac", ".flac"}
 
 
-def _transcribe_audio(raw: bytes, filename: str) -> str:
+def _transcribe_audio(raw: bytes, filename: str, user) -> str:
     """Transcribe audio in a worker thread using its own DB session (blocking I/O)."""
     from ..database import SessionLocal
     from ..services.whisper_client import transcribe_from_settings
     import io as _io
     db2 = SessionLocal()
     try:
-        return transcribe_from_settings(db2, _io.BytesIO(raw), filename)
+        return transcribe_from_settings(db2, user, _io.BytesIO(raw), filename)
     finally:
         db2.close()
 
@@ -323,7 +326,7 @@ def _transcribe_audio(raw: bytes, filename: str) -> str:
 @router.post("/conflicts/{conflict_id}/chat/voice")
 async def conflict_chat_voice(conflict_id: int, db: Session = Depends(get_db), user=Depends(current_user),
                               audio_file: UploadFile = File(...)):
-    conflict = db.get(ConflictLog, conflict_id)
+    conflict = get_owned_child(db, user, ConflictLog, conflict_id)
     if not conflict:
         return JSONResponse({"error": "not found"}, status_code=404)
 
@@ -338,7 +341,7 @@ async def conflict_chat_voice(conflict_id: int, db: Session = Depends(get_db), u
         return JSONResponse({"error": "Audio too large (limit 25 MB)."}, status_code=413)
 
     from ..config import settings as app_settings
-    voice_dir = app_settings.UPLOAD_DIR / "voice"
+    voice_dir = app_settings.UPLOAD_DIR / "voice" / str(user.id)
     voice_dir.mkdir(parents=True, exist_ok=True)
 
     ext = os.path.splitext(audio_file.filename or "")[1].lower()
@@ -351,7 +354,7 @@ async def conflict_chat_voice(conflict_id: int, db: Session = Depends(get_db), u
 
     # Transcribe off the event loop (blocking HTTP/ASR I/O); failures fall back to a plain voice note.
     try:
-        text = await run_in_threadpool(_transcribe_audio, raw, audio_file.filename or "audio.webm")
+        text = await run_in_threadpool(_transcribe_audio, raw, audio_file.filename or "audio.webm", user)
     except Exception as _tx_exc:
         import logging
         logging.getLogger(__name__).warning("Voice transcription failed: %s", _tx_exc)
@@ -367,10 +370,12 @@ async def conflict_chat_voice(conflict_id: int, db: Session = Depends(get_db), u
 @router.get("/uploads/voice/{filename}")
 def serve_voice_upload(filename: str, db: Session = Depends(get_db), user=Depends(current_user)):
     # Auth-gated simple file server for voice uploads. Reject any path segments/traversal.
+    if not user:
+        return JSONResponse({"error": "not found"}, status_code=404)
     if not filename or filename in (".", "..") or Path(filename).name != filename:
         return JSONResponse({"error": "not found"}, status_code=404)
     from ..config import settings as app_settings
-    fpath = app_settings.UPLOAD_DIR / "voice" / filename
+    fpath = app_settings.UPLOAD_DIR / "voice" / str(user.id) / filename
     if not fpath.is_file():
         return JSONResponse({"error": "not found"}, status_code=404)
     return FileResponse(str(fpath))
@@ -379,7 +384,7 @@ def serve_voice_upload(filename: str, db: Session = Depends(get_db), user=Depend
 @router.post("/conflicts/{conflict_id}/chat/insight")
 async def chat_insight(conflict_id: int, request: Request, db: Session = Depends(get_db),
                         user=Depends(current_user)):
-    conflict = db.get(ConflictLog, conflict_id)
+    conflict = get_owned_child(db, user, ConflictLog, conflict_id)
     if not conflict:
         return JSONResponse({"error": "not found"}, status_code=404)
     if _retention_expired(db, conflict):
@@ -392,7 +397,7 @@ async def chat_insight(conflict_id: int, request: Request, db: Session = Depends
     )
     if not messages:
         return JSONResponse({"error": "no messages yet"}, status_code=400)
-    ai = support_ai_from_settings(db)
+    ai = support_ai_from_settings(db, user)
     if not ai:
         return JSONResponse({"error": "AI not configured"}, status_code=400)
     try:
@@ -405,7 +410,7 @@ async def chat_insight(conflict_id: int, request: Request, db: Session = Depends
 @router.post("/conflicts/{conflict_id}/chat/insight/save")
 async def save_chat_insight(conflict_id: int, request: Request, db: Session = Depends(get_db),
                              user=Depends(current_user)):
-    conflict = db.get(ConflictLog, conflict_id)
+    conflict = get_owned_child(db, user, ConflictLog, conflict_id)
     if not conflict:
         return JSONResponse({"error": "not found"}, status_code=404)
     body = await request.json()
@@ -428,8 +433,8 @@ async def save_chat_insight(conflict_id: int, request: Request, db: Session = De
 def generate_plan(conflict_id: int, request: Request, db: Session = Depends(get_db),
                    user=Depends(current_user)):
     from ..services import resolution_plans as plan_service
-    ok = plan_service.generate_plan_for_conflict(db, conflict_id)
-    conflict = db.get(ConflictLog, conflict_id)
+    ok = plan_service.generate_plan_for_conflict(db, user, conflict_id)
+    conflict = get_owned_child(db, user, ConflictLog, conflict_id)
     pid = conflict.person_id if conflict else None
     if ok:
         request.session["notice_flash"] = "Resolution plan ready. 📋"
@@ -440,7 +445,7 @@ def generate_plan(conflict_id: int, request: Request, db: Session = Depends(get_
 
 @router.post("/conflicts/{conflict_id}/chat/clear")
 def clear_chat(conflict_id: int, db: Session = Depends(get_db), user=Depends(current_user)):
-    conflict = db.get(ConflictLog, conflict_id)
+    conflict = get_owned_child(db, user, ConflictLog, conflict_id)
     if conflict:
         db.query(ConflictChatMessage).filter_by(conflict_id=conflict_id).delete()
         db.commit()

@@ -5,6 +5,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from ..database import get_db
+from ..scoping import get_person, owned_people
 from ..deps import current_user
 from ..models import Person, NotableDate, ConflictLog, ConflictStatus, UnlockedAchievement, RelationshipState
 from ..render import render
@@ -15,7 +16,7 @@ from ..services import grace as grace_service
 from ..services.gamification import ACHIEVEMENTS
 from ..services.hangouts import get_recent_hangouts_cached
 from ..services.immich_client import get_client_from_settings as immich_from_settings, ImmichError
-from ..settings_store import get_setting, set_setting
+from ..settings_store import get_user_setting, set_user_setting
 
 router = APIRouter()
 
@@ -53,11 +54,11 @@ def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(curr
         greeting = "Good evening"
     greeting_name = (user.name.split()[0] if user and user.name else "") or "friend"
     today_label = today.strftime("%A, %d %B")
-    lead_days = _safe_int(get_setting(db, "birthday_lead_days", "3"), 3)
-    upcoming_birthdays = bday_service.people_with_upcoming_birthdays(db, lead_days)
+    lead_days = _safe_int(get_user_setting(db, user.id, "birthday_lead_days", "3"), 3)
+    upcoming_birthdays = bday_service.people_with_upcoming_birthdays(db, user, lead_days)
 
     upcoming_notable = []
-    for nd in db.query(NotableDate).all():
+    for nd in db.query(NotableDate).join(Person, Person.id == NotableDate.person_id).filter(Person.user_id == user.id).all():
         nb = _safe_date(today.year, nd.month, nd.day)
         if nb is None:
             continue
@@ -78,14 +79,14 @@ def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(curr
     hangouts = []
     hangouts_error = None
     try:
-        client = immich_from_settings(db)
+        client = immich_from_settings(db, user)
         memories = client.on_this_day_with_fallback()
-        hangouts, hangouts_error = get_recent_hangouts_cached(db, client)
+        hangouts, hangouts_error = get_recent_hangouts_cached(db, user, client)
     except ImmichError as e:
         memories_error = str(e)
 
     if memories:
-        gamification.check_only(request, db, context={"viewed_on_this_day": True})
+        gamification.check_only(request, db, user, context={"viewed_on_this_day": True})
 
     # Photo proof = they count as kept-in-touch: credit the actual day you were together (never a
     # false "today"), and silently refresh the achievement radar. Only ever bumps the date
@@ -107,7 +108,7 @@ def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(curr
                 changed = True
         if changed:
             db.commit()
-        gamification.check_only(request, db, context={"hangout_detected": True})
+        gamification.check_only(request, db, user, context={"hangout_detected": True})
 
     # Only *shown* hangouts replace the reach-out row - a dismissed hangout must never silently
     # suppress a genuinely overdue nudge (the person would vanish from the dashboard entirely).
@@ -117,8 +118,8 @@ def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(curr
     # Grace mode ("stepping back for now"): when active, silence the demanding nudges so the
     # user gets a genuine break. Reaching out stays untouched and no data is lost - the cards
     # simply return when grace ends (the calm banner explains how long is left).
-    grace_active = grace_service.is_grace_active(db)
-    grace_remaining = grace_service.remaining_days(db) if grace_active else None
+    grace_active = grace_service.is_grace_active(db, user)
+    grace_remaining = grace_service.remaining_days(db, user) if grace_active else None
 
     if grace_active:
         overdue = []
@@ -127,30 +128,33 @@ def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(curr
         state_suggestions = []
     else:
         overdue = [
-            t for t in checkin_service.overdue_people(db) if t[0].id not in hangout_ids
+            t for t in checkin_service.overdue_people(db, user) if t[0].id not in hangout_ids
         ]
         unresolved_conflicts = (
             db.query(ConflictLog)
+            .join(Person, Person.id == ConflictLog.person_id)
+            .filter(Person.user_id == user.id)
             .filter(ConflictLog.status == ConflictStatus.unresolved)
             .filter(ConflictLog.reminder_dismissed.is_(False))
             .all()
         )
-        state_suggestions = state_service.suggest_states(db)
+        state_suggestions = state_service.suggest_states(db, user)
         drifted_people = [
             (p, (today - (p.last_contact_date or p.created_at.date())).days)
-            for p in db.query(Person)
+            for p in owned_people(db, user)
             .filter(Person.archived.is_(False))
             .filter(Person.reminders_dismissed.is_(False))
             .all()
             if state_service.effective_state(p, today) == RelationshipState.drifted
         ]
 
-    progress = gamification.get_stats_and_achievements(db)
+    progress = gamification.get_stats_and_achievements(db, user)
 
     # "Read back when anxious": recent achievements + a personal pinned note, kept calm and
     # pressure-free. The note lives in settings so it's easy to edit without a schema change.
     recent_unlocks = (
         db.query(UnlockedAchievement)
+        .filter(UnlockedAchievement.user_id == user.id)
         .order_by(UnlockedAchievement.unlocked_at.desc())
         .limit(3)
         .all()
@@ -160,7 +164,7 @@ def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(curr
         meta = ACHIEVEMENTS.get(row.slug)
         if meta:
             recent_badges.append({"emoji": meta[0], "label": meta[1]})
-    reassurance_note = get_setting(db, "reassurance_note", "")
+    reassurance_note = get_user_setting(db, user.id, "reassurance_note", "")
 
     return render(
         request, "dashboard.html", db=db, user=user, active="dashboard",
@@ -190,7 +194,7 @@ def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(curr
 def save_reassurance(request: Request, db: Session = Depends(get_db), user=Depends(current_user),
                      note: str = Form("")):
     """Save the user's personal affirmation ('read back when anxious') note."""
-    set_setting(db, "reassurance_note", note.strip())
+    set_user_setting(db, user.id, "reassurance_note", note.strip())
     request.session["notice_flash"] = "Saved. Feel free to read it back whenever you need it. 🕊️"
     return RedirectResponse("/", status_code=303)
 
@@ -198,8 +202,8 @@ def save_reassurance(request: Request, db: Session = Depends(get_db), user=Depen
 @router.post("/grace/start")
 def start_grace(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
     """'Stepping back for now' - no reason needed. Silences gentle nudges & push for a week."""
-    grace_service.start_grace(db)
-    gamification.award_and_flash(request, db, "REST_GRACE")
+    grace_service.start_grace(db, user)
+    gamification.award_and_flash(request, db, user, "REST_GRACE")
     request.session["notice_flash"] = "Stepping back for a week. Gentle nudge and reminders are paused — take the time you need. 🕊️"
     return RedirectResponse("/", status_code=303)
 
@@ -207,7 +211,7 @@ def start_grace(request: Request, db: Session = Depends(get_db), user=Depends(cu
 @router.post("/grace/end")
 def end_grace(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
     """Come out of grace mode early."""
-    grace_service.end_grace(db)
+    grace_service.end_grace(db, user)
     request.session["notice_flash"] = "Welcome back — easy does it. Gentle reminders are on again."
     return RedirectResponse("/", status_code=303)
 
@@ -216,24 +220,24 @@ def end_grace(request: Request, db: Session = Depends(get_db), user=Depends(curr
 def progress_page(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
     if not user:
         return RedirectResponse("/login")
-    progress = gamification.get_stats_and_achievements(db)
+    progress = gamification.get_stats_and_achievements(db, user)
     return render(request, "progress.html", db=db, user=user, active="progress", progress=progress)
 
 
 @router.post("/checkin/{person_id}/snooze")
 def snooze_checkin(person_id: int, request: Request, db: Session = Depends(get_db),
                     user=Depends(current_user), days: int = Form(14)):
-    person = db.get(Person, person_id)
+    person = get_person(db, user, person_id)
     if person:
         person.checkin_snoozed_until = dt.date.today() + dt.timedelta(days=days)
         db.commit()
-        gamification.award_and_flash(request, db, "REST_SNOOZE")
+        gamification.award_and_flash(request, db, user, "REST_SNOOZE")
     return RedirectResponse("/", status_code=303)
 
 
 @router.post("/checkin/{person_id}/mark-contacted")
 def mark_contacted(person_id: int, request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
-    person = db.get(Person, person_id)
+    person = get_person(db, user, person_id)
     if person:
         was_overdue = checkin_service.is_overdue(person)
         already_contacted_today = person.last_contact_date == dt.date.today()
@@ -244,13 +248,13 @@ def mark_contacted(person_id: int, request: Request, db: Session = Depends(get_d
         # so it only counts once per person per day (can't farm XP by re-clicking).
         events = ["MICRO_CHECKIN"] if not already_contacted_today else []
         if was_overdue:
-            all_cleared = len(checkin_service.overdue_people(db)) == 0
+            all_cleared = len(checkin_service.overdue_people(db, user)) == 0
             events = ["OVERDUE_CHECKIN"] + events
             context = {"all_overdue_cleared": all_cleared}
         else:
             context = None
         if events:
-            gamification.award_and_flash(request, db, *events, context=context)
+            gamification.award_and_flash(request, db, user, *events, context=context)
     return RedirectResponse("/", status_code=303)
 
 
@@ -260,7 +264,7 @@ def dismiss_reminders(person_id: int, request: Request, db: Session = Depends(ge
     """Quiet this person's gentle reminders so they stop appearing on the dashboard - a calm
     'revisit when you're ready' rather than a deletion. They stay in the People list and can be
     resumed from their profile."""
-    person = db.get(Person, person_id)
+    person = get_person(db, user, person_id)
     if person:
         person.reminders_dismissed = True
         person.checkin_snoozed_until = None
@@ -271,7 +275,7 @@ def dismiss_reminders(person_id: int, request: Request, db: Session = Depends(ge
 @router.post("/checkin/{person_id}/resume")
 def resume_reminders(person_id: int, request: Request, db: Session = Depends(get_db),
                      user=Depends(current_user)):
-    person = db.get(Person, person_id)
+    person = get_person(db, user, person_id)
     if person:
         person.reminders_dismissed = False
         db.commit()

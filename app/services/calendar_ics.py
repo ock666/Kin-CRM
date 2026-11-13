@@ -13,7 +13,6 @@ import datetime as dt
 from sqlalchemy.orm import Session
 
 from ..models import Person, NotableDate
-from ..settings_store import get_setting
 
 
 def _escape(text: str) -> str:
@@ -57,7 +56,7 @@ def _vevent(uid: str, summary: str, start: dt.date, recurring: bool,
     return lines
 
 
-def build_ics(db: Session, birthday_reminder_days: int = 14,
+def build_ics(db: Session, user, birthday_reminder_days: int = 14,
               notable_reminder_days: int = 1,
               include_birthdays: bool = True,
               include_notable_dates: bool = True) -> str:
@@ -73,6 +72,7 @@ def build_ics(db: Session, birthday_reminder_days: int = 14,
     if include_birthdays:
         people = (
             db.query(Person)
+            .filter(Person.user_id == user.id)
             .filter(Person.archived.is_(False))
             .filter(Person.birthday_month.isnot(None), Person.birthday_day.isnot(None))
             .order_by(Person.name)
@@ -91,7 +91,13 @@ def build_ics(db: Session, birthday_reminder_days: int = 14,
             )
 
     if include_notable_dates:
-        notable_dates = db.query(NotableDate).order_by(NotableDate.label).all()
+        notable_dates = (
+            db.query(NotableDate)
+            .join(Person, Person.id == NotableDate.person_id)
+            .filter(Person.user_id == user.id)
+            .order_by(NotableDate.label)
+            .all()
+        )
         for nd in notable_dates:
             start = _safe_date(nd.year or today.year, nd.month, nd.day)
             if start is None:

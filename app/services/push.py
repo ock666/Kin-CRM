@@ -23,7 +23,7 @@ from pywebpush import WebPushException, webpush
 from sqlalchemy.orm import Session
 
 from ..models import PushSubscription
-from ..settings_store import get_setting, set_setting
+from ..settings_store import get_setting, set_setting, get_user_setting
 from . import birthdays, checkins
 from . import grace as grace_service
 
@@ -95,17 +95,17 @@ def _send(sub: PushSubscription, payload: dict, vapid: dict) -> bool | str:
         return False
 
 
-def _build_messages(db: Session) -> list[dict]:
+def _build_messages(db: Session, user) -> list[dict]:
     """Aggregate due notifications into a small list of quiet message dicts, honoring the
     user's per-trigger preferences (push_birthdays / push_cadence)."""
     messages = []
 
-    if get_setting(db, "push_birthdays", "1") != "0":
+    if get_user_setting(db, user.id, "push_birthdays", "1") != "0":
         try:
-            lead_days = int(get_setting(db, "birthday_lead_days", "3") or 3)
+            lead_days = int(get_user_setting(db, user.id, "birthday_lead_days", "3") or 3)
         except ValueError:
             lead_days = 3
-        upcoming = birthdays.people_with_upcoming_birthdays(db, lead_days)
+        upcoming = birthdays.people_with_upcoming_birthdays(db, user, lead_days)
         if upcoming:
             names = ", ".join(p.name for p, _ in upcoming[:3])
             more = f" and {len(upcoming) - 3} more" if len(upcoming) > 3 else ""
@@ -117,8 +117,8 @@ def _build_messages(db: Session) -> list[dict]:
                 "tag": "birthdays",
             })
 
-    if get_setting(db, "push_cadence", "1") != "0":
-        overdue = checkins.overdue_people(db)
+    if get_user_setting(db, user.id, "push_cadence", "1") != "0":
+        overdue = checkins.overdue_people(db, user)
         if overdue:
             by_days = sorted(overdue, key=lambda t: -t[1])[:5]
             names = ", ".join(p.name for p, _ in by_days)
@@ -133,12 +133,12 @@ def _build_messages(db: Session) -> list[dict]:
     return messages
 
 
-def send_test(db: Session) -> int:
+def send_test(db: Session, user) -> int:
     """Send a single test notification to all subscriptions. Returns count sent."""
     vapid = ensure_vapid_keys(db)
     if not vapid:
         return 0
-    subs = db.query(PushSubscription).all()
+    subs = db.query(PushSubscription).filter(PushSubscription.user_id == user.id).all()
     payload = {
         "title": "Kin test",
         "body": "Notifications are working 🎉 You can turn these off in Settings anytime.",
@@ -159,19 +159,19 @@ def send_test(db: Session) -> int:
     return sent
 
 
-def push_notification(db: Session, title: str, body: str, url: str = "/",
+def push_notification(db: Session, user, title: str, body: str, url: str = "/",
                       tag: str = "kin") -> int:
     """Send a single one-off notification to all opted-in subscriptions (e.g. 'your year is
     ready'). Respects the same rules as the daily nudges: no-op unless push is enabled, no
     delivery during grace mode, dead subscriptions pruned. Returns count sent."""
-    if get_setting(db, "push_enabled", "0") == "0":
+    if get_user_setting(db, user.id, "push_enabled", "0") == "0":
         return 0
-    if grace_service.is_grace_active(db):
+    if grace_service.is_grace_active(db, user):
         return 0
     vapid = ensure_vapid_keys(db)
     if not vapid:
         return 0
-    subs = db.query(PushSubscription).all()
+    subs = db.query(PushSubscription).filter(PushSubscription.user_id == user.id).all()
     if not subs:
         return 0
 
@@ -190,19 +190,19 @@ def push_notification(db: Session, title: str, body: str, url: str = "/",
     return sent
 
 
-def send_push_notifications(db: Session) -> int:
+def send_push_notifications(db: Session, user) -> int:
     """Send aggregated push notifications to all opted-in subscriptions. Returns the number of
     subscriptions successfully notified, or 0 if push isn't configured / disabled / nothing to
     send. Never raises - failures are logged and dead subscriptions are pruned. Silence applies
     during grace mode (stepping back) so the user gets a true break."""
-    if get_setting(db, "push_enabled", "0") == "0":
+    if get_user_setting(db, user.id, "push_enabled", "0") == "0":
         return 0
-    if grace_service.is_grace_active(db):
+    if grace_service.is_grace_active(db, user):
         return 0
     vapid = ensure_vapid_keys(db)
     if not vapid:
         return 0
-    subs = db.query(PushSubscription).all()
+    subs = db.query(PushSubscription).filter(PushSubscription.user_id == user.id).all()
     if not subs:
         return 0
     messages = _build_messages(db)

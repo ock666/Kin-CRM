@@ -104,14 +104,14 @@ def test_safe_int_invalid():
     assert _safe_int("", 7) == 7
 
 
-def test_people_with_upcoming_birthdays(app):
+def test_people_with_upcoming_birthdays(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
         today = dt.date.today()
         # Person with birthday tomorrow
         tomorrow = today + dt.timedelta(days=1)
-        p = Person(
+        p = Person(user_id=1,
             name="Tomorrow Bday",
             birthday_month=tomorrow.month,
             birthday_day=tomorrow.day,
@@ -119,7 +119,7 @@ def test_people_with_upcoming_birthdays(app):
         db.add(p)
         db.commit()
 
-        result = people_with_upcoming_birthdays(db, lead_days=3)
+        result = people_with_upcoming_birthdays(db, user, lead_days=3)
         assert len(result) == 1
         assert result[0][0].name == "Tomorrow Bday"
         assert result[0][1] == 1  # days until
@@ -127,12 +127,12 @@ def test_people_with_upcoming_birthdays(app):
         db.close()
 
 
-def test_people_with_upcoming_birthdays_none_soon(app):
+def test_people_with_upcoming_birthdays_none_soon(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
         far = dt.date.today() + dt.timedelta(days=100)
-        p = Person(
+        p = Person(user_id=1,
             name="Far Bday",
             birthday_month=far.month,
             birthday_day=far.day,
@@ -140,19 +140,19 @@ def test_people_with_upcoming_birthdays_none_soon(app):
         db.add(p)
         db.commit()
 
-        result = people_with_upcoming_birthdays(db, lead_days=3)
+        result = people_with_upcoming_birthdays(db, user, lead_days=3)
         assert len(result) == 0
     finally:
         db.close()
 
 
-def test_generate_birthday_drafts_creates_drafts(app):
+def test_generate_birthday_drafts_creates_drafts(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
         today = dt.date.today()
         tomorrow = today + dt.timedelta(days=1)
-        p = Person(
+        p = Person(user_id=1,
             name="Draft Person",
             birthday_month=tomorrow.month,
             birthday_day=tomorrow.day,
@@ -160,7 +160,7 @@ def test_generate_birthday_drafts_creates_drafts(app):
         db.add(p)
         db.commit()
 
-        created = generate_birthday_drafts(db)
+        created = generate_birthday_drafts(db, user)
         assert created >= 1
 
         draft = db.query(BirthdayMessageDraft).filter_by(person_id=p.id).first()
@@ -171,14 +171,14 @@ def test_generate_birthday_drafts_creates_drafts(app):
         db.close()
 
 
-def test_generate_birthday_drafts_skips_existing(app):
+def test_generate_birthday_drafts_skips_existing(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
         today = dt.date.today()
         tomorrow = today + dt.timedelta(days=1)
         target_year = tomorrow.year
-        p = Person(
+        p = Person(user_id=1,
             name="Existing Draft",
             birthday_month=tomorrow.month,
             birthday_day=tomorrow.day,
@@ -186,10 +186,10 @@ def test_generate_birthday_drafts_skips_existing(app):
         db.add(p)
         db.commit()
 
-        first = generate_birthday_drafts(db)
+        first = generate_birthday_drafts(db, user)
         assert first >= 1
 
-        second = generate_birthday_drafts(db)
+        second = generate_birthday_drafts(db, user)
         assert second == 0  # Should skip, draft already exists for this year
     finally:
         db.close()

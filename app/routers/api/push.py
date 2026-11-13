@@ -46,7 +46,7 @@ async def unsubscribe(body: dict, db: Session = Depends(get_db), user=Depends(ge
     endpoint = (body.get("endpoint") or "").strip()
     if not endpoint:
         return JSONResponse({"error": "missing endpoint"}, status_code=400)
-    for s in db.query(PushSubscription).filter(PushSubscription.endpoint == endpoint).all():
+    for s in db.query(PushSubscription).filter(PushSubscription.endpoint == endpoint, PushSubscription.user_id == user.id).all():
         db.delete(s)
     db.commit()
     return {"ok": True}
@@ -57,8 +57,8 @@ def send_test(db: Session = Depends(get_db), user=Depends(get_current_api_user))
     vapid = push_service.ensure_vapid_keys(db)
     if not vapid:
         return JSONResponse({"error": "push not configured"}, status_code=400)
-    subs = db.query(PushSubscription).all()
+    subs = db.query(PushSubscription).filter(PushSubscription.user_id == user.id).all()
     if not subs:
         return JSONResponse({"error": "no subscriptions"}, status_code=400)
-    sent = push_service.send_test(db)
+    sent = push_service.send_test(db, user)
     return {"ok": True, "sent": sent}

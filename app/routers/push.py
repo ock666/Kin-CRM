@@ -29,18 +29,20 @@ def vapid_key(db: Session = Depends(get_db)):
 
 
 @router.post("/test")
-async def send_test(db: Session = Depends(get_db)):
+async def send_test(db: Session = Depends(get_db), user=Depends(current_user)):
     """Send a sample push to all subscriptions so the user can confirm notifications work
     (used by the 'Send a test notification' button in Settings)."""
+    if not user:
+        return JSONResponse({"error": "not logged in"}, status_code=401)
     vapid = push_service.ensure_vapid_keys(db)
     if not vapid:
         logger.warning("Push test: VAPID keys unavailable")
         return JSONResponse({"error": "push not configured"}, status_code=400)
-    subs = db.query(PushSubscription).all()
+    subs = db.query(PushSubscription).filter(PushSubscription.user_id == user.id).all()
     logger.info("Push test: %d subscription(s)", len(subs))
     if not subs:
         return JSONResponse({"error": "no subscriptions - enable notifications on a device first"}, status_code=400)
-    sent = push_service.send_test(db)
+    sent = push_service.send_test(db, user)
     logger.info("Push test: sent to %d subscription(s)", sent)
     return {"ok": True, "sent": sent}
 
@@ -74,14 +76,14 @@ async def subscribe(request: Request, db: Session = Depends(get_db), user=Depend
 
 
 @router.post("/unsubscribe")
-async def unsubscribe(request: Request, db: Session = Depends(get_db)):
+async def unsubscribe(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
     try:
         data = await request.json()
     except Exception:
         data = {}
     endpoint = (data.get("endpoint") or "").strip()
     if endpoint:
-        subs = db.query(PushSubscription).filter(PushSubscription.endpoint == endpoint).all()
+        subs = db.query(PushSubscription).filter(PushSubscription.endpoint == endpoint, PushSubscription.user_id == user.id).all()
     else:
         return JSONResponse({"error": "missing endpoint"}, status_code=400)
     for s in subs:

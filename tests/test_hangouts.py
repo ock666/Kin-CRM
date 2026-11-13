@@ -41,7 +41,7 @@ def _asset(asset_id, local_dt, year=None):
 def _person(db, name, immich_id="face-1", **kw):
     defaults = dict(name=name, immich_person_id=immich_id, archived=False)
     defaults.update(kw)
-    p = Person(**defaults)
+    p = Person(user_id=1, **defaults)
     db.add(p)
     db.commit()
     return p
@@ -58,7 +58,7 @@ def _run(db, client, **kw):
 
 # --- Service-level -------------------------------------------------------------
 
-def test_detects_hangout_and_uses_local_datetime(app):
+def test_detects_hangout_and_uses_local_datetime(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
@@ -70,7 +70,7 @@ def test_detects_hangout_and_uses_local_datetime(app):
                 _asset("a2", (now - dt.timedelta(days=2)).strftime("%Y-%m-%dT18:00:00")),
             ]
         })
-        hangouts, err = detect_recent_hangouts(db, client)
+        hangouts, err = detect_recent_hangouts(db, user, client)
         assert err is None
         assert len(hangouts) == 1
         assert hangouts[0]["person"].id == p.id
@@ -80,7 +80,7 @@ def test_detects_hangout_and_uses_local_datetime(app):
         db.close()
 
 
-def test_ignores_assets_older_than_window(app):
+def test_ignores_assets_older_than_window(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
@@ -88,14 +88,14 @@ def test_ignores_assets_older_than_window(app):
         client = FakeImmichClient({
             "face-old": [_asset("old", (dt.date.today() - dt.timedelta(days=40)).strftime("%Y-%m-%dT12:00:00"))]
         })
-        hangouts, err = detect_recent_hangouts(db, client)
+        hangouts, err = detect_recent_hangouts(db, user, client)
         assert hangouts == []
         assert err is None
     finally:
         db.close()
 
 
-def test_skips_person_without_face_link_and_unlinked(app):
+def test_skips_person_without_face_link_and_unlinked(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
@@ -103,25 +103,25 @@ def test_skips_person_without_face_link_and_unlinked(app):
         _person(db, "Linked", "face-1")
         now = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT12:00:00")
         client = FakeImmichClient({"face-1": [_asset("a1", now)]})
-        hangouts, _ = detect_recent_hangouts(db, client)
+        hangouts, _ = detect_recent_hangouts(db, user, client)
         assert [h["person"].name for h in hangouts] == ["Linked"]
     finally:
         db.close()
 
 
-def test_skips_archived_people(app):
+def test_skips_archived_people(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
         _person(db, "Gone", "face-gone", archived=True)
         client = FakeImmichClient({"face-gone": [_asset("a1", dt.date.today().strftime("%Y-%m-%dT12:00:00"))]})
-        hangouts, _ = detect_recent_hangouts(db, client)
+        hangouts, _ = detect_recent_hangouts(db, user, client)
         assert hangouts == []
     finally:
         db.close()
 
 
-def test_tolerates_per_person_errors(app):
+def test_tolerates_per_person_errors(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
@@ -131,14 +131,14 @@ def test_tolerates_per_person_errors(app):
             "face-broken": ImmichError("boom"),
             "face-fine": [_asset("a1", dt.date.today().strftime("%Y-%m-%dT12:00:00"))],
         })
-        hangouts, err = detect_recent_hangouts(db, client)
+        hangouts, err = detect_recent_hangouts(db, user, client)
         assert err is None
         assert [h["person"].name for h in hangouts] == ["Fine"]
     finally:
         db.close()
 
 
-def test_sorts_newest_first_and_caps_thumbnails(app):
+def test_sorts_newest_first_and_caps_thumbnails(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
@@ -148,7 +148,7 @@ def test_sorts_newest_first_and_caps_thumbnails(app):
             "face-new": [_asset(f"n{i}", dt.date.today().strftime("%Y-%m-%dT12:00:00")) for i in range(8)],
             "face-old": [_asset("o1", (dt.date.today() - dt.timedelta(days=20)).strftime("%Y-%m-%dT12:00:00"))],
         })
-        hangouts, _ = detect_recent_hangouts(db, client)
+        hangouts, _ = detect_recent_hangouts(db, user, client)
         assert [h["person"].name for h in hangouts] == ["Newer", "Older"]
         assert len(hangouts[0]["thumbnails"]) == 6
     finally:
@@ -181,12 +181,12 @@ def fake_dashboard(monkeypatch):
         def on_this_day_with_fallback(self):
             return []
 
-    monkeypatch.setattr(dashboard, "immich_from_settings", lambda db: _Client())
+    monkeypatch.setattr(dashboard, "immich_from_settings", lambda db, user: _Client())
     return monkeypatch
 
 
 def _make_overdue_person(db, name="Alex", immich_id="face-1", hangout_days_ago=3):
-    p = Person(
+    p = Person(user_id=1,
         name=name,
         immich_person_id=immich_id,
         checkin_cadence_days=30,
@@ -206,7 +206,7 @@ def test_dashboard_renders_hangout_card_and_credits(app, logged_in_client, fake_
         p = _make_overdue_person(db)
         hangout_date = dt.date.today() - dt.timedelta(days=3)
         fake_dashboard.setattr(dashboard, "get_recent_hangouts_cached",
-                               lambda db_, client: ([{
+                               lambda db_, user, client: ([{
                                    "person": db_.get(Person, p.id),
                                    "latest_date": hangout_date,
                                    "label": "3 days ago",
@@ -238,7 +238,7 @@ def test_dashboard_replaces_overdue_row(app, logged_in_client, fake_dashboard):
         # Hangout older than the person's cadence: still removes them from the nudge list
         hangout_date = dt.date.today() - dt.timedelta(days=20)
         fake_dashboard.setattr(dashboard, "get_recent_hangouts_cached",
-                               lambda db_, client: ([{
+                               lambda db_, user, client: ([{
                                    "person": db_.get(Person, p.id),
                                    "latest_date": hangout_date,
                                    "label": "2 weeks ago",
@@ -270,7 +270,7 @@ def test_dashboard_does_not_regress_last_contact(app, logged_in_client, fake_das
         db.commit()
         hangout_date = dt.date.today() - dt.timedelta(days=3)
         fake_dashboard.setattr(dashboard, "get_recent_hangouts_cached",
-                               lambda db_, client: ([{
+                               lambda db_, user, client: ([{
                                    "person": db_.get(Person, p.id),
                                    "latest_date": hangout_date,
                                    "label": "3 days ago",
@@ -298,7 +298,7 @@ def test_dashboard_without_immich_shows_no_hangout_error(app, logged_in_client):
 # --- Dedup detection (the Paige case: photo already on the person's timeline) ---
 
 def _attach(db, person, entry_date, asset_ids, title=None):
-    e = JournalEntry(title=title, body="Hung out.", entry_date=entry_date)
+    e = JournalEntry(author_user_id=1, title=title, body="Hung out.", entry_date=entry_date)
     e.people.append(person)
     db.add(e)
     db.flush()
@@ -308,7 +308,7 @@ def _attach(db, person, entry_date, asset_ids, title=None):
     return e
 
 
-def test_marks_already_logged_when_all_photos_on_profile(app):
+def test_marks_already_logged_when_all_photos_on_profile(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
@@ -317,7 +317,7 @@ def test_marks_already_logged_when_all_photos_on_profile(app):
         client = FakeImmichClient({
             "face-paige": [_asset("a6d60f47", (dt.date.today() - dt.timedelta(days=7)).strftime("%Y-%m-%dT17:21:00"))]
         })
-        hangouts, _ = detect_recent_hangouts(db, client)
+        hangouts, _ = detect_recent_hangouts(db, user, client)
         assert len(hangouts) == 1
         h = hangouts[0]
         assert h["all_logged"] is True
@@ -328,7 +328,7 @@ def test_marks_already_logged_when_all_photos_on_profile(app):
         db.close()
 
 
-def test_partial_logging_keeps_unattached_photos(app):
+def test_partial_logging_keeps_unattached_photos(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
@@ -339,7 +339,7 @@ def test_partial_logging_keeps_unattached_photos(app):
             "face-casey": [_asset("old-photo", (dt.date.today() - dt.timedelta(days=5)).strftime("%Y-%m-%dT12:00:00")),
                            _asset("new-photo", now)]
         })
-        hangouts, _ = detect_recent_hangouts(db, client)
+        hangouts, _ = detect_recent_hangouts(db, user, client)
         h = hangouts[0]
         assert h["all_logged"] is False
         assert h["new_asset_ids"] == ["new-photo"]
@@ -370,7 +370,7 @@ def test_log_hangout_creates_entry(app, logged_in_client, monkeypatch):
     try:
         p = _person(db, "Alex", "face-1")
         monkeypatch.setattr(hangouts_router, "get_client_from_settings",
-                           lambda db_: _FaceClient(["photo-a", "photo-b"]))
+                           lambda db_, user: _FaceClient(["photo-a", "photo-b"]))
         resp = logged_in_client.post("/hangouts/log", data={
             "person_id": str(p.id),
             "entry_date": "2026-08-07",
@@ -400,7 +400,7 @@ def test_log_hangout_skips_duplicate_assets(app, logged_in_client, monkeypatch):
         p = _person(db, "Alex", "face-1")
         _attach(db, p, dt.date.today() - dt.timedelta(days=3), ["already-there"], title="Old entry")
         monkeypatch.setattr(hangouts_router, "get_client_from_settings",
-                           lambda db_: _FaceClient(["already-there", "brand-new"]))
+                           lambda db_, user: _FaceClient(["already-there", "brand-new"]))
 
         logged_in_client.post("/hangouts/log", data={
             "person_id": str(p.id),
@@ -433,7 +433,7 @@ def test_dashboard_shows_already_logged_instead_of_buttons(app, logged_in_client
         p = _make_overdue_person(db)
         hangout_date = dt.date.today() - dt.timedelta(days=7)
         fake_dashboard.setattr(dashboard, "get_recent_hangouts_cached",
-                               lambda db_, client: ([{
+                               lambda db_, user, client: ([{
                                    "person": db_.get(Person, p.id),
                                    "latest_date": hangout_date,
                                    "label": "1 week ago",
@@ -461,7 +461,7 @@ def test_dashboard_shows_quick_log_and_write_buttons(app, logged_in_client, fake
         p = _make_overdue_person(db)
         hangout_date = dt.date.today() - dt.timedelta(days=3)
         fake_dashboard.setattr(dashboard, "get_recent_hangouts_cached",
-                               lambda db_, client: ([{
+                               lambda db_, user, client: ([{
                                    "person": db_.get(Person, p.id),
                                    "latest_date": hangout_date,
                                    "label": "3 days ago",
@@ -505,7 +505,7 @@ def test_journal_new_prefills_hangout(app, logged_in_client):
 
 # --- Dismissing hangouts -------------------------------------------------------
 
-def test_detection_marks_dismissed(app):
+def test_detection_marks_dismissed(app, user):
     from app.database import SessionLocal
     from app.models import HangoutDismissal
     db = SessionLocal()
@@ -517,7 +517,7 @@ def test_detection_marks_dismissed(app):
         client = FakeImmichClient({
             "face-1": [_asset("a1", now.strftime("%Y-%m-%dT12:00:00"))]
         })
-        hangouts, _ = detect_recent_hangouts(db, client)
+        hangouts, _ = detect_recent_hangouts(db, user, client)
         assert hangouts[0]["dismissed"] is True
     finally:
         db.close()
@@ -531,7 +531,7 @@ def test_dashboard_hides_dismissed_hangout(app, logged_in_client, fake_dashboard
         p = _make_overdue_person(db)
         hangout_date = dt.date.today() - dt.timedelta(days=3)
         fake_dashboard.setattr(dashboard, "get_recent_hangouts_cached",
-                               lambda db_, client: ([{
+                               lambda db_, user, client: ([{
                                    "person": db_.get(Person, p.id),
                                    "latest_date": hangout_date,
                                    "label": "3 days ago",
@@ -583,7 +583,7 @@ def test_dismiss_is_idempotent(app, logged_in_client):
 
 # --- Review fixes: caching, nudge interplay, input validation ------------------
 
-def test_cached_detection_reuses_immich_calls(app):
+def test_cached_detection_reuses_immich_calls(app, user):
     from app.database import SessionLocal
     from app.services.hangouts import get_recent_hangouts_cached, invalidate_hangout_cache
     db = SessionLocal()
@@ -602,12 +602,12 @@ def test_cached_detection_reuses_immich_calls(app):
                 return super().search_by_person(*a, **kw)
 
         client = CountingClient()
-        h1, _ = get_recent_hangouts_cached(db, client)
-        h2, _ = get_recent_hangouts_cached(db, client)
+        h1, _ = get_recent_hangouts_cached(db, user, client)
+        h2, _ = get_recent_hangouts_cached(db, user, client)
         assert client.calls == 1, "second call should hit the cache"
         assert len(h1) == 1 and len(h2) == 1
         invalidate_hangout_cache()
-        h3, _ = get_recent_hangouts_cached(db, client)
+        h3, _ = get_recent_hangouts_cached(db, user, client)
         assert client.calls == 2, "invalidate should force a re-fetch"
         assert len(h3) == 1
     finally:
@@ -623,7 +623,7 @@ def test_log_hangout_clamps_future_date(app, logged_in_client, monkeypatch):
     try:
         p = _person(db, "Alex", "face-1")
         monkeypatch.setattr(hangouts_router, "get_client_from_settings",
-                           lambda db_: _FaceClient(["photo-a"]))
+                           lambda db_, user: _FaceClient(["photo-a"]))
         tomorrow = (dt.date.today() + dt.timedelta(days=1)).isoformat()
         logged_in_client.post("/hangouts/log", data={
             "person_id": str(p.id),
@@ -665,7 +665,7 @@ def test_log_hangout_fails_closed_when_immich_unreachable(app, logged_in_client,
     try:
         p = _person(db, "Alex", "face-1")
 
-        def _boom(db_):
+        def _boom(db_, user):
             raise ImmichError("immich down")
 
         monkeypatch.setattr(hangouts_router, "get_client_from_settings", _boom)
@@ -690,7 +690,7 @@ def test_log_hangout_rejects_non_face_assets(app, logged_in_client, monkeypatch)
         p = _person(db, "Alex", "face-1")
         # Immich says only face-a belongs to Alex; face-b is someone else's photo.
         monkeypatch.setattr(hangouts_router, "get_client_from_settings",
-                           lambda db_: _FaceClient(["face-a"]))
+                           lambda db_, user: _FaceClient(["face-a"]))
         logged_in_client.post("/hangouts/log", data={
             "person_id": str(p.id),
             "entry_date": "2026-08-07",
@@ -712,7 +712,7 @@ def test_quick_log_skips_when_all_photos_already_logged(app, logged_in_client, m
         p = _person(db, "Alex", "face-1")
         _attach(db, p, dt.date.today() - dt.timedelta(days=3), ["photo-a"], title="Already logged")
         monkeypatch.setattr(hangouts_router, "get_client_from_settings",
-                           lambda db_: _FaceClient(["photo-a"]))
+                           lambda db_, user: _FaceClient(["photo-a"]))
         resp = logged_in_client.post("/hangouts/log", data={
             "person_id": str(p.id),
             "entry_date": "2026-08-07",
@@ -725,7 +725,7 @@ def test_quick_log_skips_when_all_photos_already_logged(app, logged_in_client, m
         db.close()
 
 
-def test_journal_create_invalidates_hangout_cache(app, logged_in_client):
+def test_journal_create_invalidates_hangout_cache(app, logged_in_client, user):
     from app.database import SessionLocal
     from app.services.hangouts import get_recent_hangouts_cached, invalidate_hangout_cache
     db = SessionLocal()
@@ -744,7 +744,7 @@ def test_journal_create_invalidates_hangout_cache(app, logged_in_client):
                 return super().search_by_person(*a, **kw)
 
         client = CountingClient()
-        get_recent_hangouts_cached(db, client)
+        get_recent_hangouts_cached(db, user, client)
         assert client.calls == 1
 
         resp = logged_in_client.post("/journal/new", data={
@@ -754,7 +754,7 @@ def test_journal_create_invalidates_hangout_cache(app, logged_in_client):
         }, follow_redirects=False)
         assert resp.status_code == 303
 
-        get_recent_hangouts_cached(db, client)
+        get_recent_hangouts_cached(db, user, client)
         assert client.calls == 2, "journal create with a photo should invalidate the hangout cache"
     finally:
         invalidate_hangout_cache()
@@ -772,7 +772,7 @@ def test_dismissed_hangout_does_not_suppress_overdue_nudge(app, logged_in_client
         db.commit()
         hangout_date = dt.date.today() - dt.timedelta(days=20)
         fake_dashboard.setattr(dashboard, "get_recent_hangouts_cached",
-                               lambda db_, client: ([{
+                               lambda db_, user, client: ([{
                                    "person": db_.get(Person, p.id),
                                    "latest_date": hangout_date,
                                    "label": "2 weeks ago",

@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from ...database import get_db
+from ...scoping import get_person as scoped_get_person, owned_people, owned_tags
 from ...models import Person, Tag, JournalEntry, ConflictLog
 from ...schemas.people import PersonCreate, PersonUpdate, PersonResponse, TagResponse
 from ...services import friend_rank, checkins
@@ -67,7 +68,7 @@ def list_people(
     db: Session = Depends(get_db),
     user=Depends(get_current_api_user),
 ):
-    query = db.query(Person).filter(Person.archived.is_(show_archived))
+    query = owned_people(db, user).filter(Person.archived.is_(show_archived))
     if q:
         query = query.filter(Person.name.ilike(f"%{q}%"))
     people = query.order_by(Person.name).all()
@@ -78,7 +79,7 @@ def list_people(
 
 @router.post("", status_code=201)
 def create_person(body: PersonCreate, db: Session = Depends(get_db), user=Depends(get_current_api_user)):
-    p = Person(
+    p = Person(user_id=user.id,
         name=body.name.strip(),
         nickname=body.nickname,
         pronouns=body.pronouns,
@@ -106,7 +107,7 @@ def create_person(body: PersonCreate, db: Session = Depends(get_db), user=Depend
 
 @router.get("/{person_id}")
 def get_person(person_id: int, db: Session = Depends(get_db), user=Depends(get_current_api_user)):
-    p = db.get(Person, person_id)
+    p = scoped_get_person(db, user, person_id)
     if not p:
         raise HTTPException(status_code=404, detail="Person not found")
     return _person_response(p)
@@ -114,7 +115,7 @@ def get_person(person_id: int, db: Session = Depends(get_db), user=Depends(get_c
 
 @router.put("/{person_id}")
 def update_person(person_id: int, body: PersonUpdate, db: Session = Depends(get_db), user=Depends(get_current_api_user)):
-    p = db.get(Person, person_id)
+    p = scoped_get_person(db, user, person_id)
     if not p:
         raise HTTPException(status_code=404, detail="Person not found")
     for k, v in body.model_dump(exclude_unset=True).items():
@@ -133,7 +134,7 @@ def update_person(person_id: int, body: PersonUpdate, db: Session = Depends(get_
 
 @router.delete("/{person_id}", status_code=204)
 def delete_person(person_id: int, db: Session = Depends(get_db), user=Depends(get_current_api_user)):
-    p = db.get(Person, person_id)
+    p = scoped_get_person(db, user, person_id)
     if not p:
         raise HTTPException(status_code=404, detail="Person not found")
     db.delete(p)
@@ -142,12 +143,12 @@ def delete_person(person_id: int, db: Session = Depends(get_db), user=Depends(ge
 
 @router.get("/tags/all", response_model=list[TagResponse])
 def list_tags(db: Session = Depends(get_db), user=Depends(get_current_api_user)):
-    return [TagResponse(name=t.name) for t in db.query(Tag).order_by(Tag.name).all()]
+    return [TagResponse(name=t.name) for t in owned_tags(db, user).order_by(Tag.name).all()]
 
 
 @router.get("/{person_id}/journal")
 def get_person_journal(person_id: int, db: Session = Depends(get_db), user=Depends(get_current_api_user)):
-    p = db.get(Person, person_id)
+    p = scoped_get_person(db, user, person_id)
     if not p:
         raise HTTPException(status_code=404, detail="Person not found")
     entries = sorted(p.journal_entries, key=lambda e: e.entry_date or dt.date.min, reverse=True)
@@ -164,7 +165,7 @@ def get_person_journal(person_id: int, db: Session = Depends(get_db), user=Depen
 
 @router.get("/{person_id}/conflicts")
 def get_person_conflicts(person_id: int, db: Session = Depends(get_db), user=Depends(get_current_api_user)):
-    p = db.get(Person, person_id)
+    p = scoped_get_person(db, user, person_id)
     if not p:
         raise HTTPException(status_code=404, detail="Person not found")
     return [{
@@ -178,7 +179,7 @@ def get_person_conflicts(person_id: int, db: Session = Depends(get_db), user=Dep
 
 @router.get("/{person_id}/notable-dates")
 def get_person_notable_dates(person_id: int, db: Session = Depends(get_db), user=Depends(get_current_api_user)):
-    p = db.get(Person, person_id)
+    p = scoped_get_person(db, user, person_id)
     if not p:
         raise HTTPException(status_code=404, detail="Person not found")
     return {

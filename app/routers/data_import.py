@@ -18,6 +18,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from ..database import get_db
+from ..scoping import owned_people, owned_tags
 from ..deps import current_user
 from ..models import (
     Person, Tag, NotableDate, NotablePersonRef, ScratchpadItem,
@@ -35,19 +36,19 @@ def import_page(request: Request, db: Session = Depends(get_db), user=Depends(cu
     return render(request, "import.html", db=db, user=user, active="import")
 
 
-def _get_or_create_tag(db: Session, name: str) -> Tag:
-    tag = db.query(Tag).filter(Tag.name == name).first()
+def _get_or_create_tag(db: Session, user, name: str) -> Tag:
+    tag = owned_tags(db, user).filter(Tag.name == name).first()
     if not tag:
-        tag = Tag(name=name)
+        tag = Tag(user_id=user.id, name=name)
         db.add(tag)
         db.flush()
     return tag
 
 
-def _upsert_person(db: Session, name: str, fields: dict) -> Person:
-    person = db.query(Person).filter(Person.name == name).first()
+def _upsert_person(db: Session, user, name: str, fields: dict) -> Person:
+    person = owned_people(db, user).filter(Person.name == name).first()
     if person is None:
-        person = Person(name=name)
+        person = Person(user_id=user.id, name=name)
         db.add(person)
     for k, v in fields.items():
         if v is None:
@@ -70,7 +71,7 @@ def _upsert_person(db: Session, name: str, fields: dict) -> Person:
     return person
 
 
-def _import_json(db: Session, data: dict, summary: dict):
+def _import_json(db: Session, user, data: dict, summary: dict):
     people = data.get("exported_people", data if isinstance(data, list) else [])
     for raw in people:
         if not isinstance(raw, dict) or not raw.get("name"):
@@ -106,14 +107,14 @@ def _import_json(db: Session, data: dict, summary: dict):
                 fields["birthday_month"] = len(parts) > 0 and parts[0]
                 fields["birthday_day"] = len(parts) > 1 and parts[1]
                 fields["birthday_year"] = len(parts) > 2 and parts[2]
-            person = _upsert_person(db, name, fields)
+            person = _upsert_person(db, user, name, fields)
 
             # Tags
             for tname in raw.get("tags", []) or []:
                 tname = tname.strip()
                 if not tname:
                     continue
-                tag = _get_or_create_tag(db, tname)
+                tag = _get_or_create_tag(db, user, tname)
                 if tag not in person.tags:
                     person.tags.append(tag)
 
@@ -173,7 +174,7 @@ def _import_json(db: Session, data: dict, summary: dict):
                             ec = EnergyCost(e.get("energy_cost"))
                         except ValueError:
                             ec = None
-                    entry = JournalEntry(
+                    entry = JournalEntry(author_user_id=user.id, 
                         title=e.get("title"), body=e["body"],
                         entry_date=dt.date.fromisoformat(e["date"]) if e.get("date") else dt.date.today(),
                         event_type=et, energy_cost=ec, location=e.get("location"),
@@ -183,7 +184,7 @@ def _import_json(db: Session, data: dict, summary: dict):
                     db.flush()
                     # Resolve "with" names to Person objects (M2M journal_entry_people).
                     for wname in e.get("with", []) or []:
-                        wp = db.query(Person).filter(Person.name == wname.strip()).first()
+                        wp = owned_people(db, user).filter(Person.name == wname.strip()).first()
                         if wp:
                             entry.people.append(wp)
 
@@ -199,7 +200,7 @@ def _parse_csv_text(text: str) -> list[dict]:
     return rows
 
 
-def _import_csv(db: Session, text: str, summary: dict):
+def _import_csv(db: Session, user, text: str, summary: dict):
     rows = _parse_csv_text(text)
     for row in rows:
         name = (row.get("name") or "").strip()
@@ -222,10 +223,10 @@ def _import_csv(db: Session, text: str, summary: dict):
                 "hobbies": (row.get("hobbies") or "").strip() or None,
                 "notes": (row.get("notes") or "").strip() or None,
             }
-            person = _upsert_person(db, name, fields)
+            person = _upsert_person(db, user, name, fields)
             tag_str = (row.get("tags") or "").strip()
             for tname in [t.strip() for t in tag_str.split(",") if t.strip()]:
-                tag = _get_or_create_tag(db, tname)
+                tag = _get_or_create_tag(db, user, tname)
                 if tag not in person.tags:
                     person.tags.append(tag)
             summary["created_people"] += 1
@@ -244,9 +245,9 @@ async def do_import(request: Request, db: Session = Depends(get_db), user=Depend
     summary = {"created_people": 0, "skipped": 0}
     try:
         if filename.lower().endswith(".csv") or raw.lstrip().startswith("name,"):
-            _import_csv(db, raw, summary)
+            _import_csv(db, user, raw, summary)
         else:
-            _import_json(db, json.loads(raw), summary)
+            _import_json(db, user, json.loads(raw), summary)
     except Exception:
         return render(request, "import.html", db=db, user=user, active="import",
                       error="Couldn't read that file. Check the format and try again.")

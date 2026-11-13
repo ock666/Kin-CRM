@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from ...database import get_db
 from ...models import Person, NotableDate
 from ...services import birthdays, checkins, gamification, grace
-from ...settings_store import get_setting
+from ...settings_store import get_user_setting
 from .deps import get_current_api_user
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["dashboard"])
@@ -23,21 +23,21 @@ def _safe_int(value: str, default: int) -> int:
 @router.get("/today")
 def dashboard_today(db: Session = Depends(get_db), user=Depends(get_current_api_user)):
     today = dt.date.today()
-    lead = _safe_int(get_setting(db, "birthday_lead_days", "3"), 3)
+    lead = _safe_int(get_user_setting(db, user.id, "birthday_lead_days", "3"), 3)
 
     upcoming = birthdays.people_with_upcoming_birthdays(db, lead)
     birthdays_list = [
         {"id": p.id, "name": p.name, "days_away": d} for p, d in upcoming
     ]
 
-    overdue = checkins.overdue_people(db)
+    overdue = checkins.overdue_people(db, user)
     overdue_list = [
         {"id": p.id, "name": p.name, "days_overdue": d}
         for p, d in sorted(overdue, key=lambda t: -t[1])[:10]
     ]
 
     # Gamification
-    gm_data = gamification.get_stats_and_achievements(db)
+    gm_data = gamification.get_stats_and_achievements(db, user)
     gm = {
         "xp": gm_data["stats"].total_xp,
         "level": gm_data["stats"].current_level,
@@ -47,8 +47,8 @@ def dashboard_today(db: Session = Depends(get_db), user=Depends(get_current_api_
     }
 
     # Notable dates coming up
-    lead_days = _safe_int(get_setting(db, "birthday_lead_days", "3"), 3)
-    all_nds = db.query(NotableDate).all()
+    lead_days = _safe_int(get_user_setting(db, user.id, "birthday_lead_days", "3"), 3)
+    all_nds = db.query(NotableDate).join(Person, Person.id == NotableDate.person_id).filter(Person.user_id == user.id).all()
     notable_dates_list = []
     for nd in all_nds:
         days = (dt.date(today.year, nd.month, nd.day) - today).days
@@ -66,8 +66,8 @@ def dashboard_today(db: Session = Depends(get_db), user=Depends(get_current_api_
         "today": today.isoformat(),
         "birthdays": birthdays_list,
         "overdue_checkins": overdue_list,
-        "grace_active": get_setting(db, "grace_until", "").strip() != "",
+        "grace_active": get_user_setting(db, user.id, "grace_until", "").strip() != "",
         "gamification": gm,
         "notable_dates": notable_dates_list,
-        "reassurance_note": get_setting(db, "reassurance_note", ""),
+        "reassurance_note": get_user_setting(db, user.id, "reassurance_note", ""),
     }

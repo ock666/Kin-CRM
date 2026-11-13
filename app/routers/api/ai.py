@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ...database import get_db
+from ...scoping import get_person
 from ...models import Person
 from ...services.ai_client import get_client_from_settings, build_person_context, AIError
 from ...services import friend_rank
@@ -20,11 +21,11 @@ def _journal_snippets(person: Person) -> list[str]:
 
 @router.post("/people/{person_id}/bio")
 def generate_bio(person_id: int, db: Session = Depends(get_db), user=Depends(get_current_api_user)):
-    p = db.get(Person, person_id)
+    p = get_person(db, user, person_id)
     if not p:
         raise HTTPException(status_code=404, detail="Person not found")
     try:
-        ai = get_client_from_settings(db)
+        ai = get_client_from_settings(db, user)
         if not ai:
             raise HTTPException(status_code=400, detail="AI not configured")
         bio = ai.bio_blurb(p.name, build_person_context(p))
@@ -37,11 +38,11 @@ def generate_bio(person_id: int, db: Session = Depends(get_db), user=Depends(get
 
 @router.get("/people/{person_id}/starters")
 def get_starters(person_id: int, db: Session = Depends(get_db), user=Depends(get_current_api_user)):
-    p = db.get(Person, person_id)
+    p = get_person(db, user, person_id)
     if not p:
         raise HTTPException(status_code=404, detail="Person not found")
     try:
-        ai = get_client_from_settings(db)
+        ai = get_client_from_settings(db, user)
         if not ai:
             raise HTTPException(status_code=400, detail="AI not configured")
         snippets = _journal_snippets(p)
@@ -54,13 +55,13 @@ def get_starters(person_id: int, db: Session = Depends(get_db), user=Depends(get
 @router.get("/people/{person_id}/quick-replies")
 def get_quick_replies(person_id: int, db: Session = Depends(get_db), user=Depends(get_current_api_user)):
     import datetime as dt
-    p = db.get(Person, person_id)
+    p = get_person(db, user, person_id)
     if not p:
         raise HTTPException(status_code=404, detail="Person not found")
     today = dt.date.today()
     days_since = (today - p.last_contact_date).days if p.last_contact_date else None
     try:
-        ai = get_client_from_settings(db)
+        ai = get_client_from_settings(db, user)
         if ai:
             snippets = _journal_snippets(p)
             context = build_person_context(p)
@@ -76,14 +77,14 @@ def get_quick_replies(person_id: int, db: Session = Depends(get_db), user=Depend
 
 @router.post("/people/{person_id}/summary")
 def generate_summary(person_id: int, db: Session = Depends(get_db), user=Depends(get_current_api_user)):
-    p = db.get(Person, person_id)
+    p = get_person(db, user, person_id)
     if not p:
         raise HTTPException(status_code=404, detail="Person not found")
     snippets = _journal_snippets(p)
     if not snippets:
         raise HTTPException(status_code=400, detail="No journal entries to summarize")
     try:
-        ai = get_client_from_settings(db)
+        ai = get_client_from_settings(db, user)
         if not ai:
             raise HTTPException(status_code=400, detail="AI not configured")
         summary = ai.profile_summary(p.name, snippets, build_person_context(p))
@@ -96,11 +97,11 @@ def generate_summary(person_id: int, db: Session = Depends(get_db), user=Depends
 
 @router.get("/people/{person_id}/gap-questions")
 def get_gap_questions(person_id: int, db: Session = Depends(get_db), user=Depends(get_current_api_user)):
-    p = db.get(Person, person_id)
+    p = get_person(db, user, person_id)
     if not p:
         raise HTTPException(status_code=404, detail="Person not found")
     try:
-        ai = get_client_from_settings(db)
+        ai = get_client_from_settings(db, user)
         if not ai:
             raise HTTPException(status_code=400, detail="AI not configured")
         gaps = friend_rank.compute_friend_rank(p).get("gaps", [])

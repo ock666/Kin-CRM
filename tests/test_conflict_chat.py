@@ -2,11 +2,11 @@
 from app.models import ConflictLog, ConflictChatMessage, ConflictStatus, Person
 
 
-def test_chat_message_model(app):
+def test_chat_message_model(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
-        p = Person(name="Chat Test Person")
+        p = Person(user_id=1, name="Chat Test Person")
         db.add(p)
         db.commit()
         conflict = ConflictLog(person_id=p.id, summary="Argument", status=ConflictStatus.unresolved)
@@ -30,11 +30,11 @@ def test_chat_message_model(app):
         db.close()
 
 
-def test_chat_messages_cascade_delete(app):
+def test_chat_messages_cascade_delete(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
-        p = Person(name="Cascade Person")
+        p = Person(user_id=1, name="Cascade Person")
         db.add(p)
         db.commit()
         conflict = ConflictLog(person_id=p.id, summary="Test", status=ConflictStatus.unresolved)

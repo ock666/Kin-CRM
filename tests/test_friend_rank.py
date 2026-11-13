@@ -5,7 +5,7 @@ from app.services.friend_rank import compute_friend_rank, TIERS
 
 
 def make_person(db, **kwargs):
-    p = Person(**kwargs)
+    p = Person(user_id=1, **kwargs)
     db.add(p)
     db.commit()
     return p

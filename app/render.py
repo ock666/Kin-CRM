@@ -10,28 +10,33 @@ from starlette.requests import Request
 from sqlalchemy.orm import Session
 
 from .config import settings
-from .models import BirthdayMessageDraft, ReviewStatus
+from .models import BirthdayMessageDraft, ReviewStatus, Person
 from .services import whatsnew
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 
-def _pending_review_count(db: Session | None) -> int:
-    if db is None:
+def _pending_review_count(db: Session | None, user) -> int:
+    if db is None or user is None:
         return 0
-    bd = db.query(BirthdayMessageDraft).filter_by(status=ReviewStatus.pending).count()
+    bd = (
+        db.query(BirthdayMessageDraft)
+        .join(Person, Person.id == BirthdayMessageDraft.person_id)
+        .filter(Person.user_id == user.id, BirthdayMessageDraft.status == ReviewStatus.pending)
+        .count()
+    )
     return bd
 
 
-def _wrapped_ready(db: Session | None) -> bool:
+def _wrapped_ready(db: Session | None, user) -> bool:
     """Whether a fresh Kin Wrapped card exists for the current year (drives the sidebar link
     and dashboard banner). Only computed when a DB session is available."""
-    if db is None:
+    if db is None or user is None:
         return False
     try:
         from .services import wrapped as wrapped_service
-        return wrapped_service.get_fresh_card(db) is not None
+        return wrapped_service.get_fresh_card(db, user) is not None
     except Exception:
         return False
 
@@ -52,9 +57,9 @@ def render(request: Request, template: str, db: Session = None, user=None, activ
         "whats_new": whatsnew.WHATS_NEW,
         "user": user,
         "active": active,
-        "pending_review_count": _pending_review_count(db),
+        "pending_review_count": _pending_review_count(db, user),
         "current_year": dt.date.today().year,
-        "wrapped_ready": _wrapped_ready(db),
+        "wrapped_ready": _wrapped_ready(db, user),
         "gamification_flash": gamification_flash,
         "notice_flash": notice_flash,
         **ctx,

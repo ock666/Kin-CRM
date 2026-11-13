@@ -8,6 +8,7 @@ from fastapi.responses import RedirectResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from ..database import get_db
+from ..scoping import owned_journal_entries, owned_people
 from ..deps import current_user
 from ..models import Person, JournalEntry
 from ..render import render
@@ -24,7 +25,7 @@ def export_page(request: Request, db: Session = Depends(get_db), user=Depends(cu
 
 @router.post("/export/json")
 def export_json(db: Session = Depends(get_db), user=Depends(current_user)):
-    people = db.query(Person).order_by(Person.name).all()
+    people = owned_people(db, user).order_by(Person.name).all()
     data = {
         "format": "kin-export",
         "version": 2,
@@ -84,7 +85,7 @@ def export_json(db: Session = Depends(get_db), user=Depends(current_user)):
 
 @router.post("/export/csv")
 def export_csv(db: Session = Depends(get_db), user=Depends(current_user)):
-    people = db.query(Person).all()
+    people = owned_people(db, user).all()
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow(["name", "nickname", "relationship_label", "birthday_month", "birthday_day",
@@ -105,7 +106,7 @@ def export_csv(db: Session = Depends(get_db), user=Depends(current_user)):
 
 @router.post("/export/csv/journal")
 def export_csv_journal(db: Session = Depends(get_db), user=Depends(current_user)):
-    entries = db.query(JournalEntry).order_by(JournalEntry.entry_date.desc()).all()
+    entries = owned_journal_entries(db, user).order_by(JournalEntry.entry_date.desc()).all()
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow(["date", "title", "body", "event_type", "energy_cost", "location",

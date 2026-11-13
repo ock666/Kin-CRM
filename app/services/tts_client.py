@@ -48,8 +48,9 @@ def _strip_emoji(text: str) -> str:
     return re.sub(r"\s{2,}", " ", cleaned).strip()
 
 
-def _read_tts_settings(db):
-    from ..settings_store import get_setting, get_setting_sensitive
+def _read_tts_settings(db, user=None):
+    from ..settings_store import get_setting, get_setting_sensitive, get_user_setting
+    mirror_mode = get_user_setting(db, user.id, "tts_mirror_mode", "1") if user is not None else get_setting(db, "tts_mirror_mode", "1")
     return {
         "provider": get_setting(db, "tts_provider", "piper"),
         "base_url": get_setting(db, "tts_base_url", ""),
@@ -59,20 +60,20 @@ def _read_tts_settings(db):
         "format": get_setting(db, "tts_format", "mp3"),
         "piper_host": get_setting(db, "tts_piper_host", ""),
         "piper_port": get_setting(db, "tts_piper_port", "10200"),
-        "mirror_mode": get_setting(db, "tts_mirror_mode", "1"),
+        "mirror_mode": mirror_mode,
     }
 
 
-def should_reply_with_voice(db) -> tuple[bool, bool]:
+def should_reply_with_voice(db, user=None) -> tuple[bool, bool]:
     """Return a tuple (deprecated_reply_default, mirror_mode).
     reply_default is deprecated and always False. mirror_mode controls whether
     the bot replies with voice when the user sends a voice note."""
-    cfg = _read_tts_settings(db)
+    cfg = _read_tts_settings(db, user)
     return (False, cfg.get("mirror_mode") == "1")
 
 
-def synthesize_from_settings(db, text: str, *, voice: Optional[str] = None, fmt: str = "mp3") -> bytes:
-    cfg = _read_tts_settings(db)
+def synthesize_from_settings(db, text: str, *, voice: Optional[str] = None, fmt: str = "mp3", user=None) -> bytes:
+    cfg = _read_tts_settings(db, user)
     provider = (cfg.get("provider") or "piper").lower()
     fmt = fmt or (cfg.get("format") or "mp3")
     v = voice or (cfg.get("voice") or "en_GB-alba-medium")

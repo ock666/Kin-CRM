@@ -16,6 +16,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from ..database import get_db
+from ..scoping import get_person
 from ..deps import current_user
 from ..models import HangoutDismissal, JournalEntry, JournalImage, Person, EventType
 from ..services import checkins as checkin_service
@@ -46,14 +47,14 @@ def _clamped_today(value: str) -> dt.date:
     return d
 
 
-def _person_face_assets(db, person: Person) -> set[str]:
+def _person_face_assets(db, user, person: Person) -> set[str]:
     """The asset ids Immich actually tags with this person's face in the recent window.
     Used to reject crafted `asset_ids` (e.g. photos of anyone else on the server). Raises
     `ImmichError` when Immich is unreachable/misconfigured so callers can fail CLOSED instead of
     accepting asset ids that were never verified against this person's face."""
     if not person.immich_person_id:
         return set()
-    client = get_client_from_settings(db)
+    client = get_client_from_settings(db, user)
     cutoff = dt.date.today() - dt.timedelta(days=31)
     window_start = dt.datetime.combine(cutoff, dt.time.min) - dt.timedelta(hours=24)
     window_end = dt.datetime.now(dt.timezone.utc) + dt.timedelta(hours=24)
@@ -74,7 +75,7 @@ def log_hangout(
     """One-click hangout log: creates a journal entry with the hangout photos auto-attached."""
     if not user:
         return RedirectResponse("/login")
-    person = db.get(Person, person_id)
+    person = get_person(db, user, person_id)
     if not person or not person.immich_person_id:
         return RedirectResponse("/", status_code=303)
 
@@ -85,7 +86,7 @@ def log_hangout(
     hangout_date = _clamped_today(entry_date)
     asset_ids = asset_ids[:MAX_ATTACHED_ASSETS]
     try:
-        verified = _person_face_assets(db, person)
+        verified = _person_face_assets(db, user, person)
     except ImmichError:
         request.session["notice_flash"] = "Couldn't verify that photo with Immich right now — try again in a moment."
         return RedirectResponse("/", status_code=303)
@@ -119,7 +120,7 @@ def log_hangout(
     events = ["NOTE_ADDED"]
     if new_asset_ids:
         events.append("PHOTO_ATTACHED")
-    gamification.award_and_flash(request, db, *events, context={
+    gamification.award_and_flash(request, db, user, *events, context={
         "entry_people_count": 1,
         "entry_word_count": len(entry.body.split()),
         "entry_hour": (entry.created_at or dt.datetime.utcnow()).hour,
@@ -139,7 +140,7 @@ def dismiss_hangout(
     resurface. Dismissing only hides the suggestion - the check-in credit still applies."""
     if not user:
         return RedirectResponse("/login")
-    person = db.get(Person, person_id)
+    person = get_person(db, user, person_id)
     if not person:
         return RedirectResponse("/", status_code=303)
 

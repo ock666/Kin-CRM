@@ -4,52 +4,52 @@ from app.models import ConflictLog, ConflictChatMessage, ConflictStatus, Person
 from app.services import gamification
 
 
-def test_rest_snooze_achievement(app):
+def test_rest_snooze_achievement(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
-        result = gamification.award_xp(db, "REST_SNOOZE")
+        result = gamification.award_xp(db, user, "REST_SNOOZE")
         assert result["xp_gained"] == 10
         assert "calm_taker" in result["unlocked_badges"]
     finally:
         db.close()
 
 
-def test_rest_grace_achievement(app):
+def test_rest_grace_achievement(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
-        result = gamification.award_xp(db, "REST_GRACE")
+        result = gamification.award_xp(db, user, "REST_GRACE")
         assert "grace_giver" in result["unlocked_badges"]
     finally:
         db.close()
 
 
-def test_let_it_go_achievement(app):
+def test_let_it_go_achievement(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
-        result = gamification.award_xp(db, "CONFLICT_RELEASED")
+        result = gamification.award_xp(db, user, "CONFLICT_RELEASED")
         assert "let_it_go" in result["unlocked_badges"]
     finally:
         db.close()
 
 
-def test_space_keeper_achievement(app):
+def test_space_keeper_achievement(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
-        result = gamification.award_xp(db, "REST_SPACE")
+        result = gamification.award_xp(db, user, "REST_SPACE")
         assert "space_keeper" in result["unlocked_badges"]
     finally:
         db.close()
 
 
-def test_drift_aware_achievement(app):
+def test_drift_aware_achievement(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
-        result = gamification.award_xp(db, "REST_SPACE", context={"drift_acknowledged": True})
+        result = gamification.award_xp(db, user, "REST_SPACE", context={"drift_acknowledged": True})
         assert "drift_aware" in result["unlocked_badges"]
     finally:
         db.close()

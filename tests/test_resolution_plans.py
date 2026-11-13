@@ -4,28 +4,28 @@ from app.models import (
 )
 
 
-def test_find_plannable_conflicts_no_messages(app):
+def test_find_plannable_conflicts_no_messages(app, user):
     from app.database import SessionLocal
     from app.services.resolution_plans import find_plannable_conflicts
     db = SessionLocal()
     try:
-        p = Person(name="No Chat Person")
+        p = Person(user_id=1, name="No Chat Person")
         db.add(p); db.commit()
         c = ConflictLog(person_id=p.id, summary="No messages", status=ConflictStatus.unresolved)
         db.add(c); db.commit()
-        result = find_plannable_conflicts(db)
+        result = find_plannable_conflicts(db, user)
         assert all(r.id != c.id for r in result)
     finally:
         db.close()
 
 
-def test_find_plannable_conflicts_idle(app):
+def test_find_plannable_conflicts_idle(app, user):
     from app.database import SessionLocal
     from app.services.resolution_plans import find_plannable_conflicts
     import datetime as dt
     db = SessionLocal()
     try:
-        p = Person(name="Idle Chat")
+        p = Person(user_id=1, name="Idle Chat")
         db.add(p); db.commit()
         c = ConflictLog(person_id=p.id, summary="Idle", status=ConflictStatus.unresolved)
         db.add(c); db.commit()
@@ -33,38 +33,38 @@ def test_find_plannable_conflicts_idle(app):
         db.add(ConflictChatMessage(conflict_id=c.id, role="user", content="hello", created_at=old))
         db.add(ConflictChatMessage(conflict_id=c.id, role="assistant", content="hi", created_at=old + dt.timedelta(seconds=10)))
         db.commit()
-        result = find_plannable_conflicts(db)
+        result = find_plannable_conflicts(db, user)
         assert any(r.id == c.id for r in result)
     finally:
         db.close()
 
 
-def test_find_plannable_conflicts_too_recent(app):
+def test_find_plannable_conflicts_too_recent(app, user):
     from app.database import SessionLocal
     from app.services.resolution_plans import find_plannable_conflicts
     import datetime as dt
     db = SessionLocal()
     try:
-        p = Person(name="Recent Chat")
+        p = Person(user_id=1, name="Recent Chat")
         db.add(p); db.commit()
         c = ConflictLog(person_id=p.id, summary="Recent", status=ConflictStatus.unresolved)
         db.add(c); db.commit()
         recent = dt.datetime.utcnow() - dt.timedelta(minutes=2)
         db.add(ConflictChatMessage(conflict_id=c.id, role="user", content="hello", created_at=recent))
         db.commit()
-        result = find_plannable_conflicts(db)
+        result = find_plannable_conflicts(db, user)
         assert not any(r.id == c.id for r in result)
     finally:
         db.close()
 
 
-def test_find_plannable_conflicts_already_has_plan(app):
+def test_find_plannable_conflicts_already_has_plan(app, user):
     from app.database import SessionLocal
     from app.services.resolution_plans import find_plannable_conflicts
     import datetime as dt
     db = SessionLocal()
     try:
-        p = Person(name="Has Plan")
+        p = Person(user_id=1, name="Has Plan")
         db.add(p); db.commit()
         c = ConflictLog(person_id=p.id, summary="Plan exists", status=ConflictStatus.unresolved,
                         resolution_plan_json='{"summary":"test"}')
@@ -72,7 +72,7 @@ def test_find_plannable_conflicts_already_has_plan(app):
         old = dt.datetime.utcnow() - dt.timedelta(minutes=30)
         db.add(ConflictChatMessage(conflict_id=c.id, role="user", content="hello", created_at=old))
         db.commit()
-        result = find_plannable_conflicts(db)
+        result = find_plannable_conflicts(db, user)
         assert not any(r.id == c.id for r in result)
     finally:
         db.close()
@@ -86,7 +86,7 @@ def test_insight_endpoint_mocked(app, logged_in_client, monkeypatch):
         def chat_insight(self, messages):
             return "Key insight: I should approach this calmly."
 
-    monkeypatch.setattr("app.routers.conflicts.support_ai_from_settings", lambda db: MockAI())
+    monkeypatch.setattr("app.routers.conflicts.support_ai_from_settings", lambda db, user: MockAI())
 
     resp = logged_in_client.post("/people/new", data={"name":"Insight Person"}, follow_redirects=False)
     import re
@@ -127,7 +127,7 @@ def test_generate_plan_endpoint_mocked(app, logged_in_client, monkeypatch):
         def suggest_resolution_plan(self, *a, **kw):
             return plan
 
-    monkeypatch.setattr("app.services.ai_client.get_support_client_from_settings", lambda db: MockAI())
+    monkeypatch.setattr("app.services.ai_client.get_support_client_from_settings", lambda db, user: MockAI())
 
     resp = logged_in_client.post("/people/new", data={"name":"Plan Person"}, follow_redirects=False)
     import re

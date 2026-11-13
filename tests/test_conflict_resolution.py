@@ -12,11 +12,11 @@ from app.models import (
 from app.services import conflict_resolution, gamification
 
 
-def test_create_conflict(app):
+def test_create_conflict(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
-        p = Person(name="Test Friend")
+        p = Person(user_id=1, name="Test Friend")
         db.add(p)
         db.commit()
 
@@ -36,11 +36,11 @@ def test_create_conflict(app):
         db.close()
 
 
-def test_resolve_conflict(app):
+def test_resolve_conflict(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
-        p = Person(name="Resolved Friend")
+        p = Person(user_id=1, name="Resolved Friend")
         db.add(p)
         db.commit()
 
@@ -60,11 +60,11 @@ def test_resolve_conflict(app):
         db.close()
 
 
-def test_release_conflict(app):
+def test_release_conflict(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
-        p = Person(name="Let Go Friend")
+        p = Person(user_id=1, name="Let Go Friend")
         db.add(p)
         db.commit()
 
@@ -82,11 +82,11 @@ def test_release_conflict(app):
         db.close()
 
 
-def test_dismiss_reminder(app):
+def test_dismiss_reminder(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
-        p = Person(name="Dismissed Reminder")
+        p = Person(user_id=1, name="Dismissed Reminder")
         db.add(p)
         db.commit()
 
@@ -103,11 +103,11 @@ def test_dismiss_reminder(app):
         db.close()
 
 
-def test_delete_conflict(app):
+def test_delete_conflict(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
-        p = Person(name="Delete Me")
+        p = Person(user_id=1, name="Delete Me")
         db.add(p)
         db.commit()
 
@@ -169,11 +169,11 @@ def test_conflict_status_enum():
     assert ConflictStatus.released.value == "RELEASED"
 
 
-def test_conflict_open_unresolved_filter(app):
+def test_conflict_open_unresolved_filter(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
-        p = Person(name="Filter Test")
+        p = Person(user_id=1, name="Filter Test")
         db.add(p)
         db.commit()
 

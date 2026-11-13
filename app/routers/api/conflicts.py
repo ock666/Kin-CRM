@@ -6,6 +6,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from ...database import get_db
+from ...scoping import get_owned_child, get_person
 from ...models import Person, ConflictLog, ConflictStatus
 from ...services.ai_client import get_support_client_from_settings, AIError
 from .deps import get_current_api_user
@@ -39,13 +40,19 @@ def _conflict_response(c: ConflictLog) -> dict:
 
 @router.get("")
 def list_conflicts(db: Session = Depends(get_db), user=Depends(get_current_api_user)):
-    conflicts = db.query(ConflictLog).order_by(ConflictLog.created_at.desc()).all()
+    conflicts = (
+        db.query(ConflictLog)
+        .join(Person, Person.id == ConflictLog.person_id)
+        .filter(Person.user_id == user.id)
+        .order_by(ConflictLog.created_at.desc())
+        .all()
+    )
     return [_conflict_response(c) for c in conflicts]
 
 
 @router.post("", status_code=201)
 def create_conflict(body: ConflictCreate, db: Session = Depends(get_db), user=Depends(get_current_api_user)):
-    p = db.get(Person, body.person_id)
+    p = get_person(db, user, body.person_id)
     if not p:
         raise HTTPException(status_code=404, detail="Person not found")
     c = ConflictLog(person_id=p.id, summary=body.summary, status=ConflictStatus.unresolved)
@@ -57,7 +64,7 @@ def create_conflict(body: ConflictCreate, db: Session = Depends(get_db), user=De
 
 @router.get("/{conflict_id}")
 def get_conflict(conflict_id: int, db: Session = Depends(get_db), user=Depends(get_current_api_user)):
-    c = db.get(ConflictLog, conflict_id)
+    c = get_owned_child(db, user, ConflictLog, conflict_id)
     if not c:
         raise HTTPException(status_code=404, detail="Conflict not found")
     return _conflict_response(c)
@@ -65,7 +72,7 @@ def get_conflict(conflict_id: int, db: Session = Depends(get_db), user=Depends(g
 
 @router.get("/{conflict_id}/chat")
 def get_chat(conflict_id: int, db: Session = Depends(get_db), user=Depends(get_current_api_user)):
-    c = db.get(ConflictLog, conflict_id)
+    c = get_owned_child(db, user, ConflictLog, conflict_id)
     if not c:
         raise HTTPException(status_code=404, detail="Conflict not found")
     msgs = sorted(c.chat_messages or [], key=lambda m: m.created_at or "")
@@ -77,11 +84,11 @@ def get_chat(conflict_id: int, db: Session = Depends(get_db), user=Depends(get_c
 
 @router.post("/{conflict_id}/chat")
 async def send_chat(conflict_id: int, body: ChatMessage, db: Session = Depends(get_db), user=Depends(get_current_api_user)):
-    c = db.get(ConflictLog, conflict_id)
+    c = get_owned_child(db, user, ConflictLog, conflict_id)
     if not c:
         raise HTTPException(status_code=404, detail="Conflict not found")
     try:
-        ai = get_support_client_from_settings(db)
+        ai = get_support_client_from_settings(db, user)
         if not ai:
             raise HTTPException(status_code=400, detail="AI support chat not configured")
     except Exception:
@@ -113,7 +120,7 @@ async def _stream_chat(ai, conflict, db, messages):
 
 @router.put("/{conflict_id}/resolve")
 def resolve_conflict(conflict_id: int, db: Session = Depends(get_db), user=Depends(get_current_api_user)):
-    c = db.get(ConflictLog, conflict_id)
+    c = get_owned_child(db, user, ConflictLog, conflict_id)
     if not c:
         raise HTTPException(status_code=404, detail="Conflict not found")
     c.status = ConflictStatus.resolved

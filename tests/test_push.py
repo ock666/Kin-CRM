@@ -9,7 +9,7 @@ from app.services import push as push_service
 
 
 def make_person(db, **kwargs):
-    p = Person(**kwargs)
+    p = Person(user_id=1, **kwargs)
     db.add(p)
     db.commit()
     return p
@@ -17,7 +17,7 @@ def make_person(db, **kwargs):
 
 def test_vapid_keys_generated_and_persisted(app):
     from app.database import SessionLocal
-    from app.settings_store import get_setting, set_setting
+    from app.settings_store import get_setting, set_setting, set_user_setting
     db = SessionLocal()
     try:
         keys = push_service.ensure_vapid_keys(db)
@@ -31,7 +31,7 @@ def test_vapid_keys_generated_and_persisted(app):
         db.close()
 
 
-def test_build_messages_birthday(caplog, app):
+def test_build_messages_birthday(caplog, app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
@@ -40,15 +40,15 @@ def test_build_messages_birthday(caplog, app):
             birthday_month=dt.date.today().month,
             birthday_day=dt.date.today().day,
         )
-        messages = push_service._build_messages(db)
+        messages = push_service._build_messages(db, user)
         assert any(m["tag"] == "birthdays" for m in messages)
     finally:
         db.close()
 
 
-def test_build_messages_respects_disabled_triggers(app):
+def test_build_messages_respects_disabled_triggers(app, user):
     from app.database import SessionLocal
-    from app.settings_store import set_setting
+    from app.settings_store import set_setting, set_user_setting
     db = SessionLocal()
     try:
         make_person(
@@ -56,35 +56,35 @@ def test_build_messages_respects_disabled_triggers(app):
             birthday_month=dt.date.today().month,
             birthday_day=dt.date.today().day,
         )
-        set_setting(db, "push_birthdays", "0")
-        messages = push_service._build_messages(db)
+        set_user_setting(db, user.id, "push_birthdays", "0")
+        messages = push_service._build_messages(db, user)
         assert all(m["tag"] != "birthdays" for m in messages)
     finally:
         db.close()
 
 
-def test_send_push_noop_when_disabled(app):
+def test_send_push_noop_when_disabled(app, user):
     from app.database import SessionLocal
-    from app.settings_store import set_setting
+    from app.settings_store import set_setting, set_user_setting
     db = SessionLocal()
     try:
-        set_setting(db, "push_enabled", "0")
+        set_user_setting(db, user.id, "push_enabled", "0")
         db.add(PushSubscription(
             endpoint="https://push/dummy", p256dh="x", auth="y", user_id=None
         ))
         db.commit()
-        assert push_service.send_push_notifications(db) == 0
+        assert push_service.send_push_notifications(db, user) == 0
     finally:
         db.close()
 
 
-def test_send_push_noop_when_no_subscriptions(app):
+def test_send_push_noop_when_no_subscriptions(app, user):
     from app.database import SessionLocal
-    from app.settings_store import set_setting
+    from app.settings_store import set_setting, set_user_setting
     db = SessionLocal()
     try:
-        set_setting(db, "push_enabled", "1")
-        assert push_service.send_push_notifications(db) == 0
+        set_user_setting(db, user.id, "push_enabled", "1")
+        assert push_service.send_push_notifications(db, user) == 0
     finally:
         db.close()
 

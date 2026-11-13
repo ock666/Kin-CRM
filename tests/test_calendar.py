@@ -2,13 +2,13 @@ import datetime as dt
 
 from app.database import SessionLocal
 from app.models import Person, NotableDate
-from app.settings_store import set_setting
+from app.settings_store import set_setting, set_user_setting, get_user_setting
 from app.services.calendar_ics import build_ics
 
 
 def _enable_feed(db, token="sekret-token"):
-    set_setting(db, "calendar_ics_enabled", "1")
-    set_setting(db, "calendar_ics_token", token)
+    set_user_setting(db, 1, "calendar_ics_enabled", "1")
+    set_user_setting(db, 1, "calendar_ics_token", token)
 
 
 def test_ics_404_when_disabled(logged_in_client):
@@ -25,10 +25,10 @@ def test_ics_404_wrong_or_missing_token(logged_in_client):
     assert logged_in_client.get("/calendar.ics").status_code == 404
 
 
-def test_ics_contains_birthdays_notable_dates_and_reminders(logged_in_client):
+def test_ics_contains_birthdays_notable_dates_and_reminders(logged_in_client, user):
     db = SessionLocal()
     try:
-        p = Person(name="Ada Lovelace", birthday_month=12, birthday_day=10)
+        p = Person(user_id=1, name="Ada Lovelace", birthday_month=12, birthday_day=10)
         db.add(p)
         db.commit()
         db.refresh(p)
@@ -56,18 +56,18 @@ def test_ics_contains_birthdays_notable_dates_and_reminders(logged_in_client):
     assert "TRIGGER:-P1D" in text
 
 
-def test_ics_reminder_days_configurable(logged_in_client):
+def test_ics_reminder_days_configurable(logged_in_client, user):
     db = SessionLocal()
     try:
-        p = Person(name="Bob", birthday_month=1, birthday_day=5)
+        p = Person(user_id=1, name="Bob", birthday_month=1, birthday_day=5)
         db.add(p)
         db.commit()
         db.refresh(p)
         db.add(NotableDate(person_id=p.id, label="Bob day", month=4, day=2, recurring=True))
         db.commit()
         _enable_feed(db)
-        set_setting(db, "calendar_birthday_reminder_days", "7")
-        set_setting(db, "calendar_notable_reminder_days", "2")
+        set_user_setting(db, 1, "calendar_birthday_reminder_days", "7")
+        set_user_setting(db, 1, "calendar_notable_reminder_days", "2")
     finally:
         db.close()
     text = logged_in_client.get("/calendar.ics?token=sekret-token").text
@@ -75,10 +75,10 @@ def test_ics_reminder_days_configurable(logged_in_client):
     assert "TRIGGER:-P2D" in text
 
 
-def test_ics_escapes_summary_text(logged_in_client):
+def test_ics_escapes_summary_text(logged_in_client, user):
     db = SessionLocal()
     try:
-        p = Person(name="Mum, Carol", birthday_month=4, birthday_day=1)
+        p = Person(user_id=1, name="Mum, Carol", birthday_month=4, birthday_day=1)
         db.add(p)
         db.commit()
         db.refresh(p)
@@ -92,12 +92,12 @@ def test_ics_escapes_summary_text(logged_in_client):
     assert "Gotcha\\; day" in text
 
 
-def test_build_ics_handles_feb_29_in_non_leap_year():
+def test_build_ics_handles_feb_29_in_non_leap_year(user):
     db = SessionLocal()
     try:
-        db.add(Person(name="Leap Baby", birthday_month=2, birthday_day=29))
+        db.add(Person(user_id=1, name="Leap Baby", birthday_month=2, birthday_day=29))
         db.commit()
-        text = build_ics(db, birthday_reminder_days=14)
+        text = build_ics(db, user, birthday_reminder_days=14)
         # non-leap current year -> Feb 29 collapses to Mar 1 rather than erroring
         assert "0301" in text
     finally:
@@ -119,9 +119,8 @@ def test_calendar_settings_saves_token_on_enable(logged_in_client):
     assert resp.status_code == 303
     db = SessionLocal()
     try:
-        from app.settings_store import get_setting
-        assert get_setting(db, "calendar_ics_enabled") == "1"
-        assert get_setting(db, "calendar_ics_token")  # auto-generated
+        assert get_user_setting(db, 1, "calendar_ics_enabled") == "1"
+        assert get_user_setting(db, 1, "calendar_ics_token")  # auto-generated
     finally:
         db.close()
 
@@ -132,8 +131,8 @@ def test_calendar_settings_saves_token_on_enable(logged_in_client):
 
 
 def test_birthday_lead_default_is_two_weeks():
-    from app.settings_store import DEFAULTS
-    assert DEFAULTS["birthday_lead_days"] == "14"
+    from app.settings_store import USER_DEFAULTS
+    assert USER_DEFAULTS["birthday_lead_days"] == "14"
 
 
 def test_startup_migration_bumps_stored_three_to_14(app):
