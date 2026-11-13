@@ -320,30 +320,36 @@
 <div class="card mt-2">
   <h2>👥 Households &amp; members</h2>
   {% for h in households %}
-    <div class="flex-between mt-1">
+    <div class="flex-between mt-1" style="margin-bottom:.4rem;">
       <div style="font-weight:600;">🏠 {{ h.name or ('Household ' ~ h.id) }}</div>
       <a class="btn btn-sm" href="/settings/households/{{ h.id }}">Edit config</a>
     </div>
     {% for u in users %}
       {% if u.household_id == h.id %}
-      <div class="flex-between" style="padding:.35rem 0; border-top:1px solid var(--border);">
-        <span>
-          {{ u.name }} &lt;{{ u.email }}&gt;
-          {% if u.is_admin %}<span class="badge">instance owner</span>{% endif %}
-          {% if u.is_household_owner %}<span class="badge">household owner</span>{% endif %}
-          {% if u.settings_hidden %}<span class="badge">config hidden</span>{% endif %}
+      <div class="member-row">
+        <div class="member-id">
+          <span><strong>{{ u.name }}</strong> <span class="text-muted text-sm">{{ u.email }}</span></span>
           {% if u.id == user.id %}<span class="text-muted text-sm">(you)</span>{% endif %}
-        </span>
+        </div>
+        <div class="member-badges">
+          {% if u.is_admin %}<span class="badge badge-admin">instance owner</span>{% endif %}
+          {% if u.is_household_owner %}<span class="badge badge-owner">owner</span>{% endif %}
+          {% if not u.is_household_owner and not u.is_admin %}<span class="badge badge-member">member</span>{% endif %}
+          {% if u.settings_hidden %}<span class="badge badge-hidden">config hidden</span>{% endif %}
+        </div>
         {% if u.id != user.id %}
-        <span class="flex-gap">
-          {% if u.is_admin %}
-            <form method="post" action="/settings/users/{{ u.id }}/remove-admin" style="display:inline"><button class="btn btn-sm" type="submit">Remove owner</button></form>
-          {% else %}
-            <form method="post" action="/settings/users/{{ u.id }}/make-admin" style="display:inline"><button class="btn btn-sm" type="submit">Make owner</button></form>
-          {% endif %}
-          <form method="post" action="/settings/users/{{ u.id }}/toggle-settings-hidden" style="display:inline"><button class="btn btn-sm" type="submit">{{ 'Show config' if u.settings_hidden else 'Hide config' }}</button></form>
-          <form method="post" action="/settings/users/{{ u.id }}/delete" style="display:inline"><button class="btn btn-sm btn-danger" type="submit">Delete</button></form>
-        </span>
+        <details class="member-menu">
+          <summary class="member-menu-btn" aria-label="Actions for {{ u.name }}">⋮</summary>
+          <div class="member-menu-list">
+            {% if u.is_admin %}
+              <form method="post" action="/settings/users/{{ u.id }}/remove-admin"><button type="submit">Remove instance owner</button></form>
+            {% else %}
+              <form method="post" action="/settings/users/{{ u.id }}/make-admin"><button type="submit">Make instance owner</button></form>
+            {% endif %}
+            <form method="post" action="/settings/users/{{ u.id }}/toggle-settings-hidden"><button type="submit">{{ 'Show config' if u.settings_hidden else 'Hide config' }}</button></form>
+            <form method="post" action="/settings/users/{{ u.id }}/delete"><button type="submit" class="danger">Delete</button></form>
+          </div>
+        </details>
         {% endif %}
       </div>
       {% endif %}

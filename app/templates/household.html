@@ -21,22 +21,28 @@
   <div class="card">
     <h2 class="mt-0">Members</h2>
     {% for m in members %}
-      <div class="flex-between" style="padding:.4rem 0; border-top:1px solid var(--border);">
-        <span>
-          {{ m.name }} &lt;{{ m.email }}&gt;
-          {% if m.is_household_owner %}<span class="badge">owner</span>{% endif %}
-          {% if m.is_admin %}<span class="badge">instance owner</span>{% endif %}
+      <div class="member-row">
+        <div class="member-id">
+          <span><strong>{{ m.name }}</strong> <span class="text-muted text-sm">{{ m.email }}</span></span>
           {% if m.id == user.id %}<span class="text-muted text-sm">(you)</span>{% endif %}
-        </span>
+        </div>
+        <div class="member-badges">
+          {% if m.is_admin %}<span class="badge badge-admin">instance owner</span>{% endif %}
+          {% if m.is_household_owner %}<span class="badge badge-owner">owner</span>{% endif %}
+          {% if not m.is_household_owner and not m.is_admin %}<span class="badge badge-member">member</span>{% endif %}
+        </div>
         {% if can_manage and m.id != user.id %}
-          <span class="flex-gap">
-            {% if not m.is_household_owner %}
-              <form method="post" action="/household/members/{{ m.id }}/promote" style="display:inline"><button class="btn btn-sm" type="submit">Make owner</button></form>
+        <details class="member-menu">
+          <summary class="member-menu-btn" aria-label="Actions for {{ m.name }}">⋮</summary>
+          <div class="member-menu-list">
+            {% if m.is_household_owner %}
+              <form method="post" action="/household/members/{{ m.id }}/demote"><button type="submit">Remove owner</button></form>
             {% else %}
-              <form method="post" action="/household/members/{{ m.id }}/demote" style="display:inline"><button class="btn btn-sm" type="submit">Remove owner</button></form>
+              <form method="post" action="/household/members/{{ m.id }}/promote"><button type="submit">Make owner</button></form>
             {% endif %}
-            <form method="post" action="/household/members/{{ m.id }}/remove" style="display:inline"><button class="btn btn-sm btn-danger" type="submit">Remove</button></form>
-          </span>
+            <form method="post" action="/household/members/{{ m.id }}/remove"><button type="submit" class="danger">Remove from household</button></form>
+          </div>
+        </details>
         {% endif %}
       </div>
     {% endfor %}
