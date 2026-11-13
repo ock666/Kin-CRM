@@ -23,14 +23,14 @@
 
     **First run:** Kin auto-detects an empty database and walks you through a setup wizard to create your admin account. No environment variables needed beyond what is shown below.
 
-    **AI features (optional):** Set your OpenAI or Ollama API credentials in the Settings page after setup. Kin works perfectly without AI -- it falls back gracefully.
+    **AI features (optional):** Set your OpenAI or Ollama API credentials on the Household page after setup. Kin works perfectly without AI -- it falls back gracefully.
 
-    **Immich integration (optional):** Connect your Immich server in Settings to attach face-linked photos to journal entries.
+    **Immich integration (optional):** Connect your Immich server from the Household page to attach face-linked photos to journal entries.
 
     **Database:** SQLite by default (stored in /data). Optionally connect to PostgreSQL via the DATABASE_URL variable.
   </Overview>
 
-  <Support>https://github.com/ock666/Kin-CRM/issues</Support>
+  <Support>https://kin-docs.skyenet.io</Support>
   <Project>https://github.com/ock666/Kin-CRM</Project>
 
   <TemplateURL>https://raw.githubusercontent.com/ock666/Kin-CRM/main/templates/kin-crm.xml</TemplateURL>
@@ -56,7 +56,7 @@
   <Config Name="Appdata" Target="/data" Default="/mnt/user/appdata/kin-crm" Mode="rw" Description="Persistent data directory (SQLite database, uploads, session secret)." Type="Path" Display="always" Required="true" Mask="false"/>
   <Config Name="PUID" Target="PUID" Default="99" Description="User ID to run the container as. Ensures file ownership matches your Unraid users." Type="Variable" Display="advanced" Required="false" Mask="false"/>
   <Config Name="PGID" Target="PGID" Default="100" Description="Group ID to run the container as." Type="Variable" Display="advanced" Required="false" Mask="false"/>
-  <Config Name="TZ" Target="TZ" Default="UTC" Description="Timezone for daily scheduled jobs (birthday reminders, Instagram polling)." Type="Variable" Display="always" Required="false" Mask="false"/>
+  <Config Name="TZ" Target="TZ" Default="UTC" Description="Timezone for daily scheduled jobs (birthday reminders, notification pushes)." Type="Variable" Display="always" Required="false" Mask="false"/>
   <Config Name="Disable Scheduler" Target="DISABLE_SCHEDULER" Default="0" Description="Set to 1 to disable background scheduled jobs." Type="Variable" Display="advanced" Required="false" Mask="false"/>
   <Config Name="Database URL" Target="DATABASE_URL" Default="" Description="Optional PostgreSQL connection string. Leave empty to use the built-in SQLite database." Type="Variable" Display="advanced" Required="false" Mask="false"/>
   <Config Name="Session Secret" Target="SESSION_SECRET" Default="" Description="Optional fixed session secret. Auto-generated and persisted to /data if left empty." Type="Variable" Display="advanced" Required="false" Mask="true"/>
