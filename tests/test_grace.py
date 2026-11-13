@@ -68,7 +68,7 @@ def test_push_silenced_during_grace(app, user):
         set_setting(db, "push_enabled", "1")
         set_setting(db, "push_cadence", "1")
         db.add(PushSubscription(endpoint="https://push/dummy", p256dh="x", auth="y", user_id=None))
-        over = Person(user_id=1, name="Overdue", archived=False, checkin_cadence_days=30,
+        over = Person(household_id=1, name="Overdue", archived=False, checkin_cadence_days=30,
                       last_contact_date=dt.date.today() - dt.timedelta(days=90))
         db.add(over)
         db.commit()
@@ -90,7 +90,7 @@ def test_dashboard_hides_nudges_during_grace(logged_in_client, user):
     from app.models import Person
     db = SessionLocal()
     try:
-        over = Person(user_id=1, name="Maya", archived=False, checkin_cadence_days=30,
+        over = Person(household_id=1, name="Maya", archived=False, checkin_cadence_days=30,
                       last_contact_date=dt.date.today() - dt.timedelta(days=90))
         db.add(over)
         db.commit()

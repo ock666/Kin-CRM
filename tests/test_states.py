@@ -11,7 +11,7 @@ def test_effective_state_none(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
-        p = Person(user_id=1, name="No State", relationship_state=RelationshipState.none)
+        p = Person(household_id=1, name="No State", relationship_state=RelationshipState.none)
         assert state_service.effective_state(p) == RelationshipState.none
     finally:
         db.close()
@@ -21,7 +21,7 @@ def test_effective_state_in_conflict_from_log(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
-        p = Person(user_id=1, name="Has Conflict", relationship_state=RelationshipState.none)
+        p = Person(household_id=1, name="Has Conflict", relationship_state=RelationshipState.none)
         db.add(p)
         db.commit()
         db.add(ConflictLog(person_id=p.id, summary="Argument", status=ConflictStatus.unresolved))
@@ -36,7 +36,7 @@ def test_effective_state_wants_space_overrides(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
-        p = Person(user_id=1, name="Wants Space", relationship_state=RelationshipState.wants_space)
+        p = Person(household_id=1, name="Wants Space", relationship_state=RelationshipState.wants_space)
         assert state_service.effective_state(p) == RelationshipState.wants_space
     finally:
         db.close()
@@ -46,7 +46,7 @@ def test_effective_state_in_conflict_takes_precedence(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
-        p = Person(user_id=1, name="Conflict + Drifted", relationship_state=RelationshipState.drifted)
+        p = Person(household_id=1, name="Conflict + Drifted", relationship_state=RelationshipState.drifted)
         db.add(p)
         db.commit()
         db.add(ConflictLog(person_id=p.id, summary="Fight", status=ConflictStatus.unresolved))
@@ -61,7 +61,7 @@ def test_suggest_states_no_suggestions_for_recent_contact(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
-        p = Person(user_id=1,
+        p = Person(household_id=1,
             name="Recent Contact", relationship_state=RelationshipState.none,
             checkin_cadence_days=60, last_contact_date=dt.date.today(),
         )
@@ -77,7 +77,7 @@ def test_suggest_states_drifted_when_90_days(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
-        p = Person(user_id=1,
+        p = Person(household_id=1,
             name="Very Old Contact", relationship_state=RelationshipState.none,
             checkin_cadence_days=60,
             last_contact_date=dt.date.today() - dt.timedelta(days=100),
@@ -96,7 +96,7 @@ def test_suggest_states_excludes_with_conflict(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
-        p = Person(user_id=1,
+        p = Person(household_id=1,
             name="Old + Conflict", relationship_state=RelationshipState.none,
             checkin_cadence_days=60,
             last_contact_date=dt.date.today() - dt.timedelta(days=100),
@@ -115,7 +115,7 @@ def test_suggest_states_excludes_already_drifted(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
-        p = Person(user_id=1,
+        p = Person(household_id=1,
             name="Already Drifted", relationship_state=RelationshipState.drifted,
             checkin_cadence_days=60,
             last_contact_date=dt.date.today() - dt.timedelta(days=100),
@@ -194,7 +194,7 @@ def test_apply_state_suggestion(logged_in_client):
 
     db = SessionLocal()
     try:
-        p = Person(user_id=1,
+        p = Person(household_id=1,
             name="Suggestable", relationship_state=RelationshipState.none,
             checkin_cadence_days=60, last_contact_date=old,
         )

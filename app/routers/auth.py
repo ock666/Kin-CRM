@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models import User
-from ..auth import hash_password, verify_password, login_user, logout_user, _strong_enough
+from ..auth import verify_password, login_user, logout_user, _strong_enough
 from ..render import render
 from ..services.mfa import create_mfa_token, verify_mfa_token, validate_mfa_token, verify_totp, verify_recovery_code
 from ..config import settings
@@ -56,8 +56,8 @@ def setup_post(
             error="Passwords must match, be at least 8 characters, and include uppercase, lowercase, and a digit.",
             name=name, email=email,
         )
-    user = User(name=name, email=email.lower().strip(), hashed_password=hash_password(password), is_admin=True)
-    db.add(user)
+    from ..services.households import create_user
+    user = create_user(db, name=name, email=email, password=password, is_admin=True)
     db.commit()
     login_user(request, user)
     return RedirectResponse("/", status_code=303)

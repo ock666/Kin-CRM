@@ -39,7 +39,7 @@ def import_page(request: Request, db: Session = Depends(get_db), user=Depends(cu
 def _get_or_create_tag(db: Session, user, name: str) -> Tag:
     tag = owned_tags(db, user).filter(Tag.name == name).first()
     if not tag:
-        tag = Tag(user_id=user.id, name=name)
+        tag = Tag(household_id=user.household_id, name=name)
         db.add(tag)
         db.flush()
     return tag
@@ -48,7 +48,7 @@ def _get_or_create_tag(db: Session, user, name: str) -> Tag:
 def _upsert_person(db: Session, user, name: str, fields: dict) -> Person:
     person = owned_people(db, user).filter(Person.name == name).first()
     if person is None:
-        person = Person(user_id=user.id, name=name)
+        person = Person(household_id=user.household_id, name=name)
         db.add(person)
     for k, v in fields.items():
         if v is None:
@@ -174,7 +174,7 @@ def _import_json(db: Session, user, data: dict, summary: dict):
                             ec = EnergyCost(e.get("energy_cost"))
                         except ValueError:
                             ec = None
-                    entry = JournalEntry(author_user_id=user.id, 
+                    entry = JournalEntry(household_id=user.household_id, author_user_id=user.id, 
                         title=e.get("title"), body=e["body"],
                         entry_date=dt.date.fromisoformat(e["date"]) if e.get("date") else dt.date.today(),
                         event_type=et, energy_cost=ec, location=e.get("location"),

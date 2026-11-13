@@ -111,7 +111,7 @@ def test_people_with_upcoming_birthdays(app, user):
         today = dt.date.today()
         # Person with birthday tomorrow
         tomorrow = today + dt.timedelta(days=1)
-        p = Person(user_id=1,
+        p = Person(household_id=1,
             name="Tomorrow Bday",
             birthday_month=tomorrow.month,
             birthday_day=tomorrow.day,
@@ -132,7 +132,7 @@ def test_people_with_upcoming_birthdays_none_soon(app, user):
     db = SessionLocal()
     try:
         far = dt.date.today() + dt.timedelta(days=100)
-        p = Person(user_id=1,
+        p = Person(household_id=1,
             name="Far Bday",
             birthday_month=far.month,
             birthday_day=far.day,
@@ -152,7 +152,7 @@ def test_generate_birthday_drafts_creates_drafts(app, user):
     try:
         today = dt.date.today()
         tomorrow = today + dt.timedelta(days=1)
-        p = Person(user_id=1,
+        p = Person(household_id=1,
             name="Draft Person",
             birthday_month=tomorrow.month,
             birthday_day=tomorrow.day,
@@ -178,7 +178,7 @@ def test_generate_birthday_drafts_skips_existing(app, user):
         today = dt.date.today()
         tomorrow = today + dt.timedelta(days=1)
         target_year = tomorrow.year
-        p = Person(user_id=1,
+        p = Person(household_id=1,
             name="Existing Draft",
             birthday_month=tomorrow.month,
             birthday_day=tomorrow.day,

@@ -79,7 +79,7 @@ def list_people(
 
 @router.post("", status_code=201)
 def create_person(body: PersonCreate, db: Session = Depends(get_db), user=Depends(get_current_api_user)):
-    p = Person(user_id=user.id,
+    p = Person(household_id=user.household_id,
         name=body.name.strip(),
         nickname=body.nickname,
         pronouns=body.pronouns,

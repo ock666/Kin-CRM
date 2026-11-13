@@ -72,7 +72,7 @@ def build_ics(db: Session, user, birthday_reminder_days: int = 14,
     if include_birthdays:
         people = (
             db.query(Person)
-            .filter(Person.user_id == user.id)
+            .filter(Person.household_id == user.household_id)
             .filter(Person.archived.is_(False))
             .filter(Person.birthday_month.isnot(None), Person.birthday_day.isnot(None))
             .order_by(Person.name)
@@ -94,7 +94,7 @@ def build_ics(db: Session, user, birthday_reminder_days: int = 14,
         notable_dates = (
             db.query(NotableDate)
             .join(Person, Person.id == NotableDate.person_id)
-            .filter(Person.user_id == user.id)
+            .filter(Person.household_id == user.household_id)
             .order_by(NotableDate.label)
             .all()
         )

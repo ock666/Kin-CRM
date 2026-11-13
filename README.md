@@ -191,12 +191,12 @@ Push notifications require HTTPS in the browser, so a reverse proxy is mandatory
 ### Connecting Immich
 
 1. In Immich, go to Account Settings → API Keys and create a key.
-2. In Kin, go to Settings → Immich, enter your server URL and API key, then *Test connection*.
+2. In Kin, open the **Household** page and click **Edit household config → Immich**, enter your server URL and API key, then *Test connection*.
 3. On a person's profile, click *Link Immich face* to associate them with a recognized face.
 
 ### Connecting AI
 
-Kin works fully without AI — it's purely additive. In Settings → AI assistant, configure:
+Kin works fully without AI — it's purely additive. On the **Household** page → **Edit household config → AI assistant**, configure:
 
 - **API base URL**: `https://api.openai.com/v1` (OpenAI) or `http://ollama:11434/v1` (Ollama)
 - **API key**: your OpenAI key (Ollama doesn't validate this)
@@ -221,7 +221,7 @@ Setup steps:
        -p 9090:9000 -e ASR_MODEL=small \
        onerahmet/openai-whisper-asr-webservice:latest
      ```
-     - Visit Settings → Voice (Whisper) and set:
+     - Visit Household → Edit household config → Voice (Whisper) and set:
        - Provider: ASR Webservice
        - Base URL: `http://192.168.0.51:9090` (or wherever you exposed it)
        - API key: leave blank (not required for this image)
@@ -233,7 +233,7 @@ Setup steps:
      - Model: e.g. `whisper-1` (or whatever your router exposes)
 
 2. Configure in Kin
-   - In Kin: Settings → Voice (Whisper)
+   - In Kin: Household → Edit household config → Voice (Whisper)
    - Choose provider + fill Base URL, API key (if needed), and model (OpenAI-compatible only)
    - Click “Test connection”
 
@@ -266,7 +266,7 @@ Setup (Piper):
      rhasspy/wyoming-piper \
      --voice en_GB-alba-medium
    ```
-2. In Kin: Settings → Voice Replies (TTS):
+2. In Kin: Settings → Voice Replies (TTS) (instance owners only):
    - Provider: Piper
    - Piper host: your Docker host (e.g. `192.168.0.51`)
    - Piper port: `10200` (Wyoming TCP)
@@ -274,7 +274,7 @@ Setup (Piper):
 
 For OpenAI TTS, set Provider to OpenAI and add your API key.
 
-**Mirror my mode** is the single global toggle that controls voice replies. When on, if you send a voice note the bot replies with a voice bubble (plus the text transcript for accessibility). When off, replies are always text. Emoji are stripped from the spoken audio automatically (they stay in the on-screen transcript).
+**Mirror my mode** is a per-user toggle that controls voice replies. When on, if you send a voice note the bot replies with a voice bubble (plus the text transcript for accessibility). When off, replies are always text. Emoji are stripped from the spoken audio automatically (they stay in the on-screen transcript).
 
 ### Calendar sync
 
@@ -315,8 +315,10 @@ Kin can push birthdays and notable dates into any calendar that can subscribe to
 
 ### Multiple users, one instance
 - One Kin install can host multiple people, each with a fully private world — their own people, journal, tags, reminders, and progress, invisible to everyone else
-- Add someone from **Settings → Users** (admin), and they log into a fresh, empty Kin of their own
-- Immich, AI, and Whisper are configured **per user** (each person brings their own photo library and AI keys); the TTS voice engine, push keys, and scheduler stay instance-wide (admin-only)
+- Add someone from **Settings → Households & members** (admin), and they log into a fresh, empty Kin of their own
+- **Households**: two people can opt to share one Kin — a single-use invite link merges their data into one shared view (or registers a brand-new account straight into it). A household of one is just an individual account
+- **Roles**: *instance owners* administer the whole install; *household owners* (multiple allowed) manage their household's members and config; a per-user *"hide config"* toggle lets an owner manage things on behalf of someone non-technical
+- Immich, AI, and Whisper are configured **per household** (each household brings its own photo library and AI keys); the TTS voice engine, push keys, and scheduler stay instance-wide (admin-only)
 
 ### Today dashboard
 - **Upcoming birthdays & notable dates** surfaced as they approach with configurable lead time
@@ -356,7 +358,7 @@ Kin can push birthdays and notable dates into any calendar that can subscribe to
 - Chat transcripts auto-archive after 14 days ("water under the bridge"), always exportable
 
 ### Gamification (celebrating rest too)
-- Personal XP, levels, and 45+ achievements (per user)
+- Personal XP, levels, and 45+ achievements (shared within a household)
 - **Rest achievements**: celebrate snoozing a check-in, entering grace mode, releasing a conflict, setting "wants space" — rest is productive
 - Achievements unlock silently; toasts only for level-ups or new badges
 

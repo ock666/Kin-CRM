@@ -35,7 +35,7 @@ def overdue_people(db: Session, user) -> list[tuple[Person, int]]:
     out = []
     people = (
         db.query(Person)
-        .filter(Person.user_id == user.id)
+        .filter(Person.household_id == user.household_id)
         .filter(Person.archived.is_(False))
         .filter(Person.reminders_dismissed.is_(False))
         .filter(Person.checkin_cadence_days.isnot(None))

@@ -6,7 +6,7 @@ def test_chat_message_model(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
-        p = Person(user_id=1, name="Chat Test Person")
+        p = Person(household_id=1, name="Chat Test Person")
         db.add(p)
         db.commit()
         conflict = ConflictLog(person_id=p.id, summary="Argument", status=ConflictStatus.unresolved)
@@ -34,7 +34,7 @@ def test_chat_messages_cascade_delete(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
-        p = Person(user_id=1, name="Cascade Person")
+        p = Person(household_id=1, name="Cascade Person")
         db.add(p)
         db.commit()
         conflict = ConflictLog(person_id=p.id, summary="Test", status=ConflictStatus.unresolved)
@@ -133,7 +133,7 @@ def test_chat_endpoint_unknown_conflict(logged_in_client):
 
 
 def test_support_chat_model_setting(logged_in_client):
-    resp = logged_in_client.post("/settings/ai", data={
+    resp = logged_in_client.post("/settings/households/1/ai", data={
         "ai_base_url": "http://test",
         "ai_api_key": "sk-test",
         "ai_model": "gpt-4o-mini",
@@ -141,6 +141,6 @@ def test_support_chat_model_setting(logged_in_client):
     }, follow_redirects=False)
     assert resp.status_code == 303
 
-    page = logged_in_client.get("/settings")
+    page = logged_in_client.get("/settings/households/1")
     assert page.status_code == 200
     assert "gpt-4o" in page.text

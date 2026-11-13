@@ -96,7 +96,7 @@ def _year_entries(db: Session, user, year: int):
     end = dt.date(year, 12, 31)
     return (
         db.query(JournalEntry)
-        .filter(JournalEntry.author_user_id == user.id)
+        .filter(JournalEntry.household_id == user.household_id)
         .filter(JournalEntry.entry_date >= start, JournalEntry.entry_date <= end)
         .filter(JournalEntry.event_type.is_(None) | (JournalEntry.event_type != EventType.conflict))
         .all()
@@ -165,7 +165,7 @@ def build_payload(db: Session, user, year: int) -> dict:
     photo_count = (
         db.query(JournalImage.id)
         .join(JournalEntry, JournalEntry.id == JournalImage.journal_entry_id)
-        .filter(JournalEntry.author_user_id == user.id)
+        .filter(JournalEntry.household_id == user.household_id)
         .filter(JournalEntry.entry_date >= dt.date(year, 1, 1),
                 JournalEntry.entry_date <= dt.date(year, 12, 31))
         .count()
@@ -173,13 +173,13 @@ def build_payload(db: Session, user, year: int) -> dict:
     gifts_given = (
         db.query(GiftIdea.id)
         .join(Person, Person.id == GiftIdea.person_id)
-        .filter(Person.user_id == user.id)
+        .filter(Person.household_id == user.household_id)
         .filter(GiftIdea.year == year, GiftIdea.status == GiftStatus.given)
         .count()
     )
     achievements = (
         db.query(UnlockedAchievement.id)
-        .filter(UnlockedAchievement.user_id == user.id)
+        .filter(UnlockedAchievement.household_id == user.household_id)
         .filter(UnlockedAchievement.unlocked_at >= dt.datetime(year, 1, 1),
                 UnlockedAchievement.unlocked_at <= dt.datetime(year, 12, 31, 23, 59, 59))
         .count()
@@ -264,7 +264,7 @@ def build_payload(db: Session, user, year: int) -> dict:
     from .gamification import ACHIEVEMENTS as ACH
     badge_rows = (
         db.query(UnlockedAchievement)
-        .filter(UnlockedAchievement.user_id == user.id)
+        .filter(UnlockedAchievement.household_id == user.household_id)
         .filter(UnlockedAchievement.unlocked_at >= dt.datetime(year, 1, 1),
                 UnlockedAchievement.unlocked_at <= dt.datetime(year, 12, 31, 23, 59, 59))
         .order_by(UnlockedAchievement.unlocked_at.asc())
@@ -442,7 +442,7 @@ def generate_card(db: Session, user, year: int, today: dt.date | None = None,
     _enrich_faces(db, user, payload)
     _enrich_person_photos(db, user, payload)
 
-    existing = db.query(WrappedCard).filter(WrappedCard.user_id == user.id, WrappedCard.year == year).first()
+    existing = db.query(WrappedCard).filter(WrappedCard.household_id == user.household_id, WrappedCard.year == year).first()
     if existing:
         existing.data_json = json.dumps(payload)
         existing.token = secrets.token_urlsafe(16)
@@ -451,7 +451,7 @@ def generate_card(db: Session, user, year: int, today: dt.date | None = None,
         return existing, False
 
     card = WrappedCard(
-        user_id=user.id,
+        household_id=user.household_id,
         token=secrets.token_urlsafe(16),
         year=year,
         data_json=json.dumps(payload),
@@ -469,7 +469,7 @@ def get_fresh_card(db: Session, user, year: int | None = None, today: dt.date | 
     """The current year's card, or None if none exists yet or it has expired."""
     today = today or dt.date.today()
     year = year or today.year
-    card = db.query(WrappedCard).filter(WrappedCard.user_id == user.id, WrappedCard.year == year).order_by(WrappedCard.id.desc()).first()
+    card = db.query(WrappedCard).filter(WrappedCard.household_id == user.household_id, WrappedCard.year == year).order_by(WrappedCard.id.desc()).first()
     if card is None:
         return None
     created = card.created_at.date() if card.created_at else today
@@ -499,10 +499,10 @@ def cleanup_expired(db: Session, user, today: dt.date | None = None) -> int:
     today = today or dt.date.today()
     cutoff = dt.datetime.combine(today - dt.timedelta(days=CARD_TTL_DAYS), dt.time.min)
     count = 0
-    for card in db.query(WrappedCard).filter(WrappedCard.user_id == user.id, WrappedCard.created_at < cutoff).all():
+    for card in db.query(WrappedCard).filter(WrappedCard.household_id == user.household_id, WrappedCard.created_at < cutoff).all():
         db.delete(card)
         count += 1
-    for share in db.query(WrappedPersonShare).join(Person, Person.id == WrappedPersonShare.person_id).filter(Person.user_id == user.id, WrappedPersonShare.created_at < cutoff).all():
+    for share in db.query(WrappedPersonShare).join(Person, Person.id == WrappedPersonShare.person_id).filter(Person.household_id == user.household_id, WrappedPersonShare.created_at < cutoff).all():
         db.delete(share)
         count += 1
     if count:
@@ -638,4 +638,4 @@ def generate_person_share(db: Session, user, person, year: int) -> tuple[Wrapped
 
 
 def get_person_share(db: Session, user, person_id: int, year: int) -> WrappedPersonShare | None:
-    return db.query(WrappedPersonShare).join(Person, Person.id == WrappedPersonShare.person_id).filter(Person.user_id == user.id, Person.id == person_id, WrappedPersonShare.year == year).first()
+    return db.query(WrappedPersonShare).join(Person, Person.id == WrappedPersonShare.person_id).filter(Person.household_id == user.household_id, Person.id == person_id, WrappedPersonShare.year == year).first()

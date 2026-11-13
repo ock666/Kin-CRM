@@ -28,7 +28,7 @@ def test_ics_404_wrong_or_missing_token(logged_in_client):
 def test_ics_contains_birthdays_notable_dates_and_reminders(logged_in_client, user):
     db = SessionLocal()
     try:
-        p = Person(user_id=1, name="Ada Lovelace", birthday_month=12, birthday_day=10)
+        p = Person(household_id=1, name="Ada Lovelace", birthday_month=12, birthday_day=10)
         db.add(p)
         db.commit()
         db.refresh(p)
@@ -59,7 +59,7 @@ def test_ics_contains_birthdays_notable_dates_and_reminders(logged_in_client, us
 def test_ics_reminder_days_configurable(logged_in_client, user):
     db = SessionLocal()
     try:
-        p = Person(user_id=1, name="Bob", birthday_month=1, birthday_day=5)
+        p = Person(household_id=1, name="Bob", birthday_month=1, birthday_day=5)
         db.add(p)
         db.commit()
         db.refresh(p)
@@ -78,7 +78,7 @@ def test_ics_reminder_days_configurable(logged_in_client, user):
 def test_ics_escapes_summary_text(logged_in_client, user):
     db = SessionLocal()
     try:
-        p = Person(user_id=1, name="Mum, Carol", birthday_month=4, birthday_day=1)
+        p = Person(household_id=1, name="Mum, Carol", birthday_month=4, birthday_day=1)
         db.add(p)
         db.commit()
         db.refresh(p)
@@ -95,7 +95,7 @@ def test_ics_escapes_summary_text(logged_in_client, user):
 def test_build_ics_handles_feb_29_in_non_leap_year(user):
     db = SessionLocal()
     try:
-        db.add(Person(user_id=1, name="Leap Baby", birthday_month=2, birthday_day=29))
+        db.add(Person(household_id=1, name="Leap Baby", birthday_month=2, birthday_day=29))
         db.commit()
         text = build_ics(db, user, birthday_reminder_days=14)
         # non-leap current year -> Feb 29 collapses to Mar 1 rather than erroring

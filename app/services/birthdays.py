@@ -51,7 +51,7 @@ def people_with_upcoming_birthdays(db: Session, user, lead_days: int) -> list[tu
     """Returns (person, days_until) for people whose birthday falls within lead_days."""
     today = dt.date.today()
     out = []
-    for p in db.query(Person).filter(Person.user_id == user.id, Person.archived.is_(False)).all():
+    for p in db.query(Person).filter(Person.household_id == user.household_id, Person.archived.is_(False)).all():
         nb = _next_birthday(p, today)
         if nb is None:
             continue

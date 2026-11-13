@@ -41,7 +41,7 @@ def _asset(asset_id, local_dt, year=None):
 def _person(db, name, immich_id="face-1", **kw):
     defaults = dict(name=name, immich_person_id=immich_id, archived=False)
     defaults.update(kw)
-    p = Person(user_id=1, **defaults)
+    p = Person(household_id=1, **defaults)
     db.add(p)
     db.commit()
     return p
@@ -186,7 +186,7 @@ def fake_dashboard(monkeypatch):
 
 
 def _make_overdue_person(db, name="Alex", immich_id="face-1", hangout_days_ago=3):
-    p = Person(user_id=1,
+    p = Person(household_id=1,
         name=name,
         immich_person_id=immich_id,
         checkin_cadence_days=30,
@@ -298,7 +298,7 @@ def test_dashboard_without_immich_shows_no_hangout_error(app, logged_in_client):
 # --- Dedup detection (the Paige case: photo already on the person's timeline) ---
 
 def _attach(db, person, entry_date, asset_ids, title=None):
-    e = JournalEntry(author_user_id=1, title=title, body="Hung out.", entry_date=entry_date)
+    e = JournalEntry(household_id=1, author_user_id=1, title=title, body="Hung out.", entry_date=entry_date)
     e.people.append(person)
     db.add(e)
     db.flush()

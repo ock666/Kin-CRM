@@ -4,11 +4,13 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..deps import current_user
-from ..models import User
+from ..models import User, Household
+from ..services import households as household_service
 from ..render import render
 from ..settings_store import (get_all_settings, set_many,
-                              get_all_user_settings, set_many_user, get_user_setting, set_user_setting)
-from ..auth import hash_password, _strong_enough, verify_password
+                              get_all_user_settings, set_many_user, get_user_setting, set_user_setting,
+                              get_all_household_settings, set_many_household, get_household_setting)
+from ..auth import _strong_enough, verify_password
 from ..services.immich_client import ImmichClient, ImmichError
 from ..services.ai_client import AIClient, AIError
 from ..services.mfa import generate_totp_secret, verify_totp, generate_recovery_codes, decrypt_secret
@@ -25,8 +27,34 @@ def privacy_page(request: Request, db: Session = Depends(get_db), user=Depends(c
 
 
 def _cfg_for_user(db, user):
-    """Settings shown in the UI: instance-wide config plus the current user's preferences."""
-    return {**get_all_settings(db), **get_all_user_settings(db, user.id)}
+    """Settings shown in the UI: instance-wide config, the household's shared config, plus the
+    current user's personal preferences."""
+    return {
+        **get_all_settings(db),
+        **get_all_household_settings(db, user.household_id),
+        **get_all_user_settings(db, user.id),
+    }
+
+
+def _can_edit_household_config(user) -> bool:
+    """Household config is editable by owners and instance owners, and by members unless their
+    settings are locked (`settings_hidden`)."""
+    return bool(user and (user.is_admin or user.is_household_owner or not user.settings_hidden))
+
+
+def _can_edit_household(db, user, household_id: int) -> bool:
+    """Whether `user` may view/edit `household_id`'s config: instance owners may do any household;
+    everyone else may do their own (a member only when their settings aren't locked)."""
+    if not user:
+        return False
+    if user.is_admin:
+        return True
+    return user.household_id == household_id and _can_edit_household_config(user)
+
+
+def _settings_common(db, user):
+    """Context shared by every route that renders the settings page."""
+    return dict(households=db.query(Household).order_by(Household.id).all())
 
 
 @router.get("/settings")
@@ -36,127 +64,8 @@ def settings_page(request: Request, db: Session = Depends(get_db), user=Depends(
     cfg = _cfg_for_user(db, user)
     users = db.query(User).order_by(User.id).all()
     user_mfa = db.get(User, user.id)
-    return render(request, "settings.html", db=db, user=user_mfa, active="settings", cfg=cfg, users=users)
-
-
-@router.post("/settings/immich")
-def save_immich(request: Request, db: Session = Depends(get_db), user=Depends(current_user),
-                 immich_url: str = Form(""), immich_api_key: str = Form("")):
-    if not user:
-        return RedirectResponse("/login", status_code=303)
-    values = {"immich_url": immich_url.strip()}
-    # The password field is blank when the user wants to keep the existing key - never wipe a
-    # stored secret with an empty submission.
-    if immich_api_key:
-        values["immich_api_key"] = immich_api_key.strip()
-    set_many_user(db, user.id, values)
-    return RedirectResponse("/settings", status_code=303)
-
-
-@router.post("/settings/immich/test")
-def test_immich(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
-    cfg = _cfg_for_user(db, user)
-    result = None
-    try:
-        client = ImmichClient(cfg["immich_url"], get_user_setting(db, user.id, "immich_api_key"))
-        client.test_connection()
-        result = ("success", "Connected to Immich successfully.")
-    except ImmichError as e:
-        result = ("danger", "Could not connect to Immich. Check your URL and API key.")
-    users = db.query(User).order_by(User.id).all()
-    return render(request, "settings.html", db=db, user=user, active="settings", cfg=cfg, users=users,
-                  immich_test=result)
-
-
-@router.post("/settings/ai")
-def save_ai(request: Request, db: Session = Depends(get_db), user=Depends(current_user),
-            ai_base_url: str = Form(...), ai_api_key: str = Form(""), ai_model: str = Form(...),
-            support_chat_model: str = Form("gpt-4o")):
-    if not user:
-        return RedirectResponse("/login", status_code=303)
-    values = {
-        "ai_base_url": ai_base_url.strip(),
-        "ai_model": ai_model.strip(),
-        "support_chat_model": support_chat_model.strip() or "gpt-4o",
-    }
-    # The API-key field is blank when the user wants to keep the existing key - never wipe a
-    # stored secret with an empty submission.
-    if ai_api_key:
-        values["ai_api_key"] = ai_api_key.strip()
-    set_many_user(db, user.id, values)
-    return RedirectResponse("/settings", status_code=303)
-
-
-@router.post("/settings/ai/test")
-def test_ai(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
-    cfg = _cfg_for_user(db, user)
-    result = None
-    try:
-        client = AIClient(cfg["ai_base_url"], get_user_setting(db, user.id, "ai_api_key"), cfg["ai_model"])
-        reply = client.test_connection()
-        result = ("success", f"AI responded: {reply}")
-    except AIError as e:
-        result = ("danger", "AI connection failed. Check your credentials and try again.")
-    users = db.query(User).order_by(User.id).all()
-    return render(request, "settings.html", db=db, user=user, active="settings", cfg=cfg, users=users,
-                   ai_test=result)
-
-
-@router.post("/settings/whisper")
-def save_whisper(request: Request, db: Session = Depends(get_db), user=Depends(current_user),
-                 whisper_provider: str = Form("openai"), whisper_base_url: str = Form(""),
-                 whisper_api_key: str = Form(""), whisper_model: str = Form("whisper-1")):
-    if not user:
-        return RedirectResponse("/login", status_code=303)
-    provider = (whisper_provider or "openai").strip() or "openai"
-    values = {
-        "whisper_provider": provider,
-        "whisper_base_url": whisper_base_url.strip(),
-    }
-    # Only persist model/key for OpenAI-compatible provider; ignore for ASR to avoid
-    # accidentally overwriting or storing irrelevant fields.
-    if provider != "asr-webservice":
-        values["whisper_model"] = (whisper_model or "whisper-1").strip() or "whisper-1"
-        if whisper_api_key:
-            values["whisper_api_key"] = whisper_api_key
-    set_many_user(db, user.id, values)
-    return RedirectResponse("/settings", status_code=303)
-
-
-@router.post("/settings/whisper/test")
-def test_whisper(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
-    cfg = _cfg_for_user(db, user)
-    users = db.query(User).order_by(User.id).all()
-    result = None
-    try:
-        import httpx
-        provider = (cfg.get("whisper_provider") or "openai").lower()
-        base = (cfg.get("whisper_base_url") or cfg.get("ai_base_url") or "").strip()
-        if not base:
-            raise RuntimeError("No base URL configured")
-        if provider == "asr-webservice":
-            url = base.rstrip('/') + "/healthz"
-            # healthz may not exist; try root as a fallback
-            with httpx.Client(timeout=5.0) as client:
-                r = client.get(url)
-                if r.status_code >= 400:
-                    r = client.get(base)
-                if r.status_code < 400:
-                    result = ("success", "ASR webservice reachable.")
-                else:
-                    raise RuntimeError("ASR webservice returned an error")
-        else:
-            # OpenAI-compatible: just try a HEAD/GET to the base URL
-            with httpx.Client(timeout=5.0) as client:
-                r = client.get(base)
-                if r.status_code < 400:
-                    result = ("success", "OpenAI-compatible endpoint reachable.")
-                else:
-                    raise RuntimeError("Endpoint returned an error")
-    except Exception:
-        result = ("danger", "Whisper endpoint not reachable. Check URL and container.")
-    return render(request, "settings.html", db=db, user=user, active="settings", cfg=cfg, users=users,
-                  whisper_test=result)
+    return render(request, "settings.html", db=db, user=user_mfa, active="settings",
+                  cfg=cfg, users=users, **_settings_common(db, user))
 
 
 @router.post("/settings/tts")
@@ -227,7 +136,7 @@ def test_tts(request: Request, db: Session = Depends(get_db), user=Depends(curre
     except Exception:
         result = ("danger", "Connection test failed. Check provider settings.")
     return render(request, "settings.html", db=db, user=user, active="settings", cfg=cfg, users=users,
-                  tts_test=result)
+                  **_settings_common(db, user), tts_test=result)
 
 
 @router.get("/settings/tts/voices")
@@ -257,7 +166,7 @@ def list_tts_voices(request: Request, db: Session = Depends(get_db), user=Depend
             # OpenAI: suggest a small set; cannot enumerate via API
             voices = ["alloy", "verse", "aria", "sage"]
         return JSONResponse({"voices": voices})
-    except Exception as e:
+    except Exception:
         return JSONResponse({"voices": [], "error": "Failed to fetch voices."}, status_code=400)
 
 
@@ -349,8 +258,8 @@ def add_user(request: Request, db: Session = Depends(get_db), user=Depends(curre
         return RedirectResponse("/settings", status_code=303)
     if db.query(User).filter(User.email == email.lower().strip()).first():
         return RedirectResponse("/settings", status_code=303)
-    new_user = User(name=name, email=email.lower().strip(), hashed_password=hash_password(password))
-    db.add(new_user)
+    from ..services.households import create_user
+    create_user(db, name=name, email=email, password=password)
     db.commit()
     return RedirectResponse("/settings", status_code=303)
 
@@ -365,6 +274,201 @@ def delete_user(user_id: int, db: Session = Depends(get_db), user=Depends(curren
             db.delete(target)
             db.commit()
     return RedirectResponse("/settings", status_code=303)
+
+
+@router.post("/settings/users/{user_id}/make-admin")
+def make_admin(user_id: int, request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
+    if not user or not user.is_admin:
+        return RedirectResponse("/settings", status_code=303)
+    target = db.get(User, user_id)
+    if target and not target.is_admin:
+        target.is_admin = True
+        db.commit()
+        request.session["notice_flash"] = f"{target.name} is now an instance owner."
+    return RedirectResponse("/settings", status_code=303)
+
+
+@router.post("/settings/users/{user_id}/remove-admin")
+def remove_admin(user_id: int, request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
+    if not user or not user.is_admin:
+        return RedirectResponse("/settings", status_code=303)
+    target = db.get(User, user_id)
+    if target and target.is_admin and target.id != user.id:
+        admin_count = db.query(User).filter(User.is_admin.is_(True)).count()
+        if admin_count <= 1:
+            request.session["notice_flash"] = "You can't remove the last instance owner."
+        else:
+            target.is_admin = False
+            db.commit()
+            request.session["notice_flash"] = f"{target.name} is no longer an instance owner."
+    return RedirectResponse("/settings", status_code=303)
+
+
+@router.post("/settings/users/{user_id}/toggle-settings-hidden")
+def toggle_settings_hidden(user_id: int, request: Request, db: Session = Depends(get_db),
+                           user=Depends(current_user)):
+    """Hide (or reveal) the household config from a user. Instance owners can do this for anyone;
+    a household owner can do it for members of their own household."""
+    if not user:
+        return RedirectResponse("/settings", status_code=303)
+    target = db.get(User, user_id)
+    if target is None or target.id == user.id:
+        return RedirectResponse("/settings", status_code=303)
+    allowed = user.is_admin or (user.is_household_owner and target.household_id == user.household_id)
+    if not allowed:
+        return RedirectResponse("/settings", status_code=303)
+    target.settings_hidden = not target.settings_hidden
+    db.commit()
+    request.session["notice_flash"] = (
+        f"{target.name}'s config is now hidden." if target.settings_hidden
+        else f"{target.name} can now edit their own config."
+    )
+    return RedirectResponse("/settings", status_code=303)
+
+
+# ---------------------------------------------------------------------------
+# Instance-owner: configure another household on its members' behalf
+# ---------------------------------------------------------------------------
+
+
+def _household_config_context(db, household_id):
+    """Shared context for the household config page (or None if the household doesn't exist)."""
+    hh = db.get(Household, household_id)
+    if hh is None:
+        return None
+    return dict(
+        household=hh,
+        cfg=get_all_household_settings(db, household_id),
+        members=household_service.household_members(db, household_id),
+    )
+
+
+@router.get("/settings/households/{household_id}")
+def household_config_page(household_id: int, request: Request, db: Session = Depends(get_db),
+                          user=Depends(current_user)):
+    if not _can_edit_household(db, user, household_id):
+        return RedirectResponse("/settings", status_code=303)
+    ctx = _household_config_context(db, household_id)
+    if ctx is None:
+        return RedirectResponse("/settings", status_code=303)
+    return render(request, "household_config.html", db=db, user=user, active="settings", **ctx)
+
+
+@router.post("/settings/households/{household_id}/immich")
+def save_household_immich(household_id: int, request: Request, db: Session = Depends(get_db),
+                          user=Depends(current_user), immich_url: str = Form(""),
+                          immich_api_key: str = Form("")):
+    if not _can_edit_household(db, user, household_id):
+        return RedirectResponse("/settings", status_code=303)
+    values = {"immich_url": immich_url.strip()}
+    if immich_api_key:
+        values["immich_api_key"] = immich_api_key.strip()
+    set_many_household(db, household_id, values)
+    request.session["notice_flash"] = "Immich settings saved."
+    return RedirectResponse(f"/settings/households/{household_id}", status_code=303)
+
+
+@router.post("/settings/households/{household_id}/ai")
+def save_household_ai(household_id: int, request: Request, db: Session = Depends(get_db),
+                      user=Depends(current_user), ai_base_url: str = Form(""),
+                      ai_api_key: str = Form(""), ai_model: str = Form(""),
+                      support_chat_model: str = Form("gpt-4o")):
+    if not _can_edit_household(db, user, household_id):
+        return RedirectResponse("/settings", status_code=303)
+    values = {
+        "ai_base_url": ai_base_url.strip(),
+        "ai_model": ai_model.strip(),
+        "support_chat_model": support_chat_model.strip() or "gpt-4o",
+    }
+    if ai_api_key:
+        values["ai_api_key"] = ai_api_key.strip()
+    set_many_household(db, household_id, values)
+    request.session["notice_flash"] = "AI settings saved."
+    return RedirectResponse(f"/settings/households/{household_id}", status_code=303)
+
+
+@router.post("/settings/households/{household_id}/whisper")
+def save_household_whisper(household_id: int, request: Request, db: Session = Depends(get_db),
+                           user=Depends(current_user), whisper_provider: str = Form("openai"),
+                           whisper_base_url: str = Form(""), whisper_api_key: str = Form(""),
+                           whisper_model: str = Form("whisper-1")):
+    if not _can_edit_household(db, user, household_id):
+        return RedirectResponse("/settings", status_code=303)
+    provider = (whisper_provider or "openai").strip() or "openai"
+    values = {"whisper_provider": provider, "whisper_base_url": whisper_base_url.strip()}
+    if provider != "asr-webservice":
+        values["whisper_model"] = (whisper_model or "whisper-1").strip() or "whisper-1"
+        if whisper_api_key:
+            values["whisper_api_key"] = whisper_api_key
+    set_many_household(db, household_id, values)
+    request.session["notice_flash"] = "Voice settings saved."
+    return RedirectResponse(f"/settings/households/{household_id}", status_code=303)
+
+
+@router.post("/settings/households/{household_id}/immich/test")
+def test_household_immich(household_id: int, request: Request, db: Session = Depends(get_db),
+                          user=Depends(current_user)):
+    if not _can_edit_household(db, user, household_id):
+        return RedirectResponse("/settings", status_code=303)
+    ctx = _household_config_context(db, household_id)
+    if ctx is None:
+        return RedirectResponse("/settings", status_code=303)
+    result = None
+    try:
+        client = ImmichClient(ctx["cfg"]["immich_url"], get_household_setting(db, household_id, "immich_api_key"))
+        client.test_connection()
+        result = ("success", "Connected to Immich successfully.")
+    except ImmichError:
+        result = ("danger", "Could not connect to Immich. Check your URL and API key.")
+    return render(request, "household_config.html", db=db, user=user, active="settings",
+                  **ctx, immich_test=result)
+
+
+@router.post("/settings/households/{household_id}/ai/test")
+def test_household_ai(household_id: int, request: Request, db: Session = Depends(get_db),
+                      user=Depends(current_user)):
+    if not _can_edit_household(db, user, household_id):
+        return RedirectResponse("/settings", status_code=303)
+    ctx = _household_config_context(db, household_id)
+    if ctx is None:
+        return RedirectResponse("/settings", status_code=303)
+    result = None
+    try:
+        client = AIClient(ctx["cfg"]["ai_base_url"], get_household_setting(db, household_id, "ai_api_key"),
+                          ctx["cfg"]["ai_model"])
+        reply = client.test_connection()
+        result = ("success", f"AI responded: {reply}")
+    except AIError:
+        result = ("danger", "AI connection failed. Check your credentials and try again.")
+    return render(request, "household_config.html", db=db, user=user, active="settings",
+                  **ctx, ai_test=result)
+
+
+@router.post("/settings/households/{household_id}/whisper/test")
+def test_household_whisper(household_id: int, request: Request, db: Session = Depends(get_db),
+                           user=Depends(current_user)):
+    if not _can_edit_household(db, user, household_id):
+        return RedirectResponse("/settings", status_code=303)
+    ctx = _household_config_context(db, household_id)
+    if ctx is None:
+        return RedirectResponse("/settings", status_code=303)
+    import httpx
+    cfg = ctx["cfg"]
+    result = None
+    try:
+        base = (cfg.get("whisper_base_url") or cfg.get("ai_base_url") or "").strip()
+        if not base:
+            raise RuntimeError("No base URL configured")
+        with httpx.Client(timeout=5.0) as client:
+            r = client.get(base)
+            if r.status_code < 400:
+                result = ("success", "Endpoint reachable.")
+            else:
+                raise RuntimeError("Endpoint returned an error")
+    except Exception:
+        result = ("danger", "Whisper endpoint not reachable. Check URL and container.")
+    return render(request, "household_config.html", db=db, user=user, active="settings",
+                  **ctx, whisper_test=result)
 
 
 # ---------------------------------------------------------------------------
@@ -452,5 +556,5 @@ def mfa_regenerate_codes(request: Request, db: Session = Depends(get_db), user=D
     cfg = _cfg_for_user(db, user)
     users = db.query(User).order_by(User.id).all()
     return render(request, "settings.html", db=db, user=user, active="settings",
-                  cfg=cfg, users=users, recovery_codes=plain_codes,
+                  cfg=cfg, users=users, **_settings_common(db, user), recovery_codes=plain_codes,
                   _headers={"Cache-Control": "no-store"})

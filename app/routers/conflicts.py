@@ -418,6 +418,7 @@ async def save_chat_insight(conflict_id: int, request: Request, db: Session = De
     if not text:
         return JSONResponse({"error": "empty insight"}, status_code=400)
     entry = JournalEntry(
+        household_id=user.household_id if user else None,
         author_user_id=user.id if user else None,
         body=text,
         event_type=EventType.note,

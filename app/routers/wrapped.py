@@ -25,13 +25,13 @@ from ..config import settings
 router = APIRouter(prefix="/wrapped", tags=["wrapped"])
 
 
-def _immich_for_owner(db: Session, user_id: int):
-    """Immich client for the user who owns a shared card, so share proxies read from the
+def _immich_for_household(db: Session, household_id: int):
+    """Immich client for the household that owns a shared card, so share proxies read from the
     owner's library — never the (possibly anonymous) viewer's."""
-    owner = db.get(User, user_id)
-    if owner is None:
+    member = db.query(User).filter(User.household_id == household_id).first()
+    if member is None:
         raise HTTPException(status_code=404, detail="This link has expired or doesn't exist.")
-    return get_client_from_settings(db, owner)
+    return get_client_from_settings(db, member)
 
 
 def _card_or_404(db: Session, token: str):
@@ -80,7 +80,7 @@ def _person_share_or_404(db: Session, token: str):
     share = db.query(wrapped_service.WrappedPersonShare).filter_by(token=token).first()
     if share is None:
         raise HTTPException(status_code=404, detail="This link has expired or doesn't exist.")
-    owner = db.get(User, share.person.user_id) if share.person is not None else None
+    owner = db.query(User).filter(User.household_id == share.person.household_id).first() if share.person is not None else None
     if owner is None or not wrapped_service.season_active(db, owner):
         raise HTTPException(status_code=404, detail="This link has expired or doesn't exist.")
     created = share.created_at.date() if share.created_at else None
@@ -148,7 +148,7 @@ def wrapped_person_share_asset(token: str, asset_id: str, db: Session = Depends(
     """Token-gated Immich thumbnail proxy for per-person share cards."""
     share = _person_share_or_404(db, token)
     try:
-        client = _immich_for_owner(db, share.person.user_id)
+        client = _immich_for_household(db, share.person.household_id)
         content, content_type = client.fetch_asset_bytes(asset_id, size="thumbnail")
         return Response(content=content, media_type=content_type)
     except ImmichError:
@@ -160,7 +160,7 @@ def wrapped_person_share_asset_preview(token: str, asset_id: str, db: Session = 
     """Token-gated high-res preview for per-person share cards."""
     share = _person_share_or_404(db, token)
     try:
-        client = _immich_for_owner(db, share.person.user_id)
+        client = _immich_for_household(db, share.person.household_id)
         content, content_type = client.fetch_asset_preview_bytes(asset_id)
         return Response(content=content, media_type=content_type)
     except ImmichError:
@@ -173,7 +173,7 @@ def wrapped_share_person_thumbnail(token: str, face_id: str, db: Session = Depen
     display picture without exposing the rest of the app or the Immich credentials."""
     card = _card_or_404(db, token)
     try:
-        client = _immich_for_owner(db, card.user_id)
+        client = _immich_for_household(db, card.household_id)
         content, content_type = client.person_thumbnail_bytes(face_id)
         return Response(content=content, media_type=content_type)
     except ImmichError:
@@ -204,7 +204,7 @@ def wrapped_share_asset(token: str, asset_id: str, db: Session = Depends(get_db)
     exposing the rest of the app or the Immich credentials."""
     card = _card_or_404(db, token)
     try:
-        client = _immich_for_owner(db, card.user_id)
+        client = _immich_for_household(db, card.household_id)
         content, content_type = client.fetch_asset_bytes(asset_id, size="thumbnail")
         return Response(content=content, media_type=content_type)
     except ImmichError:
@@ -216,7 +216,7 @@ def wrapped_share_asset_preview(token: str, asset_id: str, db: Session = Depends
     """Token-gated high-res preview for the share card's standout moments."""
     card = _card_or_404(db, token)
     try:
-        client = _immich_for_owner(db, card.user_id)
+        client = _immich_for_household(db, card.household_id)
         content, content_type = client.fetch_asset_preview_bytes(asset_id)
         return Response(content=content, media_type=content_type)
     except ImmichError:

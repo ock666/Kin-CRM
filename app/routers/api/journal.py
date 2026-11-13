@@ -48,6 +48,7 @@ def _entry_response(e: JournalEntry) -> dict:
 @router.post("", status_code=201)
 def create_entry(body: JournalCreate, db: Session = Depends(get_db), user=Depends(get_current_api_user)):
     entry = JournalEntry(
+        household_id=user.household_id,
         author_user_id=user.id,
         title=body.title,
         body=body.body,
@@ -73,7 +74,7 @@ def create_entry(body: JournalCreate, db: Session = Depends(get_db), user=Depend
 @router.put("/{entry_id}")
 def update_entry(entry_id: int, body: JournalUpdate, db: Session = Depends(get_db), user=Depends(get_current_api_user)):
     entry = get_journal_entry(db, user, entry_id)
-    if not entry or entry.author_user_id != user.id:
+    if not entry or entry.household_id != user.household_id:
         raise HTTPException(status_code=404, detail="Entry not found")
     if body.title is not None:
         entry.title = body.title
@@ -97,7 +98,7 @@ def update_entry(entry_id: int, body: JournalUpdate, db: Session = Depends(get_d
 @router.delete("/{entry_id}", status_code=204)
 def delete_entry(entry_id: int, db: Session = Depends(get_db), user=Depends(get_current_api_user)):
     entry = get_journal_entry(db, user, entry_id)
-    if not entry or entry.author_user_id != user.id:
+    if not entry or entry.household_id != user.household_id:
         raise HTTPException(status_code=404, detail="Entry not found")
     db.delete(entry)
     db.commit()

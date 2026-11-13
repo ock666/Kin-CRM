@@ -14,7 +14,7 @@ LONG_BODY = (
 def _mk_person(name: str, birthday=(6, 15)) -> int:
     db = SessionLocal()
     try:
-        p = Person(user_id=1, name=name, birthday_month=birthday[0], birthday_day=birthday[1])
+        p = Person(household_id=1, name=name, birthday_month=birthday[0], birthday_day=birthday[1])
         db.add(p)
         db.commit()
         db.refresh(p)
@@ -28,7 +28,7 @@ def _mk_entry(person_ids, year: int, month: int = 1, day: int = 1,
               event_type=EventType.hangout, with_image: bool = False):
     db = SessionLocal()
     try:
-        e = JournalEntry(author_user_id=1, title=title, body=body, entry_date=dt.date(year, month, day),
+        e = JournalEntry(household_id=1, author_user_id=1, title=title, body=body, entry_date=dt.date(year, month, day),
                          event_type=event_type)
         e.people = [db.get(Person, pid) for pid in person_ids]
         db.add(e)
@@ -194,11 +194,11 @@ def test_wrapped_page_empty_state(logged_in_client):
 def test_nav_shows_after_generation(logged_in_client, user):
     db = SessionLocal()
     try:
-        p = Person(user_id=1, name="Ada")
+        p = Person(household_id=1, name="Ada")
         db.add(p)
         db.commit()
         db.refresh(p)
-        e = JournalEntry(author_user_id=1, title="Big day", body=LONG_BODY, entry_date=dt.date.today(),
+        e = JournalEntry(household_id=1, author_user_id=1, title="Big day", body=LONG_BODY, entry_date=dt.date.today(),
                          event_type=EventType.milestone)
         e.people = [p]
         db.add(e)
@@ -235,11 +235,11 @@ def test_dev_generate_hook(logged_in_client):
 def test_wrapped_page_shows_card(logged_in_client, user):
     db = SessionLocal()
     try:
-        p = Person(user_id=1, name="Ada Lovelace")
+        p = Person(household_id=1, name="Ada Lovelace")
         db.add(p)
         db.commit()
         db.refresh(p)
-        e = JournalEntry(author_user_id=1, title="Big day", body=LONG_BODY,
+        e = JournalEntry(household_id=1, author_user_id=1, title="Big day", body=LONG_BODY,
                          entry_date=dt.date.today(), event_type=EventType.milestone)
         e.people = [p]
         db.add(e)
@@ -256,11 +256,11 @@ def test_wrapped_page_shows_card(logged_in_client, user):
 def test_share_link_public_and_content(logged_in_client, user):
     db = SessionLocal()
     try:
-        p = Person(user_id=1, name="Grace Hopper")
+        p = Person(household_id=1, name="Grace Hopper")
         db.add(p)
         db.commit()
         db.refresh(p)
-        e = JournalEntry(author_user_id=1, title="Camping trip", body="spent a weekend camping together " * 4,
+        e = JournalEntry(household_id=1, author_user_id=1, title="Camping trip", body="spent a weekend camping together " * 4,
                          entry_date=dt.date.today(), event_type=EventType.hangout)
         e.people = [p]
         db.add(e)
@@ -280,11 +280,11 @@ def test_share_link_public_and_content(logged_in_client, user):
 def test_share_link_404_when_expired(logged_in_client, user):
     db = SessionLocal()
     try:
-        p = Person(user_id=1, name="Ada")
+        p = Person(household_id=1, name="Ada")
         db.add(p)
         db.commit()
         db.refresh(p)
-        e = JournalEntry(author_user_id=1, title="Old", body=LONG_BODY, entry_date=dt.date.today(),
+        e = JournalEntry(household_id=1, author_user_id=1, title="Old", body=LONG_BODY, entry_date=dt.date.today(),
                          event_type=EventType.milestone)
         e.people = [p]
         db.add(e)
@@ -305,11 +305,11 @@ def test_share_link_bad_token_404(logged_in_client):
 def test_share_asset_proxy_404_without_immich(logged_in_client, user):
     db = SessionLocal()
     try:
-        p = Person(user_id=1, name="Ada")
+        p = Person(household_id=1, name="Ada")
         db.add(p)
         db.commit()
         db.refresh(p)
-        e = JournalEntry(author_user_id=1, title="With photo", body=LONG_BODY, entry_date=dt.date.today(),
+        e = JournalEntry(household_id=1, author_user_id=1, title="With photo", body=LONG_BODY, entry_date=dt.date.today(),
                          event_type=EventType.milestone)
         e.people = [p]
         db.add(e)
@@ -336,7 +336,7 @@ def _mk_person_entries(name: str, count: int) -> int:
     try:
         p = db.get(Person, p_id)
         for i in range(count):
-            e = JournalEntry(author_user_id=1, title=f"{name} moment {i + 1}", body=LONG_BODY,
+            e = JournalEntry(household_id=1, author_user_id=1, title=f"{name} moment {i + 1}", body=LONG_BODY,
                              entry_date=dt.date(dt.date.today().year, (i % 6) + 1, 3),
                              event_type=EventType.hangout)
             e.people = [p]

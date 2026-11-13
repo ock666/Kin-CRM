@@ -24,13 +24,13 @@ def reviews_page(request: Request, db: Session = Depends(get_db), user=Depends(c
     bday_drafts = (
         db.query(BirthdayMessageDraft)
         .join(Person, Person.id == BirthdayMessageDraft.person_id)
-        .filter(Person.user_id == user.id, BirthdayMessageDraft.status == ReviewStatus.pending)
+        .filter(Person.household_id == user.household_id, BirthdayMessageDraft.status == ReviewStatus.pending)
         .all()
     )
     approved_bday = (
         db.query(BirthdayMessageDraft)
         .join(Person, Person.id == BirthdayMessageDraft.person_id)
-        .filter(Person.user_id == user.id, BirthdayMessageDraft.status == ReviewStatus.approved)
+        .filter(Person.household_id == user.household_id, BirthdayMessageDraft.status == ReviewStatus.approved)
         .all()
     )
 
@@ -39,7 +39,7 @@ def reviews_page(request: Request, db: Session = Depends(get_db), user=Depends(c
     gift_ideas = (
         db.query(GiftIdea)
         .join(Person, Person.id == GiftIdea.person_id)
-        .filter(Person.user_id == user.id, GiftIdea.status == GiftStatus.suggested)
+        .filter(Person.household_id == user.household_id, GiftIdea.status == GiftStatus.suggested)
         .all()
     )
     gifts_by_key = {(g.person_id, g.year): g for g in gift_ideas}

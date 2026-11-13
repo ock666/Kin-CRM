@@ -79,14 +79,13 @@ def user(app):
     tests that mix `logged_in_client` with this fixture."""
     from app.database import SessionLocal
     from app.models import User
-    from app.auth import hash_password
+    from app.services.households import create_user
     db = SessionLocal()
     try:
         u = db.query(User).first()
         if u is None:
-            u = User(name="Unit User", email="unit@example.com",
-                     hashed_password=hash_password("Password123!"), is_admin=True)
-            db.add(u)
+            u = create_user(db, name="Unit User", email="unit@example.com",
+                            password="Password123!", is_admin=True)
             db.commit()
             db.refresh(u)
         return u
@@ -96,13 +95,13 @@ def user(app):
 
 @pytest.fixture()
 def make_person(user):
-    """Factory returning a persisted Person owned by `user` (id refreshed)."""
+    """Factory returning a persisted Person owned by `user`'s household (id refreshed)."""
     from app.database import SessionLocal
     from app.models import Person
     db = SessionLocal()
 
     def _make(**kwargs):
-        defaults = dict(name="Test Person", user_id=user.id)
+        defaults = dict(name="Test Person", household_id=user.household_id)
         defaults.update(kwargs)
         p = Person(**defaults)
         db.add(p)

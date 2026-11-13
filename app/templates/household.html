@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Household — {{ app_name }}{% endblock %}
+{% block content %}
+<div class="container-narrow">
+  <h1>🏠 {{ household.name or 'Your household' }}</h1>
+  <p class="text-sm text-muted mb-2">
+    A household shares one Kin — the same people, journal, photos, and reminders.
+    A household of one is just your own private Kin.
+  </p>
+
+  {% if can_edit_config %}
+  <p class="mb-2"><a class="btn btn-sm btn-primary" href="/settings/households/{{ user.household_id }}">⚙️ Edit household config</a></p>
+  {% endif %}
+
+  {% if can_manage %}
+  <div class="card">
+    <h2 class="mt-0">Name</h2>
+    <form method="post" action="/household/rename" class="flex-gap" style="align-items:center;">
+      <input type="text" name="name" value="{{ household.name or '' }}" placeholder="e.g. Skye &amp; Chris" style="flex:1;">
+      <button class="btn btn-sm btn-primary" type="submit">Save</button>
+    </form>
+  </div>
+  {% endif %}
+
+  <div class="card">
+    <h2 class="mt-0">Members</h2>
+    {% for m in members %}
+      <div class="member-row">
+        <div class="member-id">
+          <span><strong>{{ m.name }}</strong> <span class="text-muted text-sm">{{ m.email }}</span></span>
+          {% if m.id == user.id %}<span class="text-muted text-sm">(you)</span>{% endif %}
+        </div>
+        <div class="member-badges">
+          {% if m.is_admin %}<span class="badge badge-admin">instance owner</span>{% endif %}
+          {% if m.is_household_owner %}<span class="badge badge-owner">owner</span>{% endif %}
+          {% if not m.is_household_owner and not m.is_admin %}<span class="badge badge-member">member</span>{% endif %}
+        </div>
+        {% if can_manage and m.id != user.id %}
+        <details class="member-menu">
+          <summary class="member-menu-btn" aria-label="Actions for {{ m.name }}">⋮</summary>
+          <div class="member-menu-list">
+            {% if m.is_household_owner %}
+              <form method="post" action="/household/members/{{ m.id }}/demote"><button type="submit">Remove owner</button></form>
+            {% else %}
+              <form method="post" action="/household/members/{{ m.id }}/promote"><button type="submit">Make owner</button></form>
+            {% endif %}
+            <form method="post" action="/household/members/{{ m.id }}/remove"><button type="submit" class="danger">Remove from household</button></form>
+          </div>
+        </details>
+        {% endif %}
+      </div>
+    {% endfor %}
+
+    {% if can_manage %}
+    <h2 class="mt-2">Invite someone</h2>
+    <p class="text-sm text-muted mb-1">
+      Generate a link and share it however you like. If they already have a Kin account, they'll
+      join and merge their data into yours; if not, they can create an account through the link.
+    </p>
+    <form method="post" action="/household/invite">
+      <button class="btn btn-sm btn-primary" type="submit">➕ New invite link</button>
+    </form>
+    {% if invite_url %}
+      <div class="mt-2">
+        <label class="text-sm text-muted">Share this link (expires in 7 days, single use):</label>
+        <div class="flex-gap" style="align-items:center;">
+          <input class="input" type="text" readonly value="{{ invite_url }}" style="flex:1; font-size:.85rem;" onfocus="this.select()">
+        </div>
+      </div>
+    {% endif %}
+    {% else %}
+    <p class="text-sm text-muted mt-2">Only a household owner can invite or remove members.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

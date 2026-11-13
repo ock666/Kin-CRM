@@ -100,7 +100,7 @@ def people_create(
     if not user:
         return RedirectResponse("/login")
     clean_name = name.strip()
-    person = Person(user_id=user.id,
+    person = Person(household_id=user.household_id,
         name=clean_name, nickname=(nickname.strip() or clean_name), pronouns=pronouns or None,
         relationship_label=relationship_label or None,
         birthday_month=_safe_int(birthday_month),
@@ -231,7 +231,7 @@ def add_tag(person_id: int, db: Session = Depends(get_db), user=Depends(current_
     if tag_name:
         tag = owned_tags(db, user).filter(Tag.name == tag_name).first()
         if not tag:
-            tag = Tag(user_id=user.id, name=tag_name)
+            tag = Tag(household_id=user.household_id, name=tag_name)
             db.add(tag)
             db.flush()
         if tag not in person.tags:

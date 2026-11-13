@@ -35,7 +35,7 @@ def find_plannable_conflicts(db: Session, user, today: dt.datetime | None = None
     conflicts = (
         db.query(ConflictLog)
         .join(Person, Person.id == ConflictLog.person_id)
-        .filter(Person.user_id == user.id)
+        .filter(Person.household_id == user.household_id)
         .filter(ConflictLog.status == ConflictStatus.unresolved)
         .filter(ConflictLog.resolution_plan_json.is_(None))
         .all()

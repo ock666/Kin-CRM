@@ -143,7 +143,8 @@ def manifest():
 async def auth_gate(request: Request, call_next):
     path = request.url.path
     if (path.startswith("/static") or path.startswith("/api/") or path in OPEN_PATHS
-            or path.startswith("/mfa/") or path.startswith("/wrapped/share")):
+            or path.startswith("/mfa/") or path.startswith("/wrapped/share")
+            or path.startswith("/household/invite/")):
         return await call_next(request)
 
     db = SessionLocal()
@@ -220,6 +221,7 @@ from .routers import data_import as import_router  # noqa: E402
 from .routers import regulation as regulation_router  # noqa: E402
 from .routers import wrapped as wrapped_router  # noqa: E402
 from .routers import calendar as calendar_router  # noqa: E402
+from .routers import household as household_router  # noqa: E402
 
 app.include_router(auth_router.router)
 app.include_router(dashboard_router.router)
@@ -237,6 +239,7 @@ app.include_router(import_router.router)
 app.include_router(regulation_router.router)
 app.include_router(wrapped_router.router)
 app.include_router(calendar_router.router)
+app.include_router(household_router.router)
 
 # API v1
 from .routers.api import routers as api_routers  # noqa: E402

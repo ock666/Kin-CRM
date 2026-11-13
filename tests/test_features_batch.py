@@ -11,7 +11,7 @@ from app.services import gamification
 
 
 def make_person(db, **kwargs):
-    p = Person(user_id=1, **kwargs)
+    p = Person(household_id=1, **kwargs)
     db.add(p)
     db.commit()
     return p
@@ -98,13 +98,13 @@ def test_bio_roundtrip_via_edit(logged_in_client):
 
 def test_days_until_birthday(user):
     today = dt.date(2026, 6, 1)
-    p = Person(user_id=1, name="Bday", birthday_month=6, birthday_day=15)
+    p = Person(household_id=1, name="Bday", birthday_month=6, birthday_day=15)
     assert bday_service.days_until_birthday(p, today=today) == 14
     # Already passed this year -> rolls to next year.
-    p2 = Person(user_id=1, name="Past", birthday_month=1, birthday_day=1)
+    p2 = Person(household_id=1, name="Past", birthday_month=1, birthday_day=1)
     assert bday_service.days_until_birthday(p2, today=today) is not None
     # No birthday -> None
-    p3 = Person(user_id=1, name="NoBday")
+    p3 = Person(household_id=1, name="NoBday")
     assert bday_service.days_until_birthday(p3, today=today) is None
 
 
@@ -117,7 +117,7 @@ def test_export_import_roundtrip(logged_in_client, user):
         p = make_person(db, name="ExAmy", bio="Surf instructor", checkin_cadence_days=45)
         p.tags.append(Tag(name="work"))
         db.add(NotableDate(person_id=p.id, label="Gig", month=7, day=4))
-        entry = JournalEntry(author_user_id=1, title="Lunch", body="Great catch up over tacos.",
+        entry = JournalEntry(household_id=1, author_user_id=1, title="Lunch", body="Great catch up over tacos.",
                              entry_date=dt.date.today())
         entry.people.append(p)
         db.add(entry)
@@ -127,7 +127,7 @@ def test_export_import_roundtrip(logged_in_client, user):
         db.close()
 
     # Export
-    exp = logged_in_client.get("/export/json")
+    exp = logged_in_client.post("/export/json")
     assert exp.status_code == 200
     data = json.loads(exp.text)
     assert data["format"] == "kin-export"

@@ -15,7 +15,7 @@ def get_reviews(db: Session = Depends(get_db), user=Depends(get_current_api_user
     bd = (
         db.query(BirthdayMessageDraft)
         .join(Person, Person.id == BirthdayMessageDraft.person_id)
-        .filter(Person.user_id == user.id, BirthdayMessageDraft.status == ReviewStatus.pending)
+        .filter(Person.household_id == user.household_id, BirthdayMessageDraft.status == ReviewStatus.pending)
         .order_by(BirthdayMessageDraft.generated_at.desc())
         .all()
     )

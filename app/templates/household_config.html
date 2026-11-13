@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Edit household config — {{ app_name }}{% endblock %}
+{% block content %}
+<div class="container-narrow">
+  <h1>⚙️ {{ household.name or ('Household ' ~ household.id) }}</h1>
+  <p class="text-sm text-muted mb-2">
+    Editing config on behalf of:
+    {% for m in members %}{{ m.name }}{% if not loop.last %}, {% endif %}{% endfor %}
+    · <a href="/settings">← back to settings</a>
+  </p>
+
+  <div class="card">
+    <h2 class="mt-0">📷 Immich</h2>
+    {% if immich_test %}<div class="notice notice-{{ immich_test[0] }}">{{ immich_test[1] }}</div>{% endif %}
+    <form method="post" action="/settings/households/{{ household.id }}/immich">
+      <div class="field">
+        <label for="immich_url">Immich server URL</label>
+        <input type="text" id="immich_url" name="immich_url" value="{{ cfg.immich_url }}" placeholder="http://immich.local:2283">
+      </div>
+      <div class="field">
+        <label for="immich_api_key">API key</label>
+        <input type="password" id="immich_api_key" name="immich_api_key" placeholder="{{ '•••••••• (unchanged)' if cfg.immich_api_key else '' }}">
+      </div>
+      <button class="btn btn-primary btn-sm" type="submit">Save</button>
+    </form>
+    <form method="post" action="/settings/households/{{ household.id }}/immich/test" class="mt-1"><button class="btn btn-sm" type="submit">Test connection</button></form>
+  </div>
+
+  <div class="card mt-2">
+    <h2 class="mt-0">🤖 AI assistant</h2>
+    {% if ai_test %}<div class="notice notice-{{ ai_test[0] }}">{{ ai_test[1] }}</div>{% endif %}
+    <form method="post" action="/settings/households/{{ household.id }}/ai">
+      <div class="field">
+        <label for="ai_base_url">API base URL</label>
+        <input type="text" id="ai_base_url" name="ai_base_url" value="{{ cfg.ai_base_url }}" required>
+      </div>
+      <div class="field">
+        <label for="ai_api_key">API key</label>
+        <input type="password" id="ai_api_key" name="ai_api_key" placeholder="{{ '•••••••• (unchanged)' if cfg.ai_api_key else '' }}">
+      </div>
+      <div class="field">
+        <label for="ai_model">Primary model</label>
+        <input type="text" id="ai_model" name="ai_model" value="{{ cfg.ai_model }}" required>
+      </div>
+      <div class="field">
+        <label for="support_chat_model">Support chat model</label>
+        <input type="text" id="support_chat_model" name="support_chat_model" value="{{ cfg.support_chat_model or 'gpt-4o' }}">
+      </div>
+      <button class="btn btn-primary btn-sm" type="submit">Save</button>
+    </form>
+    <form method="post" action="/settings/households/{{ household.id }}/ai/test" class="mt-1"><button class="btn btn-sm" type="submit">Test connection</button></form>
+  </div>
+
+  <div class="card mt-2">
+    <h2 class="mt-0">🎙️ Voice (Whisper)</h2>
+    {% if whisper_test %}<div class="notice notice-{{ whisper_test[0] }}">{{ whisper_test[1] }}</div>{% endif %}
+    <form method="post" action="/settings/households/{{ household.id }}/whisper">
+      <div class="field">
+        <label for="whisper_provider">Provider</label>
+        <select id="whisper_provider" name="whisper_provider">
+          <option value="openai" {{ 'selected' if (cfg.whisper_provider or 'openai') == 'openai' else '' }}>OpenAI-compatible</option>
+          <option value="asr-webservice" {{ 'selected' if cfg.whisper_provider == 'asr-webservice' else '' }}>ASR Webservice</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="whisper_base_url">Base URL</label>
+        <input type="text" id="whisper_base_url" name="whisper_base_url" value="{{ cfg.whisper_base_url }}">
+      </div>
+      <div class="field">
+        <label for="whisper_api_key">API key (if required)</label>
+        <input type="password" id="whisper_api_key" name="whisper_api_key" placeholder="{{ '•••••••• (unchanged)' if cfg.whisper_api_key else '' }}">
+      </div>
+      <div class="field">
+        <label for="whisper_model">Model</label>
+        <input type="text" id="whisper_model" name="whisper_model" value="{{ cfg.whisper_model or 'whisper-1' }}">
+      </div>
+      <button class="btn btn-primary btn-sm" type="submit">Save</button>
+    </form>
+    <form method="post" action="/settings/households/{{ household.id }}/whisper/test" class="mt-1"><button class="btn btn-sm" type="submit">Test connection</button></form>
+  </div>
+</div>
+{% endblock %}

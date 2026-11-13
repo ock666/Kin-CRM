@@ -395,6 +395,36 @@ label { display: block; font-weight: 600; font-size: .875rem; margin: 0 0 .3rem;
   font-size: .72rem;
   font-weight: 700;
 }
+.badge-member { background: var(--bg-raised); color: var(--text-muted); border: 1px solid var(--border); }
+.badge-owner { background: var(--warn-soft); color: var(--warn); }
+.badge-admin { background: var(--info-soft); color: var(--info); }
+.badge-hidden { background: transparent; color: var(--text-muted); border: 1px dashed var(--border); }
+
+/* Member rows + actions menu (households & members) */
+.member-row { display: flex; align-items: center; gap: .75rem; padding: .5rem 0; border-top: 1px solid var(--border); flex-wrap: wrap; }
+.member-row .member-id { flex: 1; min-width: 160px; display: flex; flex-direction: column; }
+.member-row .member-badges { display: flex; gap: .3rem; flex-wrap: wrap; }
+.member-menu { position: relative; }
+.member-menu > summary { list-style: none; cursor: pointer; }
+.member-menu > summary::-webkit-details-marker { display: none; }
+.member-menu-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--bg-alt); color: var(--text); cursor: pointer; user-select: none;
+}
+.member-menu-btn:hover { background: var(--accent-soft); }
+.member-menu-list {
+  position: absolute; right: 0; top: calc(100% + 4px); z-index: 60;
+  min-width: 190px; background: var(--bg-raised); border: 1px solid var(--border);
+  border-radius: 10px; box-shadow: var(--shadow); padding: .3rem;
+}
+.member-menu-list form { margin: 0; }
+.member-menu-list button {
+  display: block; width: 100%; text-align: left; background: none; border: none;
+  color: var(--text); padding: .45rem .6rem; border-radius: 6px; font-size: .88rem; cursor: pointer;
+}
+.member-menu-list button:hover { background: var(--accent-soft); }
+.member-menu-list button.danger { color: var(--danger); }
 
 .notice {
   border-radius: 12px;
