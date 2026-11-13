@@ -13,9 +13,11 @@ A **person** is the heart of Kin — a profile for someone in your life. It hold
 
 ![A person's profile](assets/person.png){ width="700" }
 
+![People grouped into circles](assets/circles.png){ width="700" }
+
 ## The journal
 
-The **journal** is a quick-capture log. One box: who you saw, what happened, when. Optionally tag the people, attach photos, add a location, and rate the energy it cost (low/medium/high) so you can plan your social bandwidth over time.
+The **[journal](glossary.md#journal)** is a quick-capture log. One box: who you saw, what happened, when. Optionally tag the people, attach photos, add a location, and rate the energy it cost (low/medium/high) so you can plan your social bandwidth over time.
 
 ![The journal](assets/journal.png){ width="700" }
 

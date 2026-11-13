@@ -19,7 +19,7 @@
   <p align="center">
     remember your people, not the pressure
     <br />
-    <a href="https://github.com/ock666/Kin-CRM"><strong>Explore the docs »</strong></a>
+    <a href="https://kin-docs.skyenet.io"><strong>Explore the docs »</strong></a>
     <br />
     <br />
     <a href="https://github.com/ock666/Kin-CRM/issues">Report Bug</a>

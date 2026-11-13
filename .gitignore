@@ -9,3 +9,4 @@ data/
 scripts/deploy.sh
 scripts/deploy.py
 site/
+AGENTS.md

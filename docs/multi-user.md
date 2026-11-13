@@ -4,7 +4,7 @@ One Kin install can host several people — each in their own fully private worl
 
 ## Individual accounts
 
-By default, every account is **private**: their own people, journal, tags, reminders, and progress, invisible to everyone else. The first account (from the setup wizard) is the **instance owner** and can add more people from **Settings → Households & members**.
+By default, every account is **private**: their own people, journal, tags, reminders, and progress, invisible to everyone else. The first account (from the setup wizard) is the [instance owner](glossary.md#instance-owner) and can add more people from **Settings → Households & members**.
 
 ![The households & members admin view](assets/members.png){ width="700" }
 
@@ -19,7 +19,7 @@ To share, open the **Household** page and generate an **invite link**. The link 
 - **They already have a Kin account?** Opening the link merges their people and journal into yours.
 - **They don't?** The link lets them register a new account straight into your household.
 
-A household of one is just an individual account — nothing changes if you never share.
+A [household](glossary.md#household) of one is just an individual account — nothing changes if you never share.
 
 ## Roles
 
@@ -27,16 +27,16 @@ Three simple levels of control:
 
 | Role | What they can do |
 |---|---|
-| **Instance owner** | Everything — add/remove anyone, manage any household's config, promote other owners, toggle the config lock. |
-| **Household owner** | Manage their own household: invite/remove members, promote co-owners, edit the household's Immich/AI/voice config. |
+| [Instance owner](glossary.md#instance-owner) | Everything — add/remove anyone, manage any household's config, promote other owners, toggle the config lock. |
+| [Household owner](glossary.md#household-owner) | Manage their own household: invite/remove members, promote co-owners, edit the household's Immich/AI/voice config. |
 | **Member** | Use the shared data and their personal preferences. |
 
 A household can have multiple owners, and an instance can have multiple instance owners.
 
 ## The "hide config" toggle
 
-If someone you host is non-technical (or prone to tinkering), an owner can **hide their config** — their Immich/AI/voice settings disappear, and the owner manages them instead from **Settings → Households & members → Edit config**. Their personal preferences stay their own.
+If someone you host is non-technical (or prone to tinkering), an owner can **hide their config** — their [Immich](glossary.md#immich)/AI/voice settings disappear, and the owner manages them instead from **Settings → Households & members → Edit config**. Their personal preferences stay their own.
 
 ## Where config lives
 
-Immich, AI, and Whisper are **per household** — each household brings its own photo library and AI keys. The TTS voice engine, push keys, and scheduler are **instance-wide** (instance owner only).
+[Immich](glossary.md#immich), AI, and [Whisper](glossary.md#whisper) are **per household** — each household brings its own photo library and AI keys. The [TTS](glossary.md#tts-text-to-speech) voice engine, push keys, and scheduler are **instance-wide** (instance owner only).
