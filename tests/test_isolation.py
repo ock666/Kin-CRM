@@ -166,20 +166,20 @@ def test_per_user_settings_are_isolated(logged_in_client, second_client):
 
 def test_settings_page_shows_only_own_config(logged_in_client, second_client):
     from app.database import SessionLocal
-    from app.settings_store import set_user_setting
+    from app.settings_store import set_household_setting
     db = SessionLocal()
     try:
-        set_user_setting(db, 1, "immich_url", "http://a-immich.local:2283")
-        set_user_setting(db, 1, "ai_api_key", "sk-a-secret")
-        set_user_setting(db, 2, "immich_url", "http://b-immich.local:2283")
+        set_household_setting(db, 1, "immich_url", "http://a-immich.local:2283")
+        set_household_setting(db, 1, "ai_api_key", "sk-a-secret")
+        set_household_setting(db, 2, "immich_url", "http://b-immich.local:2283")
     finally:
         db.close()
 
-    page_a = logged_in_client.get("/settings").text
+    page_a = logged_in_client.get("/settings/households/1").text
     assert "http://a-immich.local:2283" in page_a
     assert "sk-a-secret" not in page_a  # masked even for the owner
 
-    page_b = second_client.get("/settings").text
+    page_b = second_client.get("/settings/households/2").text
     assert "http://a-immich.local:2283" not in page_b
     assert "http://b-immich.local:2283" in page_b
 

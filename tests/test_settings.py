@@ -1,9 +1,10 @@
 def test_settings_page_loads(logged_in_client):
     resp = logged_in_client.get("/settings")
     assert resp.status_code == 200
-    assert "Immich" in resp.text
-    assert "AI assistant" in resp.text
+    assert "Voice Replies" in resp.text
+    assert "Calendar sync" in resp.text
     assert 'action="/settings/instagram"' not in resp.text  # feature removed
+    assert 'action="/settings/immich"' not in resp.text  # config moved to the household page
 
 
 def test_settings_page_has_whats_new(logged_in_client):
@@ -32,13 +33,13 @@ def test_save_immich_settings_persist(logged_in_client):
 
 def test_save_ai_settings_persist(logged_in_client):
     resp = logged_in_client.post(
-        "/settings/ai",
+        "/settings/households/1/ai",
         data={"ai_base_url": "http://ollama:11434/v1", "ai_api_key": "unused", "ai_model": "llama3.1"},
         follow_redirects=False,
     )
     assert resp.status_code == 303
 
-    page = logged_in_client.get("/settings")
+    page = logged_in_client.get("/settings/households/1")
     assert "http://ollama:11434/v1" in page.text
     assert "llama3.1" in page.text
 
@@ -106,10 +107,10 @@ def test_add_second_user(logged_in_client):
 
 def test_immich_test_connection_reports_error_when_unreachable(logged_in_client):
     logged_in_client.post(
-        "/settings/immich",
+        "/settings/households/1/immich",
         data={"immich_url": "http://127.0.0.1:1", "immich_api_key": "test-key"},
     )
-    resp = logged_in_client.post("/settings/immich/test")
+    resp = logged_in_client.post("/settings/households/1/immich/test")
     assert resp.status_code == 200
     # Should show a friendly error rather than crash the app.
     assert "notice" in resp.text

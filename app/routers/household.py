@@ -30,9 +30,10 @@ def household_page(request: Request, db: Session = Depends(get_db), user=Depends
     household = db.get(Household, user.household_id)
     active = household_service.latest_active_invite(db, user.household_id)
     invite_url = request.url_for("household_invite", token=active.token) if active else None
+    can_edit_config = bool(user.is_admin or user.is_household_owner or not user.settings_hidden)
     return render(request, "household.html", db=db, user=user, active="settings",
                   members=members, household=household, invite_url=invite_url,
-                  can_manage=_can_manage(user))
+                  can_manage=_can_manage(user), can_edit_config=can_edit_config)
 
 
 @router.post("/household/rename")

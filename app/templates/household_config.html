@@ -11,6 +11,7 @@
 
   <div class="card">
     <h2 class="mt-0">📷 Immich</h2>
+    {% if immich_test %}<div class="notice notice-{{ immich_test[0] }}">{{ immich_test[1] }}</div>{% endif %}
     <form method="post" action="/settings/households/{{ household.id }}/immich">
       <div class="field">
         <label for="immich_url">Immich server URL</label>
@@ -22,10 +23,12 @@
       </div>
       <button class="btn btn-primary btn-sm" type="submit">Save</button>
     </form>
+    <form method="post" action="/settings/households/{{ household.id }}/immich/test" class="mt-1"><button class="btn btn-sm" type="submit">Test connection</button></form>
   </div>
 
   <div class="card mt-2">
     <h2 class="mt-0">🤖 AI assistant</h2>
+    {% if ai_test %}<div class="notice notice-{{ ai_test[0] }}">{{ ai_test[1] }}</div>{% endif %}
     <form method="post" action="/settings/households/{{ household.id }}/ai">
       <div class="field">
         <label for="ai_base_url">API base URL</label>
@@ -45,10 +48,12 @@
       </div>
       <button class="btn btn-primary btn-sm" type="submit">Save</button>
     </form>
+    <form method="post" action="/settings/households/{{ household.id }}/ai/test" class="mt-1"><button class="btn btn-sm" type="submit">Test connection</button></form>
   </div>
 
   <div class="card mt-2">
     <h2 class="mt-0">🎙️ Voice (Whisper)</h2>
+    {% if whisper_test %}<div class="notice notice-{{ whisper_test[0] }}">{{ whisper_test[1] }}</div>{% endif %}
     <form method="post" action="/settings/households/{{ household.id }}/whisper">
       <div class="field">
         <label for="whisper_provider">Provider</label>
@@ -71,6 +76,7 @@
       </div>
       <button class="btn btn-primary btn-sm" type="submit">Save</button>
     </form>
+    <form method="post" action="/settings/households/{{ household.id }}/whisper/test" class="mt-1"><button class="btn btn-sm" type="submit">Test connection</button></form>
   </div>
 </div>
 {% endblock %}

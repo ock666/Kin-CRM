@@ -8,6 +8,10 @@
     A household of one is just your own private Kin.
   </p>
 
+  {% if can_edit_config %}
+  <p class="mb-2"><a class="btn btn-sm btn-primary" href="/settings/households/{{ user.household_id }}">⚙️ Edit household config</a></p>
+  {% endif %}
+
   {% if can_manage %}
   <div class="card">
     <h2 class="mt-0">Name</h2>

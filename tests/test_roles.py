@@ -78,11 +78,14 @@ def test_settings_hidden_hides_config(logged_in_client):
         db.close()
 
     with _login("second@example.com") as c:
+        # Household config no longer lives on the base settings page at all.
         page = c.get("/settings").text
-        assert "managed by your household owner" in page
         assert 'action="/settings/immich"' not in page
-        # the save route is rejected too
-        resp = c.post("/settings/immich", data={"immich_url": "http://x", "immich_api_key": "y"},
+        # A hidden member cannot open their household's config page either.
+        assert c.get("/settings/households/1", follow_redirects=False).status_code == 303
+        # And the scoped save route is rejected.
+        resp = c.post("/settings/households/1/immich",
+                      data={"immich_url": "http://x", "immich_api_key": "y"},
                       follow_redirects=False)
         assert resp.status_code == 303
 
@@ -196,3 +199,16 @@ def test_non_admin_cannot_edit_another_household(logged_in_client):
         assert get_household_setting(db, 1, "immich_url") != "http://hacked"
     finally:
         db.close()
+
+
+def test_member_can_edit_own_household_config(logged_in_client):
+    from app.database import SessionLocal
+    db = SessionLocal()
+    try:
+        _second_member(db)  # non-owner, non-hidden member of household 1
+    finally:
+        db.close()
+    with _login("second@example.com") as c:
+        resp = c.get("/settings/households/1")
+        assert resp.status_code == 200
+        assert 'action="/settings/households/1/immich"' in resp.text
