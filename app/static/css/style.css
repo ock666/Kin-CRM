@@ -844,3 +844,36 @@ label { display: block; font-weight: 600; font-size: .875rem; margin: 0 0 .3rem;
 .ms-cell[data-n="3"] { color: var(--danger); }
 .ms-cell[data-n="4"] { color: var(--warn); }
 .ms-cell[data-n="5"], .ms-cell[data-n="6"], .ms-cell[data-n="7"], .ms-cell[data-n="8"] { color: var(--accent); }
+
+/* Dot Muncher (regulation game) */
+.dm-hud { display: flex; gap: 1.25rem; justify-content: center; margin-bottom: .4rem; flex-wrap: wrap; }
+#dm-canvas {
+  display: block;
+  margin: 0 auto;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  max-width: 100%;
+}
+.dm-controls {
+  display: grid;
+  grid-template-columns: repeat(3, 52px);
+  grid-template-rows: repeat(2, 52px);
+  gap: .5rem;
+  justify-content: center;
+  margin-top: .85rem;
+}
+.dm-controls button {
+  width: 52px;
+  height: 52px;
+  font-size: 1.35rem;
+  line-height: 1;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-alt);
+  color: var(--text);
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+}
+.dm-controls button:active { background: var(--accent-soft); }
