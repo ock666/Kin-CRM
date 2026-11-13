@@ -122,3 +122,32 @@ def test_non_owner_cannot_invite(logged_in_client):
         assert db.query(HouseholdInvite).count() == before
     finally:
         db.close()
+
+
+def test_owner_can_rename_household(logged_in_client):
+    from app.database import SessionLocal
+    from app.models import Household
+    assert logged_in_client.post("/household/rename", data={"name": "Skye & Chris"},
+                                 follow_redirects=False).status_code == 303
+    db = SessionLocal()
+    try:
+        assert db.get(Household, 1).name == "Skye & Chris"
+    finally:
+        db.close()
+
+
+def test_non_owner_cannot_rename(logged_in_client):
+    from app.database import SessionLocal
+    from app.models import Household
+    db = SessionLocal()
+    try:
+        _second_member(db)
+    finally:
+        db.close()
+    with _login("second@example.com") as c:
+        c.post("/household/rename", data={"name": "Hacked"}, follow_redirects=False)
+    db = SessionLocal()
+    try:
+        assert db.get(Household, 1).name != "Hacked"
+    finally:
+        db.close()

@@ -2,11 +2,21 @@
 {% block title %}Household — {{ app_name }}{% endblock %}
 {% block content %}
 <div class="container-narrow">
-  <h1>🏠 Your household</h1>
+  <h1>🏠 {{ household.name or 'Your household' }}</h1>
   <p class="text-sm text-muted mb-2">
     A household shares one Kin — the same people, journal, photos, and reminders.
     A household of one is just your own private Kin.
   </p>
+
+  {% if can_manage %}
+  <div class="card">
+    <h2 class="mt-0">Name</h2>
+    <form method="post" action="/household/rename" class="flex-gap" style="align-items:center;">
+      <input type="text" name="name" value="{{ household.name or '' }}" placeholder="e.g. Skye &amp; Chris" style="flex:1;">
+      <button class="btn btn-sm btn-primary" type="submit">Save</button>
+    </form>
+  </div>
+  {% endif %}
 
   <div class="card">
     <h2 class="mt-0">Members</h2>

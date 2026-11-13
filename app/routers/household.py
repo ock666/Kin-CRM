@@ -35,6 +35,19 @@ def household_page(request: Request, db: Session = Depends(get_db), user=Depends
                   can_manage=_can_manage(user))
 
 
+@router.post("/household/rename")
+def rename_household(request: Request, db: Session = Depends(get_db), user=Depends(current_user),
+                     name: str = Form("")):
+    if not user or not _can_manage(user):
+        return RedirectResponse("/household", status_code=303)
+    household = db.get(Household, user.household_id)
+    if household:
+        household.name = name.strip() or None
+        db.commit()
+        request.session["notice_flash"] = "Household name updated."
+    return RedirectResponse("/household", status_code=303)
+
+
 @router.post("/household/invite")
 def create_invite(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
     if not user:
