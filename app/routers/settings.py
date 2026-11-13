@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..deps import current_user
-from ..models import User
+from ..models import User, Household
 from ..render import render
 from ..settings_store import (get_all_settings, set_many,
                               get_all_user_settings, set_many_user, get_user_setting, set_user_setting,
@@ -35,6 +35,20 @@ def _cfg_for_user(db, user):
     }
 
 
+def _can_edit_household_config(user) -> bool:
+    """Household config is editable by owners and instance owners, and by members unless their
+    settings are locked (`settings_hidden`)."""
+    return bool(user and (user.is_admin or user.is_household_owner or not user.settings_hidden))
+
+
+def _settings_common(db, user):
+    """Context shared by every route that renders the settings page."""
+    return dict(
+        households=db.query(Household).order_by(Household.id).all(),
+        can_edit_config=_can_edit_household_config(user),
+    )
+
+
 @router.get("/settings")
 def settings_page(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
     if not user:
@@ -42,7 +56,8 @@ def settings_page(request: Request, db: Session = Depends(get_db), user=Depends(
     cfg = _cfg_for_user(db, user)
     users = db.query(User).order_by(User.id).all()
     user_mfa = db.get(User, user.id)
-    return render(request, "settings.html", db=db, user=user_mfa, active="settings", cfg=cfg, users=users)
+    return render(request, "settings.html", db=db, user=user_mfa, active="settings",
+                  cfg=cfg, users=users, **_settings_common(db, user))
 
 
 @router.post("/settings/immich")
@@ -50,6 +65,8 @@ def save_immich(request: Request, db: Session = Depends(get_db), user=Depends(cu
                  immich_url: str = Form(""), immich_api_key: str = Form("")):
     if not user:
         return RedirectResponse("/login", status_code=303)
+    if not _can_edit_household_config(user):
+        return RedirectResponse("/settings", status_code=303)
     values = {"immich_url": immich_url.strip()}
     # The password field is blank when the user wants to keep the existing key - never wipe a
     # stored secret with an empty submission.
@@ -71,7 +88,7 @@ def test_immich(request: Request, db: Session = Depends(get_db), user=Depends(cu
         result = ("danger", "Could not connect to Immich. Check your URL and API key.")
     users = db.query(User).order_by(User.id).all()
     return render(request, "settings.html", db=db, user=user, active="settings", cfg=cfg, users=users,
-                  immich_test=result)
+                  **_settings_common(db, user), immich_test=result)
 
 
 @router.post("/settings/ai")
@@ -80,6 +97,8 @@ def save_ai(request: Request, db: Session = Depends(get_db), user=Depends(curren
             support_chat_model: str = Form("gpt-4o")):
     if not user:
         return RedirectResponse("/login", status_code=303)
+    if not _can_edit_household_config(user):
+        return RedirectResponse("/settings", status_code=303)
     values = {
         "ai_base_url": ai_base_url.strip(),
         "ai_model": ai_model.strip(),
@@ -105,7 +124,7 @@ def test_ai(request: Request, db: Session = Depends(get_db), user=Depends(curren
         result = ("danger", "AI connection failed. Check your credentials and try again.")
     users = db.query(User).order_by(User.id).all()
     return render(request, "settings.html", db=db, user=user, active="settings", cfg=cfg, users=users,
-                   ai_test=result)
+                  **_settings_common(db, user), ai_test=result)
 
 
 @router.post("/settings/whisper")
@@ -114,6 +133,8 @@ def save_whisper(request: Request, db: Session = Depends(get_db), user=Depends(c
                  whisper_api_key: str = Form(""), whisper_model: str = Form("whisper-1")):
     if not user:
         return RedirectResponse("/login", status_code=303)
+    if not _can_edit_household_config(user):
+        return RedirectResponse("/settings", status_code=303)
     provider = (whisper_provider or "openai").strip() or "openai"
     values = {
         "whisper_provider": provider,
@@ -162,7 +183,7 @@ def test_whisper(request: Request, db: Session = Depends(get_db), user=Depends(c
     except Exception:
         result = ("danger", "Whisper endpoint not reachable. Check URL and container.")
     return render(request, "settings.html", db=db, user=user, active="settings", cfg=cfg, users=users,
-                  whisper_test=result)
+                  **_settings_common(db, user), whisper_test=result)
 
 
 @router.post("/settings/tts")
@@ -233,7 +254,7 @@ def test_tts(request: Request, db: Session = Depends(get_db), user=Depends(curre
     except Exception:
         result = ("danger", "Connection test failed. Check provider settings.")
     return render(request, "settings.html", db=db, user=user, active="settings", cfg=cfg, users=users,
-                  tts_test=result)
+                  **_settings_common(db, user), tts_test=result)
 
 
 @router.get("/settings/tts/voices")
@@ -373,6 +394,56 @@ def delete_user(user_id: int, db: Session = Depends(get_db), user=Depends(curren
     return RedirectResponse("/settings", status_code=303)
 
 
+@router.post("/settings/users/{user_id}/make-admin")
+def make_admin(user_id: int, request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
+    if not user or not user.is_admin:
+        return RedirectResponse("/settings", status_code=303)
+    target = db.get(User, user_id)
+    if target and not target.is_admin:
+        target.is_admin = True
+        db.commit()
+        request.session["notice_flash"] = f"{target.name} is now an instance owner."
+    return RedirectResponse("/settings", status_code=303)
+
+
+@router.post("/settings/users/{user_id}/remove-admin")
+def remove_admin(user_id: int, request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
+    if not user or not user.is_admin:
+        return RedirectResponse("/settings", status_code=303)
+    target = db.get(User, user_id)
+    if target and target.is_admin and target.id != user.id:
+        admin_count = db.query(User).filter(User.is_admin.is_(True)).count()
+        if admin_count <= 1:
+            request.session["notice_flash"] = "You can't remove the last instance owner."
+        else:
+            target.is_admin = False
+            db.commit()
+            request.session["notice_flash"] = f"{target.name} is no longer an instance owner."
+    return RedirectResponse("/settings", status_code=303)
+
+
+@router.post("/settings/users/{user_id}/toggle-settings-hidden")
+def toggle_settings_hidden(user_id: int, request: Request, db: Session = Depends(get_db),
+                           user=Depends(current_user)):
+    """Hide (or reveal) the household config from a user. Instance owners can do this for anyone;
+    a household owner can do it for members of their own household."""
+    if not user:
+        return RedirectResponse("/settings", status_code=303)
+    target = db.get(User, user_id)
+    if target is None or target.id == user.id:
+        return RedirectResponse("/settings", status_code=303)
+    allowed = user.is_admin or (user.is_household_owner and target.household_id == user.household_id)
+    if not allowed:
+        return RedirectResponse("/settings", status_code=303)
+    target.settings_hidden = not target.settings_hidden
+    db.commit()
+    request.session["notice_flash"] = (
+        f"{target.name}'s config is now hidden." if target.settings_hidden
+        else f"{target.name} can now edit their own config."
+    )
+    return RedirectResponse("/settings", status_code=303)
+
+
 # ---------------------------------------------------------------------------
 # MFA (TOTP two-factor authentication)
 # ---------------------------------------------------------------------------
@@ -458,5 +529,5 @@ def mfa_regenerate_codes(request: Request, db: Session = Depends(get_db), user=D
     cfg = _cfg_for_user(db, user)
     users = db.query(User).order_by(User.id).all()
     return render(request, "settings.html", db=db, user=user, active="settings",
-                  cfg=cfg, users=users, recovery_codes=plain_codes,
+                  cfg=cfg, users=users, **_settings_common(db, user), recovery_codes=plain_codes,
                   _headers={"Cache-Control": "no-store"})

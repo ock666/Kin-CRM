@@ -17,6 +17,11 @@ from ..services import households as household_service
 router = APIRouter()
 
 
+def _can_manage(user) -> bool:
+    """Household membership can be managed by a household owner or an instance owner."""
+    return bool(user and (user.is_admin or user.is_household_owner))
+
+
 @router.get("/household")
 def household_page(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
     if not user:
@@ -26,15 +31,56 @@ def household_page(request: Request, db: Session = Depends(get_db), user=Depends
     active = household_service.latest_active_invite(db, user.household_id)
     invite_url = request.url_for("household_invite", token=active.token) if active else None
     return render(request, "household.html", db=db, user=user, active="settings",
-                  members=members, household=household, invite_url=invite_url)
+                  members=members, household=household, invite_url=invite_url,
+                  can_manage=_can_manage(user))
 
 
 @router.post("/household/invite")
 def create_invite(request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
     if not user:
         return RedirectResponse("/login")
+    if not _can_manage(user):
+        request.session["notice_flash"] = "Only a household owner can invite new members."
+        return RedirectResponse("/household", status_code=303)
     household_service.generate_invite(db, user)
     request.session["notice_flash"] = "Invite link created — share it however you like."
+    return RedirectResponse("/household", status_code=303)
+
+
+@router.post("/household/members/{member_id}/remove")
+def remove_member(member_id: int, request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
+    if not user or not _can_manage(user):
+        return RedirectResponse("/household", status_code=303)
+    member = db.get(User, member_id)
+    if member and member.household_id == user.household_id and member.id != user.id:
+        if household_service.remove_member(db, member):
+            request.session["notice_flash"] = f"{member.name} moved to their own Kin."
+        else:
+            request.session["notice_flash"] = "You can't remove the last owner."
+    return RedirectResponse("/household", status_code=303)
+
+
+@router.post("/household/members/{member_id}/promote")
+def promote_member(member_id: int, request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
+    if not user or not _can_manage(user):
+        return RedirectResponse("/household", status_code=303)
+    member = db.get(User, member_id)
+    if member and member.household_id == user.household_id:
+        household_service.promote_to_owner(db, member)
+        request.session["notice_flash"] = f"{member.name} is now a household owner."
+    return RedirectResponse("/household", status_code=303)
+
+
+@router.post("/household/members/{member_id}/demote")
+def demote_member(member_id: int, request: Request, db: Session = Depends(get_db), user=Depends(current_user)):
+    if not user or not _can_manage(user):
+        return RedirectResponse("/household", status_code=303)
+    member = db.get(User, member_id)
+    if member and member.household_id == user.household_id and member.id != user.id:
+        if household_service.demote_owner(db, member):
+            request.session["notice_flash"] = f"{member.name} is no longer a household owner."
+        else:
+            request.session["notice_flash"] = "You can't demote the last owner."
     return RedirectResponse("/household", status_code=303)
 
 

@@ -221,6 +221,15 @@ def _migrate_to_households():
     _replace_achievement_index_for_households()
     logger.info("Migration: households created and backfilled")
 
+    # v4.1: household roles — every existing user is the owner of their own household-of-one.
+    _ensure_column("users", "is_household_owner", "BOOLEAN", default_sql="0")
+    _ensure_column("users", "settings_hidden", "BOOLEAN", default_sql="0")
+    with engine.begin() as conn:
+        conn.execute(text(
+            "UPDATE users SET is_household_owner = 1 "
+            "WHERE id IN (SELECT MIN(id) FROM users GROUP BY household_id)"
+        ))
+
 
 def _migrate_household_settings():
     """Move Immich/AI/Whisper creds from per-user (or global) settings into household_settings."""

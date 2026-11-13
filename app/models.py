@@ -39,7 +39,9 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=False, index=True)
     name = Column(String(255), nullable=False, default="")
     hashed_password = Column(String(255), nullable=False)
-    is_admin = Column(Boolean, default=False)
+    is_admin = Column(Boolean, default=False)  # instance owner
+    is_household_owner = Column(Boolean, default=False)  # household owner (multiple allowed)
+    settings_hidden = Column(Boolean, default=False)  # hide household config from this user
     created_at = Column(DateTime, default=utcnow)
     totp_secret = Column(String(255), nullable=True)
     totp_enabled = Column(Boolean, default=False)

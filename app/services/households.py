@@ -33,14 +33,17 @@ def create_household(db: Session, name: str | None = None) -> Household:
 
 def create_user(db: Session, name: str, email: str, password: str, *, is_admin: bool = False,
                 household_id: int | None = None) -> User:
-    """Create a user, assigning them a fresh individual household unless `household_id` is given."""
+    """Create a user, assigning them a fresh individual household (as its owner) unless
+    `household_id` is given (joining an existing household as a member)."""
     from ..auth import hash_password
-    if household_id is None:
+    own_household = household_id is None
+    if own_household:
         household_id = create_household(db, name=name).id
     u = User(
         name=name, email=email.lower().strip(),
         hashed_password=hash_password(password),
         is_admin=is_admin, household_id=household_id,
+        is_household_owner=own_household,
     )
     db.add(u)
     db.flush()
@@ -49,6 +52,42 @@ def create_user(db: Session, name: str, email: str, password: str, *, is_admin: 
 
 def household_members(db: Session, household_id: int) -> list[User]:
     return db.query(User).filter(User.household_id == household_id).all()
+
+
+def owner_count(db: Session, household_id: int) -> int:
+    return db.query(User).filter(
+        User.household_id == household_id, User.is_household_owner.is_(True)
+    ).count()
+
+
+def is_household_owner(user: User) -> bool:
+    return bool(user and user.is_household_owner)
+
+
+def remove_member(db: Session, member: User) -> bool:
+    """Move `member` out of their household into a fresh individual household (as its owner).
+    Refuses to remove the last remaining owner. Returns False if it couldn't."""
+    if member.is_household_owner and owner_count(db, member.household_id) <= 1:
+        return False
+    new_hh = create_household(db, name=member.name)
+    member.household_id = new_hh.id
+    member.is_household_owner = True
+    db.commit()
+    return True
+
+
+def promote_to_owner(db: Session, member: User) -> None:
+    member.is_household_owner = True
+    db.commit()
+
+
+def demote_owner(db: Session, member: User) -> bool:
+    """Demote a household owner. Refuses to demote the last remaining owner."""
+    if owner_count(db, member.household_id) <= 1:
+        return False
+    member.is_household_owner = False
+    db.commit()
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -103,8 +142,10 @@ def merge_households(db: Session, source_id: int, target_id: int) -> None:
     # Household config: target wins, drop source's.
     db.query(HouseholdSetting).filter(HouseholdSetting.household_id == source_id).delete()
 
-    # Re-point the source's members, then delete the source household.
-    db.query(User).filter(User.household_id == source_id).update({"household_id": target_id})
+    # Re-point the source's members (as regular members, not owners), then delete the source.
+    db.query(User).filter(User.household_id == source_id).update(
+        {"household_id": target_id, "is_household_owner": False}
+    )
     hh = db.get(Household, source_id)
     if hh is not None:
         db.delete(hh)

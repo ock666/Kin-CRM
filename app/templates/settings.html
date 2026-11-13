@@ -3,6 +3,7 @@
 {% block content %}
 <h1>Settings</h1>
 
+{% if can_edit_config %}
 <div class="card">
   <h2>📷 Immich</h2>
   <p class="text-sm text-muted">Connect your Immich server to pull in faces, photos, and "on this day" memories.</p>
@@ -78,6 +79,12 @@
   <form method="post" action="/settings/whisper/test" class="mt-1"><button class="btn btn-sm" type="submit">Test connection</button></form>
   <p class="help-text">Tip: For the ASR webservice, run the container on your Unraid host and set Base URL to <code>http://192.168.0.51:9090</code>.</p>
   </div>
+{% else %}
+<div class="card mt-2">
+  <h2>🏠 Household config</h2>
+  <p class="text-sm text-muted">Immich, AI, and voice are managed by your household owner — reach out if something needs changing.</p>
+</div>
+{% endif %}
 
 <div class="card mt-2">
   <h2>🔊 Voice Replies (TTS)</h2>
@@ -311,16 +318,33 @@
 
 {% if user.is_admin %}
 <div class="card mt-2">
-  <h2>👥 People with access</h2>
-  {% for u in users %}
-    <div class="flex-between" style="padding:.4rem 0; border-top:1px solid var(--border);">
-      <span>{{ u.name }} &lt;{{ u.email }}&gt;</span>
-      {% if u.id != user.id %}
-        <form method="post" action="/settings/users/{{ u.id }}/delete"><button class="btn btn-sm btn-danger" type="submit">Remove</button></form>
-      {% else %}
-        <span class="text-muted text-sm">(you)</span>
+  <h2>👥 Households &amp; members</h2>
+  {% for h in households %}
+    <div class="mt-1" style="font-weight:600;">🏠 {{ h.name or ('Household ' ~ h.id) }}</div>
+    {% for u in users %}
+      {% if u.household_id == h.id %}
+      <div class="flex-between" style="padding:.35rem 0; border-top:1px solid var(--border);">
+        <span>
+          {{ u.name }} &lt;{{ u.email }}&gt;
+          {% if u.is_admin %}<span class="badge">instance owner</span>{% endif %}
+          {% if u.is_household_owner %}<span class="badge">household owner</span>{% endif %}
+          {% if u.settings_hidden %}<span class="badge">config hidden</span>{% endif %}
+          {% if u.id == user.id %}<span class="text-muted text-sm">(you)</span>{% endif %}
+        </span>
+        {% if u.id != user.id %}
+        <span class="flex-gap">
+          {% if u.is_admin %}
+            <form method="post" action="/settings/users/{{ u.id }}/remove-admin" style="display:inline"><button class="btn btn-sm" type="submit">Remove owner</button></form>
+          {% else %}
+            <form method="post" action="/settings/users/{{ u.id }}/make-admin" style="display:inline"><button class="btn btn-sm" type="submit">Make owner</button></form>
+          {% endif %}
+          <form method="post" action="/settings/users/{{ u.id }}/toggle-settings-hidden" style="display:inline"><button class="btn btn-sm" type="submit">{{ 'Show config' if u.settings_hidden else 'Hide config' }}</button></form>
+          <form method="post" action="/settings/users/{{ u.id }}/delete" style="display:inline"><button class="btn btn-sm btn-danger" type="submit">Delete</button></form>
+        </span>
+        {% endif %}
+      </div>
       {% endif %}
-    </div>
+    {% endfor %}
   {% endfor %}
   <form method="post" action="/settings/users/new" class="mt-2">
     <div class="field-row">
