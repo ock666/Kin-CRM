@@ -40,7 +40,7 @@ def test_familiarity_register_acquaintance():
 
 
 def test_familiarity_register_warmer_with_more_data():
-    p = _Person(user_id=1,
+    p = _Person(household_id=1,
         journal_entries=[object() for _ in range(8)],
         last_contact_date=dt.date.today(),
         birthday_month=6,

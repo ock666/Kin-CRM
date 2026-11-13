@@ -23,7 +23,7 @@ def test_xp_awards_and_levels(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
-        db.add(JournalEntry(author_user_id=1, title="Test", body="Test entry", entry_date=dt.date.today()))
+        db.add(JournalEntry(household_id=1, author_user_id=1, title="Test", body="Test entry", entry_date=dt.date.today()))
         db.commit()
 
         result = gamification.award_xp(db, user, "NOTE_ADDED")
@@ -91,7 +91,7 @@ def test_achievement_first_step(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
-        db.add(JournalEntry(author_user_id=1, title="First", body="My first entry", entry_date=dt.date.today()))
+        db.add(JournalEntry(household_id=1, author_user_id=1, title="First", body="My first entry", entry_date=dt.date.today()))
         db.commit()
 
         assert not db.query(UnlockedAchievement).count()
@@ -115,7 +115,7 @@ def test_achievement_circle_builder(app, user):
 
         # Add 3 people
         for name in ["Alice", "Bob", "Charlie"]:
-            db.add(Person(user_id=1, name=name))
+            db.add(Person(household_id=1, name=name))
         db.commit()
 
         result = gamification.award_xp(db, user, "NOTE_ADDED")

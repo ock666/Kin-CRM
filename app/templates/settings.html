@@ -304,6 +304,13 @@
 </div>
 
 <div class="card mt-2">
+  <h2>🏠 Household</h2>
+  <p class="text-sm text-muted mb-1">Who you share your Kin with. Add or remove household members from the <a href="/household">Household</a> page.</p>
+  <a class="btn btn-sm" href="/household">Manage household</a>
+</div>
+
+{% if user.is_admin %}
+<div class="card mt-2">
   <h2>👥 People with access</h2>
   {% for u in users %}
     <div class="flex-between" style="padding:.4rem 0; border-top:1px solid var(--border);">
@@ -324,6 +331,7 @@
     <button class="btn btn-sm" type="submit">+ Add person</button>
   </form>
 </div>
+{% endif %}
 
 <div class="card mt-2">
   <h2>🔐 Two-factor authentication</h2>

@@ -58,7 +58,7 @@ def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(curr
     upcoming_birthdays = bday_service.people_with_upcoming_birthdays(db, user, lead_days)
 
     upcoming_notable = []
-    for nd in db.query(NotableDate).join(Person, Person.id == NotableDate.person_id).filter(Person.user_id == user.id).all():
+    for nd in db.query(NotableDate).join(Person, Person.id == NotableDate.person_id).filter(Person.household_id == user.household_id).all():
         nb = _safe_date(today.year, nd.month, nd.day)
         if nb is None:
             continue
@@ -133,7 +133,7 @@ def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(curr
         unresolved_conflicts = (
             db.query(ConflictLog)
             .join(Person, Person.id == ConflictLog.person_id)
-            .filter(Person.user_id == user.id)
+            .filter(Person.household_id == user.household_id)
             .filter(ConflictLog.status == ConflictStatus.unresolved)
             .filter(ConflictLog.reminder_dismissed.is_(False))
             .all()
@@ -154,7 +154,7 @@ def dashboard(request: Request, db: Session = Depends(get_db), user=Depends(curr
     # pressure-free. The note lives in settings so it's easy to edit without a schema change.
     recent_unlocks = (
         db.query(UnlockedAchievement)
-        .filter(UnlockedAchievement.user_id == user.id)
+        .filter(UnlockedAchievement.household_id == user.household_id)
         .order_by(UnlockedAchievement.unlocked_at.desc())
         .limit(3)
         .all()

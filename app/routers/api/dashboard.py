@@ -48,7 +48,7 @@ def dashboard_today(db: Session = Depends(get_db), user=Depends(get_current_api_
 
     # Notable dates coming up
     lead_days = _safe_int(get_user_setting(db, user.id, "birthday_lead_days", "3"), 3)
-    all_nds = db.query(NotableDate).join(Person, Person.id == NotableDate.person_id).filter(Person.user_id == user.id).all()
+    all_nds = db.query(NotableDate).join(Person, Person.id == NotableDate.person_id).filter(Person.household_id == user.household_id).all()
     notable_dates_list = []
     for nd in all_nds:
         days = (dt.date(today.year, nd.month, nd.day) - today).days

@@ -6,7 +6,7 @@ from app.services.checkins import compute_cadence_watermeter, is_overdue
 
 
 def make_person(db, **kwargs):
-    p = Person(user_id=1, **kwargs)
+    p = Person(household_id=1, **kwargs)
     db.add(p)
     db.commit()
     return p

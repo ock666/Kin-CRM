@@ -316,7 +316,8 @@ Kin can push birthdays and notable dates into any calendar that can subscribe to
 ### Multiple users, one instance
 - One Kin install can host multiple people, each with a fully private world — their own people, journal, tags, reminders, and progress, invisible to everyone else
 - Add someone from **Settings → Users** (admin), and they log into a fresh, empty Kin of their own
-- Immich, AI, and Whisper are configured **per user** (each person brings their own photo library and AI keys); the TTS voice engine, push keys, and scheduler stay instance-wide (admin-only)
+- **Households**: two people can opt to share one Kin — a single-use invite link merges their data into one shared view (or registers a brand-new account straight into it). A household of one is just an individual account
+- Immich, AI, and Whisper are configured **per household** (each household brings its own photo library and AI keys); the TTS voice engine, push keys, and scheduler stay instance-wide (admin-only)
 
 ### Today dashboard
 - **Upcoming birthdays & notable dates** surfaced as they approach with configurable lead time
@@ -356,7 +357,7 @@ Kin can push birthdays and notable dates into any calendar that can subscribe to
 - Chat transcripts auto-archive after 14 days ("water under the bridge"), always exportable
 
 ### Gamification (celebrating rest too)
-- Personal XP, levels, and 45+ achievements (per user)
+- Personal XP, levels, and 45+ achievements (shared within a household)
 - **Rest achievements**: celebrate snoozing a check-in, entering grace mode, releasing a conflict, setting "wants space" — rest is productive
 - Achievements unlock silently; toasts only for level-ups or new badges
 

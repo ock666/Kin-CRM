@@ -16,7 +16,7 @@ def test_create_conflict(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
-        p = Person(user_id=1, name="Test Friend")
+        p = Person(household_id=1, name="Test Friend")
         db.add(p)
         db.commit()
 
@@ -40,7 +40,7 @@ def test_resolve_conflict(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
-        p = Person(user_id=1, name="Resolved Friend")
+        p = Person(household_id=1, name="Resolved Friend")
         db.add(p)
         db.commit()
 
@@ -64,7 +64,7 @@ def test_release_conflict(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
-        p = Person(user_id=1, name="Let Go Friend")
+        p = Person(household_id=1, name="Let Go Friend")
         db.add(p)
         db.commit()
 
@@ -86,7 +86,7 @@ def test_dismiss_reminder(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
-        p = Person(user_id=1, name="Dismissed Reminder")
+        p = Person(household_id=1, name="Dismissed Reminder")
         db.add(p)
         db.commit()
 
@@ -107,7 +107,7 @@ def test_delete_conflict(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
-        p = Person(user_id=1, name="Delete Me")
+        p = Person(household_id=1, name="Delete Me")
         db.add(p)
         db.commit()
 
@@ -173,7 +173,7 @@ def test_conflict_open_unresolved_filter(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
-        p = Person(user_id=1, name="Filter Test")
+        p = Person(household_id=1, name="Filter Test")
         db.add(p)
         db.commit()
 

@@ -6,7 +6,7 @@ def test_chat_message_model(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
-        p = Person(user_id=1, name="Chat Test Person")
+        p = Person(household_id=1, name="Chat Test Person")
         db.add(p)
         db.commit()
         conflict = ConflictLog(person_id=p.id, summary="Argument", status=ConflictStatus.unresolved)
@@ -34,7 +34,7 @@ def test_chat_messages_cascade_delete(app, user):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
-        p = Person(user_id=1, name="Cascade Person")
+        p = Person(household_id=1, name="Cascade Person")
         db.add(p)
         db.commit()
         conflict = ConflictLog(person_id=p.id, summary="Test", status=ConflictStatus.unresolved)

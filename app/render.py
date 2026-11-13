@@ -23,7 +23,7 @@ def _pending_review_count(db: Session | None, user) -> int:
     bd = (
         db.query(BirthdayMessageDraft)
         .join(Person, Person.id == BirthdayMessageDraft.person_id)
-        .filter(Person.user_id == user.id, BirthdayMessageDraft.status == ReviewStatus.pending)
+        .filter(Person.household_id == user.household_id, BirthdayMessageDraft.status == ReviewStatus.pending)
         .count()
     )
     return bd

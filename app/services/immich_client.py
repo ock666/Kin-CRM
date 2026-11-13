@@ -269,7 +269,7 @@ class ImmichClient:
 
 
 def get_client_from_settings(db, user) -> "ImmichClient":
-    from ..settings_store import get_user_setting
-    url = get_user_setting(db, user.id, "immich_url")
-    key = get_user_setting(db, user.id, "immich_api_key")
+    from ..settings_store import get_household_setting
+    url = get_household_setting(db, user.household_id, "immich_url")
+    key = get_household_setting(db, user.household_id, "immich_api_key")
     return ImmichClient(url, key)

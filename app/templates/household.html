@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Household — {{ app_name }}{% endblock %}
+{% block content %}
+<div class="container-narrow">
+  <h1>🏠 Your household</h1>
+  <p class="text-sm text-muted mb-2">
+    A household shares one Kin — the same people, journal, photos, and reminders.
+    A household of one is just your own private Kin.
+  </p>
+
+  <div class="card">
+    <h2 class="mt-0">Members</h2>
+    {% for m in members %}
+      <div class="flex-between" style="padding:.4rem 0; border-top:1px solid var(--border);">
+        <span>{{ m.name }} &lt;{{ m.email }}&gt;</span>
+        {% if m.id == user.id %}<span class="text-muted text-sm">(you)</span>{% endif %}
+      </div>
+    {% endfor %}
+
+    <h2 class="mt-2">Invite someone</h2>
+    <p class="text-sm text-muted mb-1">
+      Generate a link and share it however you like. If they already have a Kin account, they'll
+      join and merge their data into yours; if not, they can create an account through the link.
+    </p>
+    <form method="post" action="/household/invite">
+      <button class="btn btn-sm btn-primary" type="submit">➕ New invite link</button>
+    </form>
+    {% if invite_url %}
+      <div class="mt-2">
+        <label class="text-sm text-muted">Share this link (expires in 7 days, single use):</label>
+        <div class="flex-gap" style="align-items:center;">
+          <input class="input" type="text" readonly value="{{ invite_url }}" style="flex:1; font-size:.85rem;" onfocus="this.select()">
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

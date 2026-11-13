@@ -110,7 +110,7 @@ def quick_create_person(request: Request, db: Session = Depends(get_db), user=De
     name = quick_name.strip()
     person = None
     if name:
-        person = Person(user_id=user.id, name=name)
+        person = Person(household_id=user.household_id, name=name)
         db.add(person)
         db.commit()
     return render(request, "partials/person_checkbox.html", db=db, user=user, person=person, checked=True)
@@ -127,6 +127,7 @@ def journal_create(
     if not user:
         return RedirectResponse("/login")
     entry = JournalEntry(
+        household_id=user.household_id,
         author_user_id=user.id,
         title=title or None,
         body=body,
@@ -252,7 +253,7 @@ def apply_suggestions(entry_id: int, request: Request, db: Session = Depends(get
     for tag_name in tags:
         tag = owned_tags(db, user).filter(Tag.name == tag_name).first()
         if not tag:
-            tag = Tag(user_id=user.id, name=tag_name)
+            tag = Tag(household_id=user.household_id, name=tag_name)
             db.add(tag)
             db.flush()
         for p in entry.people:

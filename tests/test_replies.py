@@ -6,7 +6,7 @@ from app.services.replies import template_quick_replies, GENERIC
 
 
 def test_template_quick_replies_empty_profile(user):
-    p = Person(user_id=1, name="Empty Person")
+    p = Person(household_id=1, name="Empty Person")
     p.scratchpad_items = []
     p.notable_people_refs = []
     p.notable_dates = []
@@ -16,7 +16,7 @@ def test_template_quick_replies_empty_profile(user):
 
 
 def test_template_quick_replies_scratchpad(user):
-    p = Person(user_id=1, name="Scratch Person")
+    p = Person(household_id=1, name="Scratch Person")
     p.scratchpad_items = [ScratchpadItem(text="Ask how her vet visit went", person_id=1)]
     p.notable_people_refs = []
     p.notable_dates = []
@@ -26,7 +26,7 @@ def test_template_quick_replies_scratchpad(user):
 
 
 def test_template_quick_replies_scratchpad_strips_ask_prefix(user):
-    p = Person(user_id=1, name="Prefix Person")
+    p = Person(household_id=1, name="Prefix Person")
     p.scratchpad_items = [ScratchpadItem(text="ask how the interview went", person_id=1)]
     p.notable_people_refs = []
     p.notable_dates = []
@@ -37,7 +37,7 @@ def test_template_quick_replies_scratchpad_strips_ask_prefix(user):
 
 
 def test_template_quick_replies_hobbies(user):
-    p = Person(user_id=1, name="Hobby Person", hobbies="climbing, baking")
+    p = Person(household_id=1, name="Hobby Person", hobbies="climbing, baking")
     p.scratchpad_items = []
     p.notable_people_refs = []
     p.notable_dates = []
@@ -47,7 +47,7 @@ def test_template_quick_replies_hobbies(user):
 
 
 def test_template_quick_replies_how_we_met(user):
-    p = Person(user_id=1, name="Met Person", how_we_met="at a concert")
+    p = Person(household_id=1, name="Met Person", how_we_met="at a concert")
     p.scratchpad_items = []
     p.notable_people_refs = []
     p.notable_dates = []
@@ -57,7 +57,7 @@ def test_template_quick_replies_how_we_met(user):
 
 
 def test_template_quick_replies_notable_people(user):
-    p = Person(user_id=1, name="Notable Person")
+    p = Person(household_id=1, name="Notable Person")
     p.notable_people_refs = [NotablePersonRef(name="Sarah", relation="Mum", person_id=1)]
     p.scratchpad_items = []
     p.notable_dates = []
@@ -68,7 +68,7 @@ def test_template_quick_replies_notable_people(user):
 
 
 def test_template_quick_replies_notable_dates(user):
-    p = Person(user_id=1, name="Notable Date Person")
+    p = Person(household_id=1, name="Notable Date Person")
     p.notable_dates = [NotableDate(label="Anniversary", month=dt.date.today().month,
                                     day=dt.date.today().day, person_id=1)]
     p.scratchpad_items = []
@@ -78,7 +78,7 @@ def test_template_quick_replies_notable_dates(user):
 
 
 def test_template_quick_replies_days_since_over_30(user):
-    p = Person(user_id=1, name="Long Person")
+    p = Person(household_id=1, name="Long Person")
     p.scratchpad_items = []
     p.notable_people_refs = []
     p.notable_dates = []
@@ -88,7 +88,7 @@ def test_template_quick_replies_days_since_over_30(user):
 
 
 def test_template_quick_replies_caps_at_3(user):
-    p = Person(user_id=1, name="Full Person", hobbies="a, b, c, d, e", how_we_met="school")
+    p = Person(household_id=1, name="Full Person", hobbies="a, b, c, d, e", how_we_met="school")
     p.scratchpad_items = [ScratchpadItem(text="ask about the trip", person_id=1)]
     p.notable_people_refs = [NotablePersonRef(name="Bob", relation="Brother", person_id=1)]
     p.notable_dates = []

@@ -38,7 +38,7 @@ def suggest_states(db: Session, user, today: dt.date | None = None) -> list[tupl
 
     people = (
         db.query(Person)
-        .filter(Person.user_id == user.id)
+        .filter(Person.household_id == user.household_id)
         .filter(Person.archived.is_(False))
         .filter(Person.reminders_dismissed.is_(False))
         .filter(Person.relationship_state == RelationshipState.none)
@@ -50,7 +50,7 @@ def suggest_states(db: Session, user, today: dt.date | None = None) -> list[tupl
         c.person_id for c in
         db.query(ConflictLog.person_id)
         .join(Person, Person.id == ConflictLog.person_id)
-        .filter(Person.user_id == user.id, ConflictLog.status == ConflictStatus.unresolved)
+        .filter(Person.household_id == user.household_id, ConflictLog.status == ConflictStatus.unresolved)
         .all()
     }
 

@@ -52,9 +52,15 @@ def _rebuild_tags_for_per_user_names():
     if "tags" not in insp.get_table_names():
         return
     with engine.begin() as conn:
-        idx_rows = conn.execute(text("PRAGMA index_list('tags')")).fetchall()
-        if not any(r[1] == "sqlite_autoindex_tags_1" for r in idx_rows):
-            return  # already rebuilt
+        # Rebuild only when the unique constraint is still the original single-column `name`.
+        needs_rebuild = False
+        for r in conn.execute(text("PRAGMA index_list('tags')")).fetchall():
+            if r[2] == 1:  # unique
+                icols = [c[2] for c in conn.execute(text(f"PRAGMA index_info('{r[1]}')")).fetchall()]
+                if icols == ["name"]:
+                    needs_rebuild = True
+        if not needs_rebuild:
+            return  # already per-user or per-household
         conn.execute(text("""
             CREATE TABLE tags_new (
                 id INTEGER NOT NULL PRIMARY KEY,
@@ -81,9 +87,12 @@ def _replace_achievement_unique_index():
         return
     with engine.begin() as conn:
         idx_rows = conn.execute(text("PRAGMA index_list('unlocked_achievements')")).fetchall()
-        if any(r[1] == "ix_unlocked_achievements_slug" for r in idx_rows):
-            conn.execute(text("DROP INDEX ix_unlocked_achievements_slug"))
-            logger.info("Migration: dropped global unique index on unlocked_achievements.slug")
+        # Only drop the old index if it's actually a *unique* index on slug (the original global
+        # unique). On fresh installs `ix_unlocked_achievements_slug` is a harmless non-unique index.
+        for r in idx_rows:
+            if r[1] == "ix_unlocked_achievements_slug" and r[2] == 1:
+                conn.execute(text("DROP INDEX ix_unlocked_achievements_slug"))
+                logger.info("Migration: dropped global unique index on unlocked_achievements.slug")
         conn.execute(text(
             "CREATE UNIQUE INDEX IF NOT EXISTS uq_achievements_user_slug "
             "ON unlocked_achievements (user_id, slug)"
@@ -175,3 +184,117 @@ def run_startup_migrations():
     _rebuild_tags_for_per_user_names()
     _replace_achievement_unique_index()
     _migrate_per_user_settings()
+
+    # v4.0: households — every user belongs to a household (a household of one = individual).
+    _migrate_to_households()
+
+
+def _migrate_to_households():
+    insp = inspect(engine)
+    tables = insp.get_table_names()
+    if "users" not in tables or "households" not in tables:
+        return
+    with engine.begin() as conn:
+        # One household per existing user (same id), so individual installs are unchanged.
+        hh_count = conn.execute(text("SELECT COUNT(*) FROM households")).scalar()
+        if hh_count == 0:
+            conn.execute(text("INSERT INTO households (id, name) SELECT id, name FROM users"))
+    _ensure_column("users", "household_id", "INTEGER")
+    with engine.begin() as conn:
+        conn.execute(text("UPDATE users SET household_id = id WHERE household_id IS NULL"))
+
+    _ensure_column("people", "household_id", "INTEGER")
+    _ensure_column("wrapped_cards", "household_id", "INTEGER")
+    _ensure_column("unlocked_achievements", "household_id", "INTEGER")
+    _ensure_column("user_stats", "household_id", "INTEGER")
+    _ensure_column("journal_entries", "household_id", "INTEGER")
+
+    with engine.begin() as conn:
+        conn.execute(text("UPDATE people SET household_id = user_id WHERE household_id IS NULL"))
+        conn.execute(text("UPDATE wrapped_cards SET household_id = user_id WHERE household_id IS NULL"))
+        conn.execute(text("UPDATE unlocked_achievements SET household_id = user_id WHERE household_id IS NULL"))
+        conn.execute(text("UPDATE user_stats SET household_id = user_id WHERE household_id IS NULL"))
+        conn.execute(text("UPDATE journal_entries SET household_id = author_user_id WHERE household_id IS NULL"))
+
+    _migrate_household_settings()
+    _rebuild_tags_for_households()
+    _replace_achievement_index_for_households()
+    logger.info("Migration: households created and backfilled")
+
+
+def _migrate_household_settings():
+    """Move Immich/AI/Whisper creds from per-user (or global) settings into household_settings."""
+    from .settings_store import HOUSEHOLD_DEFAULTS
+    tables = inspect(engine).get_table_names()
+    if "household_settings" not in tables:
+        return
+    with engine.begin() as conn:
+        users = conn.execute(text("SELECT id, household_id FROM users WHERE household_id IS NOT NULL")).fetchall()
+        for user_id, household_id in users:
+            for key in sorted(HOUSEHOLD_DEFAULTS):
+                value = conn.execute(
+                    text("SELECT value FROM user_settings WHERE user_id = :u AND key = :k"),
+                    {"u": user_id, "k": key},
+                ).scalar()
+                if value is None and "settings" in tables:
+                    value = conn.execute(
+                        text("SELECT value FROM settings WHERE key = :k"), {"k": key}
+                    ).scalar()
+                if value is None:
+                    continue
+                already = conn.execute(
+                    text("SELECT 1 FROM household_settings WHERE household_id = :h AND key = :k"),
+                    {"h": household_id, "k": key},
+                ).scalar()
+                if already is None:
+                    conn.execute(
+                        text("INSERT INTO household_settings (household_id, key, value) VALUES (:h, :k, :v)"),
+                        {"h": household_id, "k": key, "v": value},
+                    )
+
+
+def _rebuild_tags_for_households():
+    """Rebuild tags so name uniqueness is per household (was per user, before that global)."""
+    insp = inspect(engine)
+    if "tags" not in insp.get_table_names():
+        return
+    with engine.begin() as conn:
+        cols = {c["name"] for c in insp.get_columns("tags")}
+        already_ok = "household_id" in cols
+        if already_ok:
+            for r in conn.execute(text("PRAGMA index_list('tags')")).fetchall():
+                if r[2] == 1:
+                    icols = [c[2] for c in conn.execute(text(f"PRAGMA index_info('{r[1]}')")).fetchall()]
+                    if icols == ["household_id", "name"]:
+                        return  # already household-scoped
+        conn.execute(text("""
+            CREATE TABLE tags_new (
+                id INTEGER NOT NULL PRIMARY KEY,
+                household_id INTEGER,
+                user_id INTEGER,
+                name VARCHAR(100) NOT NULL,
+                color VARCHAR(20),
+                CONSTRAINT uq_tags_household_name UNIQUE (household_id, name)
+            )
+        """))
+        conn.execute(text(
+            "INSERT INTO tags_new (id, household_id, user_id, name, color) "
+            "SELECT id, user_id, user_id, name, color FROM tags"
+        ))
+        conn.execute(text("DROP TABLE tags"))
+        conn.execute(text("ALTER TABLE tags_new RENAME TO tags"))
+        logger.info("Migration: rebuilt tags table for per-household name scoping")
+
+
+def _replace_achievement_index_for_households():
+    insp = inspect(engine)
+    if "unlocked_achievements" not in insp.get_table_names():
+        return
+    with engine.begin() as conn:
+        for r in conn.execute(text("PRAGMA index_list('unlocked_achievements')")).fetchall():
+            if r[1] == "uq_achievements_user_slug":
+                conn.execute(text("DROP INDEX uq_achievements_user_slug"))
+        conn.execute(text(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_achievements_household_slug "
+            "ON unlocked_achievements (household_id, slug)"
+        ))

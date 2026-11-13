@@ -33,7 +33,7 @@ def second_client(logged_in_client, client):
 
 def _add_person(db, name, **kw):
     from app.models import Person
-    p = Person(user_id=1, name=name, **kw)
+    p = Person(household_id=1, name=name, **kw)
     db.add(p)
     db.commit()
     db.refresh(p)
@@ -85,8 +85,8 @@ def test_tags_are_isolated(logged_in_client, second_client):
 
     db = SessionLocal()
     try:
-        a_tags = {t.name for t in db.query(Tag).filter(Tag.user_id == 1).all()}
-        b_tags = {t.name for t in db.query(Tag).filter(Tag.user_id == 2).all()}
+        a_tags = {t.name for t in db.query(Tag).filter(Tag.household_id == 1).all()}
+        b_tags = {t.name for t in db.query(Tag).filter(Tag.household_id == 2).all()}
     finally:
         db.close()
     assert "friends" in a_tags
@@ -184,17 +184,18 @@ def test_settings_page_shows_only_own_config(logged_in_client, second_client):
     assert "http://b-immich.local:2283" in page_b
 
 
-def test_immich_client_uses_own_config(logged_in_client, second_client):
+def test_immich_client_uses_own_household_config(logged_in_client, second_client):
     from app.database import SessionLocal
     from app.models import User
-    from app.settings_store import set_user_setting
+    from app.settings_store import set_household_setting
     from app.services.immich_client import get_client_from_settings
     db = SessionLocal()
     try:
-        set_user_setting(db, 1, "immich_url", "http://a-immich.local:2283")
-        set_user_setting(db, 1, "immich_api_key", "a-key")
-        set_user_setting(db, 2, "immich_url", "http://b-immich.local:2283")
-        set_user_setting(db, 2, "immich_api_key", "b-key")
+        # user 1 is in household 1, user 2 in household 2 (each their own individual household)
+        set_household_setting(db, 1, "immich_url", "http://a-immich.local:2283")
+        set_household_setting(db, 1, "immich_api_key", "a-key")
+        set_household_setting(db, 2, "immich_url", "http://b-immich.local:2283")
+        set_household_setting(db, 2, "immich_api_key", "b-key")
         a = db.get(User, 1)
         b = db.get(User, 2)
         assert get_client_from_settings(db, a).base_url == "http://a-immich.local:2283/api"

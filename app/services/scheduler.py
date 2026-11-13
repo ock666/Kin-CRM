@@ -4,13 +4,23 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from ..database import SessionLocal
-from ..models import User
+from ..models import User, Household
 from ..settings_store import get_setting
 from . import birthdays, push as push_service, resolution_plans, wrapped as wrapped_service
 
 logger = logging.getLogger(__name__)
 
 _scheduler: AsyncIOScheduler | None = None
+
+
+def _household_reps(db):
+    """One representative user per household, so household-wide jobs run exactly once."""
+    reps = []
+    for h in db.query(Household).all():
+        u = db.query(User).filter(User.household_id == h.id).first()
+        if u is not None:
+            reps.append(u)
+    return reps
 
 
 def _all_users(db):
@@ -20,40 +30,42 @@ def _all_users(db):
 def run_daily_jobs():
     db = SessionLocal()
     try:
-        for user in _all_users(db):
+        for rep in _household_reps(db):
             try:
-                n = birthdays.generate_birthday_drafts(db, user)
+                n = birthdays.generate_birthday_drafts(db, rep)
                 if n:
-                    logger.info("Generated %d birthday draft(s) for user %s", n, user.id)
+                    logger.info("Generated %d birthday draft(s) for household %s", n, rep.household_id)
             except Exception:
-                logger.exception("Birthday draft generation failed for user %s", user.id)
-
-            try:
-                push_service.send_push_notifications(db, user)
-            except Exception:
-                logger.exception("Push notification send failed for user %s", user.id)
+                logger.exception("Birthday draft generation failed for household %s", rep.household_id)
 
             # Kin Wrapped season: generate the card once when it's due (mid-December), nudge the
-            # user that it's ready, and prune stale cards so nothing accumulates.
+            # household that it's ready, and prune stale cards so nothing accumulates.
             try:
-                card, generated = wrapped_service.generate_if_due(db, user)
+                card, generated = wrapped_service.generate_if_due(db, rep)
                 if generated:
                     try:
                         push_service.push_notification(
-                            db, user,
+                            db, rep,
                             title="Kin Wrapped is ready",
                             body=f"Your {card.year} in review is waiting for you. 🎉",
                             url="/wrapped",
                             tag="wrapped",
                         )
                     except Exception:
-                        logger.exception("Wrapped-ready push failed for user %s", user.id)
+                        logger.exception("Wrapped-ready push failed for household %s", rep.household_id)
             except Exception:
-                logger.exception("Wrapped generation failed for user %s", user.id)
+                logger.exception("Wrapped generation failed for household %s", rep.household_id)
             try:
-                wrapped_service.cleanup_expired(db, user)
+                wrapped_service.cleanup_expired(db, rep)
             except Exception:
-                logger.exception("Wrapped cleanup failed for user %s", user.id)
+                logger.exception("Wrapped cleanup failed for household %s", rep.household_id)
+
+        # Push goes to each member's own devices (about their shared household data).
+        for member in _all_users(db):
+            try:
+                push_service.send_push_notifications(db, member)
+            except Exception:
+                logger.exception("Push notification send failed for user %s", member.id)
     finally:
         db.close()
 
@@ -61,11 +73,11 @@ def run_daily_jobs():
 def run_plan_job():
     db = SessionLocal()
     try:
-        for user in _all_users(db):
+        for rep in _household_reps(db):
             try:
-                resolution_plans.generate_plans_for_idle(db, user)
+                resolution_plans.generate_plans_for_idle(db, rep)
             except Exception:
-                logger.exception("Resolution plan generation failed for user %s", user.id)
+                logger.exception("Resolution plan generation failed for household %s", rep.household_id)
     finally:
         db.close()
 
@@ -86,13 +98,13 @@ def start_scheduler():
     # or edited birthdays always have a message ready, no matter when the container came up.
     db = SessionLocal()
     try:
-        for user in _all_users(db):
+        for rep in _household_reps(db):
             try:
-                n = birthdays.generate_birthday_drafts(db, user)
+                n = birthdays.generate_birthday_drafts(db, rep)
                 if n:
-                    logger.info("Startup: generated %d birthday draft(s) for user %s", n, user.id)
+                    logger.info("Startup: generated %d birthday draft(s) for household %s", n, rep.household_id)
             except Exception:
-                logger.exception("Startup birthday draft generation failed for user %s", user.id)
+                logger.exception("Startup birthday draft generation failed for household %s", rep.household_id)
     finally:
         db.close()
 

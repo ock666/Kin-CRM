@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Join a household — {{ app_name }}{% endblock %}
+{% block content %}
+<div class="container-narrow">
+  {% if invite is none %}
+    <h1>⚠️ Invite link unavailable</h1>
+    <p class="text-sm text-muted mb-2">{{ error or "This invite link is invalid or has expired." }}</p>
+  {% elif already_member %}
+    <h1>🏠 You're already here</h1>
+    <p class="text-sm text-muted mb-2">Your account is already part of this household.</p>
+    <a class="btn btn-sm btn-primary" href="/">Back to Kin</a>
+  {% elif user %}
+    <h1>🏠 Join "{{ household_name }}"?</h1>
+    <p class="text-sm text-muted mb-2">
+      This will <strong>merge your people, journal, and photos</strong> into their Kin, and you'll
+      both share the same data from now on. Your own account and personal settings stay as they are.
+    </p>
+    <div class="flex-gap">
+      <form method="post" action="/household/invite/{{ invite.token }}/accept">
+        <button class="btn btn-sm btn-primary" type="submit">Yes, join</button>
+      </form>
+      <a class="btn btn-sm" href="/">No thanks</a>
+    </div>
+  {% else %}
+    <h1>🏠 Join "{{ household_name }}"</h1>
+    <p class="text-sm text-muted mb-2">Create an account to join this household. Already have one? <a href="/login">Log in</a> first, then open this link again.</p>
+    {% if error %}<div class="notice notice-danger mb-1">{{ error }}</div>{% endif %}
+    <div class="card">
+      <form method="post" action="/household/invite/{{ invite.token }}/register">
+        <div class="field">
+          <label for="name">Name</label>
+          <input type="text" id="name" name="name" value="{{ name or '' }}" required>
+        </div>
+        <div class="field">
+          <label for="email">Email</label>
+          <input type="email" id="email" name="email" value="{{ email or '' }}" required>
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" required minlength="8">
+        </div>
+        <div class="field">
+          <label for="password_confirm">Confirm password</label>
+          <input type="password" id="password_confirm" name="password_confirm" required minlength="8">
+        </div>
+        <button class="btn btn-primary btn-sm" type="submit">Create account &amp; join</button>
+      </form>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

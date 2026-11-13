@@ -9,7 +9,7 @@ from app.services import push as push_service
 
 
 def make_person(db, **kwargs):
-    p = Person(user_id=1, **kwargs)
+    p = Person(household_id=1, **kwargs)
     db.add(p)
     db.commit()
     return p

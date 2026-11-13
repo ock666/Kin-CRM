@@ -43,7 +43,7 @@ def list_conflicts(db: Session = Depends(get_db), user=Depends(get_current_api_u
     conflicts = (
         db.query(ConflictLog)
         .join(Person, Person.id == ConflictLog.person_id)
-        .filter(Person.user_id == user.id)
+        .filter(Person.household_id == user.household_id)
         .order_by(ConflictLog.created_at.desc())
         .all()
     )

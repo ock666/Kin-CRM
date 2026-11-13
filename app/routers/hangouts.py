@@ -100,6 +100,7 @@ def log_hangout(
         return RedirectResponse(f"/people/{person.id}", status_code=303)
 
     entry = JournalEntry(
+        household_id=user.household_id,
         author_user_id=user.id,
         title=None,
         body=f"Hung out with {person.name}.",

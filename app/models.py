@@ -18,10 +18,24 @@ def utcnow():
 # Auth
 # ---------------------------------------------------------------------------
 
+class Household(Base):
+    """The unit that owns relationship data. A household of one member is an 'individual'
+    (private) account; several members share the same people, journal, and config. This replaces
+    the earlier per-user ownership so two people can opt to share one Kin."""
+    __tablename__ = "households"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(255), nullable=True)  # optional label, e.g. "Skye & Chris"
+    created_at = Column(DateTime, default=utcnow)
+
+    members = relationship("User", back_populates="household")
+
+
 class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True)
+    household_id = Column(Integer, ForeignKey("households.id"), nullable=True, index=True)
     email = Column(String(255), unique=True, nullable=False, index=True)
     name = Column(String(255), nullable=False, default="")
     hashed_password = Column(String(255), nullable=False)
@@ -31,6 +45,7 @@ class User(Base):
     totp_enabled = Column(Boolean, default=False)
     mfa_recovery_codes = Column(Text, nullable=True)
 
+    household = relationship("Household", back_populates="members")
     journal_entries = relationship("JournalEntry", back_populates="author")
 
 
@@ -48,9 +63,10 @@ person_tags = Table(
 
 class Tag(Base):
     __tablename__ = "tags"
-    __table_args__ = (UniqueConstraint("user_id", "name", name="uq_tags_user_name"),)
+    __table_args__ = (UniqueConstraint("household_id", "name", name="uq_tags_household_name"),)
 
     id = Column(Integer, primary_key=True)
+    household_id = Column(Integer, ForeignKey("households.id"), nullable=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     name = Column(String(100), nullable=False)
     color = Column(String(20), default="#6366f1")
@@ -99,6 +115,7 @@ class Person(Base):
     __tablename__ = "people"
 
     id = Column(Integer, primary_key=True)
+    household_id = Column(Integer, ForeignKey("households.id"), nullable=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     name = Column(String(255), nullable=False)
     nickname = Column(String(255), nullable=True)
@@ -241,6 +258,7 @@ class JournalEntry(Base):
     __tablename__ = "journal_entries"
 
     id = Column(Integer, primary_key=True)
+    household_id = Column(Integer, ForeignKey("households.id"), nullable=True, index=True)
     author_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     title = Column(String(255), nullable=True)
     body = Column(Text, nullable=False)
@@ -316,6 +334,29 @@ class UserSetting(Base):
     value = Column(Text, nullable=True)
 
 
+class HouseholdSetting(Base):
+    """Household-level config shared by every member (Immich, AI, Whisper credentials)."""
+    __tablename__ = "household_settings"
+
+    household_id = Column(Integer, ForeignKey("households.id", ondelete="CASCADE"), primary_key=True)
+    key = Column(String(100), primary_key=True)
+    value = Column(Text, nullable=True)
+
+
+class HouseholdInvite(Base):
+    """A single-use, expiring link that lets another person join (or register into) a household."""
+    __tablename__ = "household_invites"
+
+    id = Column(Integer, primary_key=True)
+    household_id = Column(Integer, ForeignKey("households.id", ondelete="CASCADE"), nullable=False, index=True)
+    token = Column(String(64), unique=True, nullable=False, index=True)
+    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+    expires_at = Column(DateTime, nullable=False)
+    used_at = Column(DateTime, nullable=True)
+    accepted_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+
 # ---------------------------------------------------------------------------
 # Gamification (v1.2) - a shared/household-wide progression state (singleton row,
 # id fixed at 1) rather than per-login-user, matching this app's shared-workspace model.
@@ -326,7 +367,8 @@ class UserStats(Base):
     __tablename__ = "user_stats"
 
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, unique=True, index=True)
+    household_id = Column(Integer, ForeignKey("households.id"), nullable=True, unique=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     total_xp = Column(Integer, default=0, nullable=False)
     current_level = Column(Integer, default=1, nullable=False)
     streak_days = Column(Integer, default=0, nullable=False)
@@ -335,9 +377,10 @@ class UserStats(Base):
 
 class UnlockedAchievement(Base):
     __tablename__ = "unlocked_achievements"
-    __table_args__ = (UniqueConstraint("user_id", "slug", name="uq_achievements_user_slug"),)
+    __table_args__ = (UniqueConstraint("household_id", "slug", name="uq_achievements_household_slug"),)
 
     id = Column(Integer, primary_key=True)
+    household_id = Column(Integer, ForeignKey("households.id"), nullable=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     slug = Column(String(100), nullable=False, index=True)
     unlocked_at = Column(DateTime, default=utcnow)
@@ -429,6 +472,7 @@ class WrappedCard(Base):
     __tablename__ = "wrapped_cards"
 
     id = Column(Integer, primary_key=True)
+    household_id = Column(Integer, ForeignKey("households.id"), nullable=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     token = Column(String(64), unique=True, nullable=False, index=True)
     year = Column(Integer, nullable=False, index=True)

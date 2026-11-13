@@ -9,7 +9,7 @@ def test_find_plannable_conflicts_no_messages(app, user):
     from app.services.resolution_plans import find_plannable_conflicts
     db = SessionLocal()
     try:
-        p = Person(user_id=1, name="No Chat Person")
+        p = Person(household_id=1, name="No Chat Person")
         db.add(p); db.commit()
         c = ConflictLog(person_id=p.id, summary="No messages", status=ConflictStatus.unresolved)
         db.add(c); db.commit()
@@ -25,7 +25,7 @@ def test_find_plannable_conflicts_idle(app, user):
     import datetime as dt
     db = SessionLocal()
     try:
-        p = Person(user_id=1, name="Idle Chat")
+        p = Person(household_id=1, name="Idle Chat")
         db.add(p); db.commit()
         c = ConflictLog(person_id=p.id, summary="Idle", status=ConflictStatus.unresolved)
         db.add(c); db.commit()
@@ -45,7 +45,7 @@ def test_find_plannable_conflicts_too_recent(app, user):
     import datetime as dt
     db = SessionLocal()
     try:
-        p = Person(user_id=1, name="Recent Chat")
+        p = Person(household_id=1, name="Recent Chat")
         db.add(p); db.commit()
         c = ConflictLog(person_id=p.id, summary="Recent", status=ConflictStatus.unresolved)
         db.add(c); db.commit()
@@ -64,7 +64,7 @@ def test_find_plannable_conflicts_already_has_plan(app, user):
     import datetime as dt
     db = SessionLocal()
     try:
-        p = Person(user_id=1, name="Has Plan")
+        p = Person(household_id=1, name="Has Plan")
         db.add(p); db.commit()
         c = ConflictLog(person_id=p.id, summary="Plan exists", status=ConflictStatus.unresolved,
                         resolution_plan_json='{"summary":"test"}')

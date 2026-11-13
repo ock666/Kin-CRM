@@ -13,15 +13,15 @@ class WhisperError(Exception):
 
 
 def _read_settings(db, user):
-    from ..settings_store import get_user_setting
+    from ..settings_store import get_household_setting
     cfg = {
-        "provider": get_user_setting(db, user.id, "whisper_provider", "openai"),
-        "base_url": get_user_setting(db, user.id, "whisper_base_url", ""),
-        "api_key": get_user_setting(db, user.id, "whisper_api_key"),
-        "model": get_user_setting(db, user.id, "whisper_model", "whisper-1"),
-        # Fallbacks to the user's AI settings (OpenAI-compatible) if whisper not set
-        "ai_base_url": get_user_setting(db, user.id, "ai_base_url", ""),
-        "ai_api_key": get_user_setting(db, user.id, "ai_api_key"),
+        "provider": get_household_setting(db, user.household_id, "whisper_provider", "openai"),
+        "base_url": get_household_setting(db, user.household_id, "whisper_base_url", ""),
+        "api_key": get_household_setting(db, user.household_id, "whisper_api_key"),
+        "model": get_household_setting(db, user.household_id, "whisper_model", "whisper-1"),
+        # Fallbacks to the household's AI settings (OpenAI-compatible) if whisper not set
+        "ai_base_url": get_household_setting(db, user.household_id, "ai_base_url", ""),
+        "ai_api_key": get_household_setting(db, user.household_id, "ai_api_key"),
     }
     return cfg
 

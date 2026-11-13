@@ -111,9 +111,9 @@ def calculate_level(total_xp: int) -> int:
 
 
 def _get_or_create_stats(db: Session, user) -> UserStats:
-    stats = db.query(UserStats).filter(UserStats.user_id == user.id).first()
+    stats = db.query(UserStats).filter(UserStats.household_id == user.household_id).first()
     if not stats:
-        stats = UserStats(user_id=user.id, total_xp=0, current_level=1, streak_days=0)
+        stats = UserStats(household_id=user.household_id, total_xp=0, current_level=1, streak_days=0)
         db.add(stats)
         db.flush()
     return stats
@@ -171,11 +171,11 @@ def check_achievements(db: Session, user, stats: UserStats, event_type: str | No
     """
     context = context or {}
     newly_unlocked: list[str] = []
-    already = {row.slug for row in db.query(UnlockedAchievement.slug).filter(UnlockedAchievement.user_id == user.id).all()}
+    already = {row.slug for row in db.query(UnlockedAchievement.slug).filter(UnlockedAchievement.household_id == user.household_id).all()}
 
     def _unlock(slug: str):
         if slug not in already:
-            db.add(UnlockedAchievement(user_id=user.id, slug=slug))
+            db.add(UnlockedAchievement(household_id=user.household_id, slug=slug))
             newly_unlocked.append(slug)
             already.add(slug)
 
@@ -195,36 +195,36 @@ def check_achievements(db: Session, user, stats: UserStats, event_type: str | No
         _unlock("100_day_streak")
 
     # --- Simple aggregate counts (one cheap COUNT query each, skipped if already unlocked) ---
-    if _locked("first_step") and db.query(JournalEntry).filter(JournalEntry.author_user_id == user.id).count() >= 1:
+    if _locked("first_step") and db.query(JournalEntry).filter(JournalEntry.household_id == user.household_id).count() >= 1:
         _unlock("first_step")
-    if _locked("circle_builder") and db.query(Person).filter(Person.user_id == user.id).count() >= 3:
+    if _locked("circle_builder") and db.query(Person).filter(Person.household_id == user.household_id).count() >= 3:
         _unlock("circle_builder")
-    if _locked("social_network") and db.query(Person).filter(Person.user_id == user.id).count() >= 10:
+    if _locked("social_network") and db.query(Person).filter(Person.household_id == user.household_id).count() >= 10:
         _unlock("social_network")
-    if _locked("face_to_name") and db.query(Person).filter(Person.user_id == user.id, Person.immich_person_id.isnot(None)).count() >= 1:
+    if _locked("face_to_name") and db.query(Person).filter(Person.household_id == user.household_id, Person.immich_person_id.isnot(None)).count() >= 1:
         _unlock("face_to_name")
-    if _locked("notable_mentions") and db.query(NotablePersonRef).join(Person).filter(Person.user_id == user.id).count() >= 1:
+    if _locked("notable_mentions") and db.query(NotablePersonRef).join(Person).filter(Person.household_id == user.household_id).count() >= 1:
         _unlock("notable_mentions")
-    if _locked("scratchpad_user") and db.query(ScratchpadItem).join(Person).filter(Person.user_id == user.id).count() >= 1:
+    if _locked("scratchpad_user") and db.query(ScratchpadItem).join(Person).filter(Person.household_id == user.household_id).count() >= 1:
         _unlock("scratchpad_user")
-    if _locked("memory_keeper") and db.query(JournalImage).join(JournalEntry).filter(JournalEntry.author_user_id == user.id).count() >= 5:
+    if _locked("memory_keeper") and db.query(JournalImage).join(JournalEntry).filter(JournalEntry.household_id == user.household_id).count() >= 5:
         _unlock("memory_keeper")
-    if _locked("photo_album") and db.query(JournalImage).join(JournalEntry).filter(JournalEntry.author_user_id == user.id).count() >= 25:
+    if _locked("photo_album") and db.query(JournalImage).join(JournalEntry).filter(JournalEntry.household_id == user.household_id).count() >= 25:
         _unlock("photo_album")
-    if _locked("gift_giver") and db.query(GiftIdea).join(Person).filter(Person.user_id == user.id).count() >= 1:
+    if _locked("gift_giver") and db.query(GiftIdea).join(Person).filter(Person.household_id == user.household_id).count() >= 1:
         _unlock("gift_giver")
-    if _locked("cadence_master") and db.query(Person).filter(Person.user_id == user.id, Person.checkin_cadence_days.isnot(None)).count() >= 5:
+    if _locked("cadence_master") and db.query(Person).filter(Person.household_id == user.household_id, Person.checkin_cadence_days.isnot(None)).count() >= 5:
         _unlock("cadence_master")
     if _locked("details_matter"):
         has_details = db.query(Person).filter(
-            Person.user_id == user.id,
+            Person.household_id == user.household_id,
             (Person.birthday_month.isnot(None)) | (Person.occupation.isnot(None)) | (Person.hobbies.isnot(None))
         ).count() >= 1
         if has_details:
             _unlock("details_matter")
     if _locked("well_connected"):
         has_contact = db.query(Person).filter(
-            Person.user_id == user.id,
+            Person.household_id == user.household_id,
             (Person.email.isnot(None)) | (Person.phone.isnot(None))
         ).count() >= 1
         if has_contact:
@@ -236,7 +236,7 @@ def check_achievements(db: Session, user, stats: UserStats, event_type: str | No
         distinct_people = (
             db.query(journal_entry_people.c.person_id)
             .join(JournalEntry, JournalEntry.id == journal_entry_people.c.journal_entry_id)
-            .filter(JournalEntry.author_user_id == user.id, JournalEntry.entry_date >= cutoff)
+            .filter(JournalEntry.household_id == user.household_id, JournalEntry.entry_date >= cutoff)
             .distinct()
             .count()
         )
@@ -250,7 +250,7 @@ def check_achievements(db: Session, user, stats: UserStats, event_type: str | No
         max_count = (
             db.query(func.count(journal_entry_people.c.journal_entry_id))
             .join(JournalEntry, JournalEntry.id == journal_entry_people.c.journal_entry_id)
-            .filter(JournalEntry.author_user_id == user.id)
+            .filter(JournalEntry.household_id == user.household_id)
             .group_by(journal_entry_people.c.person_id)
             .order_by(func.count(journal_entry_people.c.journal_entry_id).desc())
             .limit(1)
@@ -264,20 +264,20 @@ def check_achievements(db: Session, user, stats: UserStats, event_type: str | No
     # --- Full-table scans (only needed while still locked - naturally gets cheaper over time) ---
     if _locked("the_historian"):
         backdated = sum(
-            1 for e in db.query(JournalEntry).filter(JournalEntry.author_user_id == user.id).all()
+            1 for e in db.query(JournalEntry).filter(JournalEntry.household_id == user.household_id).all()
             if e.created_at and e.entry_date < e.created_at.date()
         )
         if backdated >= 10:
             _unlock("the_historian")
 
     if _locked("weekend_warrior"):
-        entry_dates = {e.entry_date for e in db.query(JournalEntry.entry_date).filter(JournalEntry.author_user_id == user.id).all()}
+        entry_dates = {e.entry_date for e in db.query(JournalEntry.entry_date).filter(JournalEntry.household_id == user.household_id).all()}
         if any(d.weekday() == 5 and (d + dt.timedelta(days=1)) in entry_dates for d in entry_dates):
             _unlock("weekend_warrior")
 
     if _locked("check_in_champ"):
         week_counts: dict[tuple[int, int], int] = {}
-        for e in db.query(JournalEntry.entry_date).filter(JournalEntry.author_user_id == user.id).all():
+        for e in db.query(JournalEntry.entry_date).filter(JournalEntry.household_id == user.household_id).all():
             key = e.entry_date.isocalendar()[:2]  # (iso_year, iso_week)
             week_counts[key] = week_counts.get(key, 0) + 1
         if any(c >= 5 for c in week_counts.values()):
@@ -377,7 +377,7 @@ def get_stats_and_achievements(db: Session, user) -> dict:
     still locked have their name/description masked so they stay a surprise."""
     stats = _get_or_create_stats(db, user)
     db.commit()  # persist a freshly-created row immediately so the page has something to show
-    unlocked_slugs = {row.slug for row in db.query(UnlockedAchievement.slug).filter(UnlockedAchievement.user_id == user.id).all()}
+    unlocked_slugs = {row.slug for row in db.query(UnlockedAchievement.slug).filter(UnlockedAchievement.household_id == user.household_id).all()}
 
     next_level_threshold = int(100 * (stats.current_level ** 1.5))
     prev_level_threshold = int(100 * ((stats.current_level - 1) ** 1.5)) if stats.current_level > 1 else 0

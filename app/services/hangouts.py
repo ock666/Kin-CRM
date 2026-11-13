@@ -112,7 +112,7 @@ def detect_recent_hangouts(db: Session, user, client, window_days: int = 31,
     cutoff = dt.date.today() - dt.timedelta(days=window_days)
     people = (
         db.query(Person)
-        .filter(Person.user_id == user.id)
+        .filter(Person.household_id == user.household_id)
         .filter(Person.archived.is_(False))
         .filter(Person.immich_person_id.isnot(None))
         .order_by(Person.id)

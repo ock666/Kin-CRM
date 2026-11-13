@@ -7,8 +7,9 @@ from ..deps import current_user
 from ..models import User
 from ..render import render
 from ..settings_store import (get_all_settings, set_many,
-                              get_all_user_settings, set_many_user, get_user_setting, set_user_setting)
-from ..auth import hash_password, _strong_enough, verify_password
+                              get_all_user_settings, set_many_user, get_user_setting, set_user_setting,
+                              get_all_household_settings, set_many_household, get_household_setting)
+from ..auth import _strong_enough, verify_password
 from ..services.immich_client import ImmichClient, ImmichError
 from ..services.ai_client import AIClient, AIError
 from ..services.mfa import generate_totp_secret, verify_totp, generate_recovery_codes, decrypt_secret
@@ -25,8 +26,13 @@ def privacy_page(request: Request, db: Session = Depends(get_db), user=Depends(c
 
 
 def _cfg_for_user(db, user):
-    """Settings shown in the UI: instance-wide config plus the current user's preferences."""
-    return {**get_all_settings(db), **get_all_user_settings(db, user.id)}
+    """Settings shown in the UI: instance-wide config, the household's shared config, plus the
+    current user's personal preferences."""
+    return {
+        **get_all_settings(db),
+        **get_all_household_settings(db, user.household_id),
+        **get_all_user_settings(db, user.id),
+    }
 
 
 @router.get("/settings")
@@ -49,7 +55,7 @@ def save_immich(request: Request, db: Session = Depends(get_db), user=Depends(cu
     # stored secret with an empty submission.
     if immich_api_key:
         values["immich_api_key"] = immich_api_key.strip()
-    set_many_user(db, user.id, values)
+    set_many_household(db, user.household_id, values)
     return RedirectResponse("/settings", status_code=303)
 
 
@@ -58,7 +64,7 @@ def test_immich(request: Request, db: Session = Depends(get_db), user=Depends(cu
     cfg = _cfg_for_user(db, user)
     result = None
     try:
-        client = ImmichClient(cfg["immich_url"], get_user_setting(db, user.id, "immich_api_key"))
+        client = ImmichClient(cfg["immich_url"], get_household_setting(db, user.household_id, "immich_api_key"))
         client.test_connection()
         result = ("success", "Connected to Immich successfully.")
     except ImmichError as e:
@@ -83,7 +89,7 @@ def save_ai(request: Request, db: Session = Depends(get_db), user=Depends(curren
     # stored secret with an empty submission.
     if ai_api_key:
         values["ai_api_key"] = ai_api_key.strip()
-    set_many_user(db, user.id, values)
+    set_many_household(db, user.household_id, values)
     return RedirectResponse("/settings", status_code=303)
 
 
@@ -92,7 +98,7 @@ def test_ai(request: Request, db: Session = Depends(get_db), user=Depends(curren
     cfg = _cfg_for_user(db, user)
     result = None
     try:
-        client = AIClient(cfg["ai_base_url"], get_user_setting(db, user.id, "ai_api_key"), cfg["ai_model"])
+        client = AIClient(cfg["ai_base_url"], get_household_setting(db, user.household_id, "ai_api_key"), cfg["ai_model"])
         reply = client.test_connection()
         result = ("success", f"AI responded: {reply}")
     except AIError as e:
@@ -119,7 +125,7 @@ def save_whisper(request: Request, db: Session = Depends(get_db), user=Depends(c
         values["whisper_model"] = (whisper_model or "whisper-1").strip() or "whisper-1"
         if whisper_api_key:
             values["whisper_api_key"] = whisper_api_key
-    set_many_user(db, user.id, values)
+    set_many_household(db, user.household_id, values)
     return RedirectResponse("/settings", status_code=303)
 
 
@@ -349,8 +355,8 @@ def add_user(request: Request, db: Session = Depends(get_db), user=Depends(curre
         return RedirectResponse("/settings", status_code=303)
     if db.query(User).filter(User.email == email.lower().strip()).first():
         return RedirectResponse("/settings", status_code=303)
-    new_user = User(name=name, email=email.lower().strip(), hashed_password=hash_password(password))
-    db.add(new_user)
+    from ..services.households import create_user
+    create_user(db, name=name, email=email, password=password)
     db.commit()
     return RedirectResponse("/settings", status_code=303)
 
