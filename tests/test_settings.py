@@ -13,7 +13,7 @@ def test_settings_page_has_whats_new(logged_in_client):
     assert "2026.11.1" in resp.text
     assert "Be gentle with yourself" in resp.text
     assert "Dot Muncher" in resp.text
-    assert "Multiple people" in resp.text
+    assert "Soft Fall" in resp.text
     assert "Kin Wrapped" not in resp.text  # prior release's notes are not in this one
 
 
