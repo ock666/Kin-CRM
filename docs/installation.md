@@ -1,10 +1,13 @@
 # Installation
 
-Kin is a single Docker container with a local SQLite database. There's nothing else to install.
+Kin is a single [Docker](glossary.md#docker) [container](glossary.md#container) with a local [SQLite](glossary.md#sqlite) database. There's nothing else to install.
+
+!!! info "New to self-hosting?"
+    This page assumes you've already got Kin running from the [Quick start](quickstart.md). If words like *container*, *volume*, or *reverse proxy* are new to you, they're defined in the [glossary](glossary.md) — hover over the links as you go.
 
 ## Requirements
 
-- A machine that can run Docker (any Linux box, a NAS, or an Unraid server).
+- A machine that can run [Docker](glossary.md#docker) (any Linux box, a NAS, or an Unraid server).
 - About 100 MB of RAM when idle, more if you enable AI or voice.
 
 ## Environment variables
@@ -22,10 +25,11 @@ Kin is a single Docker container with a local SQLite database. There's nothing e
 
 ## HTTPS and reverse proxies
 
-Kin works fine over plain HTTP on your home network. To reach it securely from outside (or to use a nice hostname), put it behind a reverse proxy:
+Kin works fine over plain HTTP on your home network. To reach it securely from outside (or to use a nice hostname), put it behind a [reverse proxy](glossary.md#reverse-proxy):
 
 - **Nginx Proxy Manager**, **Caddy**, or **Traefik** all work — point them at `http://<host>:8000`.
 - A custom domain like `kin.example.com` with a Let's Encrypt cert is the usual setup.
+- **Cloudflare Tunnel** — a neat alternative that needs no open port or certificate. `cloudflared` reaches out to Cloudflare, and Cloudflare proxies `kin.example.com` to `http://<host>:8000`. No router config, no Let's Encrypt, works even if your ISP blocks inbound ports.
 
 !!! note "You're the one person using it?"
     If it's just you, an SSH tunnel is even simpler: `ssh -L 8000:localhost:8000 <your-server>` and open <http://localhost:8000>. No public exposure, no DNS.

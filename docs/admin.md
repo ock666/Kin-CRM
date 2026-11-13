@@ -4,7 +4,7 @@ Once it's running, Kin mostly looks after itself. These are the things worth kno
 
 ## Backups
 
-**Everything Kin knows lives in one SQLite file** — `/data/app.db`. Back up that file and you've backed up everything.
+**Everything Kin knows lives in one [SQLite](glossary.md#sqlite) file** — `/data/app.db`. Back up that file and you've backed up everything.
 
 ```bash
 # A clean, safe backup of a live database:
@@ -26,11 +26,11 @@ Kin runs migrations automatically on startup — new columns and tables appear w
 
 ## Managing people
 
-As the instance owner, **Settings → Households & members** is your control panel:
+As the [instance owner](glossary.md#instance-owner), **Settings → Households & members** is your control panel:
 
 - Add a person (they get their own private Kin).
-- Group people into **households** and edit any household's config.
-- Promote/demote **instance owners** and **household owners**.
+- Group people into [households](glossary.md#household) and edit any household's config.
+- Promote/demote [instance owners](glossary.md#instance-owner) and [household owners](glossary.md#household-owner).
 - Toggle the **hide config** lock per person.
 
 !!! warning "Removing ≠ undoing a link"
@@ -44,11 +44,11 @@ Kin runs SQLite in WAL mode with a busy timeout already configured. If you see l
 ### Reminders fire at the wrong time
 Almost always a `TZ` mismatch. Set `TZ` to your real timezone and recreate the container.
 
-### AI / Immich / voice "not configured"
+### AI / [Immich](glossary.md#immich) / voice "not configured"
 These are all optional and **per household**. Check **Household → Edit household config** (not the main Settings page) and use each section's **Test connection** button.
 
 ### Can't reach it from outside
-Kin binds to port `8000` inside the container. Map it to a host port and, for external access, put it behind a reverse proxy — see [Installation](installation.md).
+Kin binds to port `8000` inside the container. Map it to a host port and, for external access, put it behind a [reverse proxy](glossary.md#reverse-proxy) — see [Installation](installation.md).
 
 ### I forgot my password / am locked out
 There's no in-app reset by design (self-hosted, no email). As the instance owner you can add another admin account and recover from there — another reason to back up `/data`.

@@ -28,14 +28,17 @@ Get Kin running in about five minutes. No cloud account, no phone home — it al
 
     Then open `http://<your-unraid-ip>:8000`.
 
+!!! info "New to Docker?"
+    [Docker](glossary.md#docker) bundles an app with everything it needs, so you don't install a dozen dependencies by hand. The one command above downloads Kin and starts it in one go — copy, paste, done. The only concept worth knowing up front is the [volume](glossary.md#docker-volume): it's the folder where Kin keeps your data between restarts.
+
 ## First run
 
 The first time you open Kin, a **setup wizard** asks you to:
 
 1. Choose a **name**, an **email** (this is your login), and a **password**.
-2. That's it — you're the first **instance owner**.
+2. That's it — you're the first [instance owner](glossary.md#instance-owner).
 
-Everything else (AI, Immich, voice, calendar) is optional and can be configured later.
+Everything else (AI, [Immich](glossary.md#immich), voice, calendar) is optional and can be configured later.
 
 ## Next steps
 
@@ -44,4 +47,4 @@ Everything else (AI, Immich, voice, calendar) is optional and can be configured 
 - [Multiple people](multi-user.md) — share Kin with a partner or host it for friends.
 
 !!! tip "Where's my data?"
-    Everything lives in the Docker volume (`/data`). [Back it up](admin.md#backups) before you upgrade anything.
+    Everything lives in the [Docker volume](glossary.md#docker-volume) (`/data`). [Back it up](admin.md#backups) before you upgrade anything.

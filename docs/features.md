@@ -13,11 +13,15 @@ A sidebar link that's always there for you: **breathe**, **ground**, **reframe**
 
 ![The regulation toolkit](assets/regulation.png){ width="700" }
 
+![Dot Muncher, one of the Soothe games](assets/game.png){ width="700" }
+
 ## Gamification (celebrating rest too)
 
 A quiet XP system with 45+ achievements — but it's not about productivity. You earn XP for logging entries and keeping up, **and** for resting: snoozing a check-in, entering grace mode, letting a conflict go. Achievements unlock silently; you only get a toast for a level-up or a new badge.
 
-## AI assistant *(optional, bring-your-own-key)*
+![Your progress and achievements](assets/progress.png){ width="700" }
+
+## AI assistant *(optional, bring-your-own-[API key](glossary.md#api-key))*
 
 Kin works with OpenAI or any OpenAI-compatible endpoint (including a local Ollama server). With a key configured, it can:
 
@@ -28,8 +32,8 @@ Kin works with OpenAI or any OpenAI-compatible endpoint (including a local Ollam
 
 ## Voice *(optional)*
 
-- **Voice notes** — record or upload audio; Kin transcribes it (Whisper) into journal entries and the support chat.
-- **Voice replies** — the support chat can reply with a spoken voice (local Piper or OpenAI TTS), with the transcript always available.
+- **Voice notes** — record or upload audio; Kin transcribes it ([Whisper](glossary.md#whisper)) into journal entries and the support chat.
+- **Voice replies** — the support chat can reply with a spoken voice (local Piper or OpenAI [TTS](glossary.md#tts-text-to-speech)), with the transcript always available.
 
 ## Immich & hangout detection *(optional)*
 
