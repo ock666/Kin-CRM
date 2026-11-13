@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Join a household — {{ app_name }}{% endblock %}
+
 {% block content %}
 <div class="container-narrow">
   {% if invite is none %}
@@ -9,7 +10,7 @@
     <h1>🏠 You're already here</h1>
     <p class="text-sm text-muted mb-2">Your account is already part of this household.</p>
     <a class="btn btn-sm btn-primary" href="/">Back to Kin</a>
-  {% elif user %}
+  {% else %}
     <h1>🏠 Join "{{ household_name }}"?</h1>
     <p class="text-sm text-muted mb-2">
       This will <strong>merge your people, journal, and photos</strong> into their Kin, and you'll
@@ -21,11 +22,23 @@
       </form>
       <a class="btn btn-sm" href="/">No thanks</a>
     </div>
-  {% else %}
-    <h1>🏠 Join "{{ household_name }}"</h1>
-    <p class="text-sm text-muted mb-2">Create an account to join this household. Already have one? <a href="/login">Log in</a> first, then open this link again.</p>
-    {% if error %}<div class="notice notice-danger mb-1">{{ error }}</div>{% endif %}
-    <div class="card">
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block auth_content %}
+<div class="auth-wrap">
+  <div class="card auth-card">
+    {% if invite is none %}
+      <h1>⚠️ Invite link unavailable</h1>
+      <p class="text-sm text-muted mb-2">{{ error or "This invite link is invalid or has expired." }}</p>
+    {% else %}
+      <h1>🏠 Join "{{ household_name }}"</h1>
+      <p class="text-sm text-muted mb-2">
+        Create an account to join this household. Already have one?
+        <a href="/login?next=/household/invite/{{ invite.token }}">Log in</a> first, then open this link again.
+      </p>
+      {% if error %}<div class="notice notice-danger mb-1">{{ error }}</div>{% endif %}
       <form method="post" action="/household/invite/{{ invite.token }}/register">
         <div class="field">
           <label for="name">Name</label>
@@ -43,9 +56,9 @@
           <label for="password_confirm">Confirm password</label>
           <input type="password" id="password_confirm" name="password_confirm" required minlength="8">
         </div>
-        <button class="btn btn-primary btn-sm" type="submit">Create account &amp; join</button>
+        <button class="btn btn-primary btn-block" type="submit">Create account &amp; join</button>
       </form>
-    </div>
-  {% endif %}
+    {% endif %}
+  </div>
 </div>
 {% endblock %}

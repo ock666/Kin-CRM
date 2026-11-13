@@ -143,7 +143,8 @@ def manifest():
 async def auth_gate(request: Request, call_next):
     path = request.url.path
     if (path.startswith("/static") or path.startswith("/api/") or path in OPEN_PATHS
-            or path.startswith("/mfa/") or path.startswith("/wrapped/share")):
+            or path.startswith("/mfa/") or path.startswith("/wrapped/share")
+            or path.startswith("/household/invite/")):
         return await call_next(request)
 
     db = SessionLocal()

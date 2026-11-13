@@ -154,3 +154,23 @@ def test_invite_is_single_use_and_expiring(logged_in_client):
         assert accept_invite(db, third, inv.token) is None
     finally:
         db.close()
+
+
+def test_invite_page_is_public(logged_in_client):
+    """The invite page renders (with a registration form) for someone not logged in."""
+    from app.database import SessionLocal
+    from app.models import User
+    from app.services.households import generate_invite
+    from app.main import app as fastapi_app
+    from starlette.testclient import TestClient
+    db = SessionLocal()
+    try:
+        inv = generate_invite(db, db.get(User, 1))
+        token = inv.token
+    finally:
+        db.close()
+
+    with TestClient(fastapi_app) as c:  # fresh, not logged in
+        resp = c.get(f"/household/invite/{token}")
+        assert resp.status_code == 200
+        assert "Create an account" in resp.text
